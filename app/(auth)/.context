@@ -1,0 +1,38 @@
+# Auth Routes Context
+
+## Purpose and Responsibilities
+- Authentication-related pages (login, register, forgot password)
+- Public routes accessible without authentication
+- Auth form handling and validation
+- Redirect logic after authentication
+
+## Dependencies
+### External
+- next/navigation
+- react-hook-form
+- zod
+
+### Internal
+- @/components/auth/*
+- @/hooks/use-auth
+- @/lib/supabase
+
+## Exported Pages
+- `/login` - User login page
+- `/register` - User registration page
+- `/forgot-password` - Password recovery page
+
+## State Management Approach
+- Form state managed by react-hook-form
+- Auth state managed by useAuth hook
+- Redirect state managed by Next.js router
+
+## Related API Endpoints
+- /api/v1/auth/login
+- /api/v1/auth/register
+- /api/v1/auth/forgot-password
+
+## Testing Approach
+- Form validation testing
+- Authentication flow testing
+- Redirect behavior testing

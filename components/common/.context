@@ -1,0 +1,82 @@
+# Common Components Context
+
+## Purpose and Responsibilities
+- Shared UI components used across the OpenLove application
+- Layout components (headers, sidebars, navigation, footers)
+- Feedback components (loading, errors, empty states)
+- Badge components for user status and plan indicators
+- Core UI primitives with consistent styling
+
+## Dependencies
+### External
+- react
+- next-themes
+- framer-motion
+- lucide-react
+- react-hot-toast
+- @radix-ui/react-dialog
+- @radix-ui/react-toast
+- class-variance-authority
+
+### Internal
+- @/lib/utils
+- @/hooks/use-auth
+- @/types/common
+- @/lib/stores/auth-store
+
+## Design System Integration
+- OpenLove purple/pink gradient color scheme
+- Consistent spacing using Tailwind scale
+- Typography hierarchy with Inter font
+- Responsive breakpoints (mobile-first)
+- Dark/light mode support via next-themes
+
+## Exported Components
+
+### UI Components
+- `Button` - Primary action component with variants
+- `Input` - Form input with validation states
+- `Modal` - Accessible dialog component
+- `Toast` - Notification system integration
+- `Skeleton` - Loading placeholder component
+
+### Layout Components
+- `Header` - Main application header with navigation
+- `Sidebar` - Collapsible navigation sidebar
+- `MobileNav` - Mobile-optimized navigation
+- `Footer` - Application footer with links
+
+### Feedback Components
+- `LoadingSpinner` - Animated loading indicator
+- `ErrorBoundary` - Error handling wrapper
+- `EmptyState` - No content placeholder
+
+### Badge Components
+- `PlanBadge` - User subscription plan indicator
+- `VerifiedBadge` - Account verification status
+- `OnlineBadge` - User online status indicator
+
+## Accessibility Features
+- ARIA labels and roles
+- Keyboard navigation support
+- Screen reader compatibility
+- Focus management
+- Color contrast compliance (WCAG 2.1 AA)
+
+## State Management Approach
+- Theme state via next-themes
+- Modal state via Radix UI primitives
+- Toast notifications via react-hot-toast
+- Component-level state for interactions
+
+## Testing Approach
+- Unit tests with React Testing Library
+- Visual regression tests with Storybook
+- Accessibility tests with jest-axe
+- Cross-browser compatibility testing
+
+## Performance Considerations
+- Lazy loading for heavy components
+- Memoization for expensive calculations
+- Optimized re-renders with React.memo
+- Bundle size optimization

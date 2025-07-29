@@ -1,0 +1,35 @@
+# Stores Directory Context
+
+## Purpose and Responsibilities
+- Zustand store definitions for global state management
+- Persistent storage configuration
+- State actions and mutations
+- Store middleware configuration
+
+## Dependencies
+### External
+- zustand
+- zustand/middleware (for persistence)
+
+### Internal
+- @/types/common
+
+## Exported Stores
+- `useAuthStore` - Authentication state
+- `useUIStore` - UI state (theme, modals, etc.)
+- `useNotificationStore` - Notifications state
+- `useChatStore` - Chat/messaging state
+- `usePostStore` - Posts cache and state
+
+## State Management Approach
+- Zustand for global state management
+- Persistence middleware for auth and UI preferences
+- Immer middleware for complex state updates
+
+## Related API Endpoints
+- Stores sync with API endpoints via hooks
+
+## Testing Approach
+- Unit tests for store actions
+- Integration tests with components
+- Mock store states for component testing

@@ -1,0 +1,128 @@
+# Business Module Context
+
+## Purpose
+Complete business account functionality including profiles, content sales, advertising, and analytics for OpenLove platform.
+
+## Dependencies
+- @stripe/stripe-js: Payment processing for content sales and ad credits
+- recharts: Analytics charts and data visualization
+- mapbox-gl: Interactive location maps for business locations
+- react-big-calendar: Business hours and appointment scheduling
+- framer-motion: Smooth animations and transitions
+- @supabase/supabase-js: Database operations and real-time updates
+
+## Business Types
+1. **Venue** (bars, restaurants, clubs)
+   - Location-based services
+   - Event hosting
+   - Menu/service listings
+   
+2. **Content Creator** (influencers, artists)
+   - Paid content sales
+   - Subscription models
+   - Fan engagement
+   
+3. **Service Provider** (coaches, consultants)
+   - Service bookings
+   - Portfolio showcase
+   - Client testimonials
+   
+4. **Event Organizer** (promoters, planners)
+   - Event promotion
+   - Ticket sales integration
+   - Venue partnerships
+   
+5. **Brand** (companies, products)
+   - Product showcases
+   - Brand storytelling
+   - Customer engagement
+   
+6. **Influencer** (social media personalities)
+   - Sponsored content
+   - Brand partnerships
+   - Audience analytics
+
+## Features by Plan
+### Gold Business
+- Basic business profile
+- Content sales (25% commission)
+- Basic analytics
+- 5 ad campaigns/month
+
+### Diamond Business
+- Advanced profile customization
+- Content sales (20% commission)
+- Advanced analytics
+- Unlimited ad campaigns
+- Priority support
+
+### Enterprise
+- White-label solutions
+- Custom integrations
+- Dedicated account manager
+- API access
+
+## Core Features
+- **Business Verification**: Multi-step verification process
+- **Content Monetization**: Upload and sell digital content
+- **Ad Campaign Builder**: Create targeted advertising campaigns
+- **Analytics Dashboard**: Real-time performance metrics
+- **Credit System**: Purchase and manage advertising credits
+- **Location Services**: Interactive maps and business hours
+- **Revenue Tracking**: Comprehensive financial analytics
+
+## Revenue Model
+1. **Content Sales Commission**
+   - Gold: 25% platform fee
+   - Diamond: 20% platform fee
+   - Enterprise: Custom rates
+
+2. **Ad Credits System**
+   - Pay-per-click advertising
+   - Targeted audience reach
+   - Budget management tools
+
+3. **Premium Features**
+   - Advanced analytics
+   - Priority placement
+   - Custom branding options
+
+## API Endpoints
+- `GET /api/business/profile` - Fetch business profile data
+- `POST /api/business/profile` - Update business information
+- `POST /api/business/content` - Upload paid content
+- `GET /api/business/content/sales` - Content sales analytics
+- `POST /api/business/ads/campaign` - Create ad campaign
+- `GET /api/business/ads/performance` - Ad performance metrics
+- `GET /api/business/analytics` - Business analytics dashboard
+- `POST /api/business/credits/purchase` - Purchase ad credits
+- `GET /api/business/revenue` - Revenue and earnings data
+
+## State Management
+- Business profile data
+- Content inventory
+- Ad campaign status
+- Analytics metrics
+- Credit balance
+- Revenue tracking
+
+## Security Considerations
+- Business verification process
+- Payment processing security
+- Content ownership validation
+- Ad content moderation
+- Revenue calculation accuracy
+
+## Performance Optimizations
+- Lazy loading for analytics charts
+- Image optimization for business content
+- Caching for frequently accessed data
+- Virtual scrolling for large content lists
+- Progressive loading for dashboard metrics
+
+## Mobile Responsiveness
+- Touch-friendly ad campaign builder
+- Mobile-optimized analytics charts
+- Responsive business profile layout
+- Mobile payment integration
+- Touch gestures for content browsing

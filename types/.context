@@ -1,0 +1,33 @@
+# Types Directory Context
+
+## Purpose and Responsibilities
+- TypeScript type definitions for the entire application
+- Database schema types (generated from Supabase)
+- API response and request types
+- Component prop types
+- Shared interfaces and enums
+
+## Dependencies
+### External
+- None (pure TypeScript definitions)
+
+### Internal
+- None (base types for other modules)
+
+## Exported Types
+- `Database` - Complete database schema
+- `User` - User entity type
+- `Post` - Post entity type
+- `ApiResponse<T>` - Generic API response wrapper
+- `PaginatedResponse<T>` - Paginated data response
+- `AuthState` - Authentication state type
+
+## State Management Approach
+- No state management (type definitions only)
+
+## Related API Endpoints
+- Types are used across all API endpoints
+
+## Testing Approach
+- Type checking during build process
+- No runtime tests needed for types

@@ -1,0 +1,75 @@
+# Auth Module Context
+
+## Purpose
+Handle all authentication flows including login, register, password recovery, and session management for the OpenLove social network.
+
+## Dependencies
+### External
+- @supabase/supabase-js: Authentication backend
+- react-hook-form: Form handling and validation
+- zod: Schema validation
+- zustand: Auth state management
+- framer-motion: Animations and transitions
+- lucide-react: Icons
+- react-hot-toast: Toast notifications
+
+### Internal
+- @/lib/supabase: Supabase client configuration
+- @/lib/utils: Utility functions
+- @/types/common: TypeScript interfaces
+- @/hooks/use-auth: Authentication hook
+- @/stores/authStore: Zustand auth store
+
+## Exports
+- `AuthProvider`: Global authentication context provider
+- `useAuth`: Hook for accessing auth state and methods
+- `AuthGuard`: Route protection component for authenticated users
+- `PremiumGuard`: Route protection for premium features
+- `VerificationGuard`: Route protection for verified users
+- `LoginForm`: Animated login form with validation
+- `RegisterForm`: Multi-step registration form
+- `ForgotPasswordForm`: Password recovery form
+- `SocialLoginButtons`: Social authentication buttons
+- `PasswordStrengthIndicator`: Real-time password strength feedback
+
+## State Management
+- Zustand store: `/lib/stores/auth-store.ts`
+- Persisted user session in localStorage
+- Real-time auth state updates via Supabase
+- Automatic token refresh handling
+
+## API Endpoints
+- `POST /api/auth/login`: Email/password authentication
+- `POST /api/auth/register`: User registration
+- `POST /api/auth/logout`: Session termination
+- `POST /api/auth/refresh`: Token refresh
+- `POST /api/auth/forgot-password`: Password reset request
+- `POST /api/auth/reset-password`: Password reset confirmation
+
+## Features
+### Authentication Methods
+- Email/password authentication
+- Social logins (Google, Facebook, GitHub)
+- Magic link authentication
+- Remember me functionality
+- 2FA support (planned)
+
+### Form Features
+- Animated transitions between login/register
+- Real-time validation with Zod schemas
+- Loading states with skeleton loaders
+- Error handling with toast notifications
+- Password visibility toggle
+- Password strength indicator
+- Auto-focus management
+- Keyboard navigation support
+
+### Security Features
+- JWT token management
+- Automatic session refresh
+- Route protection guards
+- Premium feature access control
+- Email verification requirements
+- Rate limiting protection
+
+## Component Architecture

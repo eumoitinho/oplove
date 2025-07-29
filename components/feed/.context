@@ -1,0 +1,112 @@
+# Feed Module Context
+
+## Purpose
+Manage post creation, display, and timeline functionality with premium features and monetization.
+
+## Dependencies
+- @tanstack/react-query: Data fetching and caching
+- framer-motion: Post animations and transitions
+- react-intersection-observer: Infinite scroll detection
+- react-dropzone: File uploads with drag & drop
+- @supabase/supabase-js: Real-time subscriptions
+- zustand: Feed state management
+
+## Components
+
+### Post Display
+- **PostCard**: Main post display with all interactions (like, comment, share)
+- **PostActions**: Action buttons with premium restrictions
+- **PostMedia**: Image/video display with lazy loading
+- **PostPoll**: Interactive polls with real-time results
+
+### Post Creation
+- **CreatePost**: Multi-step post creation with premium features
+- **MediaUploader**: File upload with compression and validation
+- **PollCreator**: Poll creation with options management
+- **LocationPicker**: Location selection with privacy controls
+
+### Timeline
+- **TimelineFeed**: Infinite scrolling feed with real-time updates
+- **InfiniteScroll**: Virtualized scrolling for performance
+- **FeedFilters**: Filter posts by type, date, following
+
+### Monetization
+- **AdCard**: Sponsored content with native styling
+- **AdFrequencyController**: Ad insertion logic based on user plan
+
+## Premium Features
+
+### Free Users
+- Text-only posts (max 280 characters)
+- Basic interactions (like, comment)
+- View ads between posts
+- Limited daily posts (5/day)
+
+### Gold Users
+- Image uploads (max 5 per post)
+- Polls creation
+- Event posts
+- Reduced ads
+- Extended post length (500 characters)
+
+### Diamond Users
+- Video uploads (max 2 minutes)
+- Stories creation
+- No ads
+- Unlimited posts
+- Priority in timeline
+
+### Couple Users
+- Shared couple posts
+- Private couple timeline
+- All Diamond features
+- Couple verification badge
+
+## State Management
+- SWR for feed caching and background updates
+- Optimistic updates for likes/comments
+- Real-time subscriptions via Supabase
+- Infinite query for timeline pagination
+
+## API Endpoints
+- GET /api/posts/timeline - Paginated timeline
+- POST /api/posts - Create new post
+- PUT /api/posts/:id - Update post
+- DELETE /api/posts/:id - Delete post
+- POST /api/posts/:id/like - Toggle like
+- POST /api/posts/:id/comment - Add comment
+- GET /api/posts/:id/poll/results - Poll results
+
+## Features
+- Skeleton loading states for all components
+- Pull to refresh functionality
+- Optimistic updates for better UX
+- Real-time new post notifications
+- Premium feature tooltips and upgrade prompts
+- Smart ad insertion based on user engagement
+- Content moderation and reporting
+- Accessibility support (ARIA, keyboard navigation)
+
+## Performance Optimizations
+- Virtual scrolling for large feeds
+- Image lazy loading and compression
+- Video thumbnail generation
+- Debounced search and filters
+- Cached user data and preferences
+
+## Usage Examples
+```tsx
+// Basic timeline
+<TimelineFeed userId={user.id} />
+
+// Filtered feed
+<TimelineFeed 
+  filters={{ type: 'following', media: 'images' }}
+  showAds={user.plan === 'free'}
+/>
+
+// Post creation
+<CreatePost 
+  onSuccess={(post) => mutate('/api/posts/timeline')}
+  premiumFeatures={user.premiumFeatures}
+/>

@@ -1,0 +1,52 @@
+# Services Layer
+
+This directory contains all service classes that handle API communication and business logic for OpenLove.
+
+## Architecture
+
+### Base API Client (`api.ts`)
+- Centralized HTTP client with retry logic
+- Authentication interceptors
+- Error handling and response normalization
+- File upload with progress tracking
+- Request cancellation support
+
+### Service Classes
+Each service handles a specific domain:
+
+- **AuthService**: Authentication, user management, sessions
+- **PostsService**: Posts, timeline, interactions, media
+- **ChatService**: Messaging, conversations, real-time communication
+- **PaymentService**: Subscriptions, payments, billing
+- **StorageService**: File uploads, media management
+
+## Features
+
+### Error Handling
+- Consistent error responses across all services
+- Automatic retry logic with exponential backoff
+- Proper error classification (client vs server errors)
+
+### Authentication
+- Automatic token injection
+- Token refresh handling
+- Session management integration
+
+### Performance
+- Request deduplication
+- Response caching where appropriate
+- Optimistic updates for better UX
+
+### TypeScript
+- Full type safety with proper interfaces
+- Generic response types
+- Comprehensive error types
+
+## Usage
+
+```typescript
+import { authService } from '@/services/auth.service'
+import { postsService } from '@/services/posts.service'
+
+// All services return consistent ApiResponse format
+const { data, error, success } = await authService.login(credentials)

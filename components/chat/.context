@@ -1,0 +1,65 @@
+# Chat Module Context
+
+## Purpose
+Real-time messaging with text, media, voice messages, calls, and group chats.
+
+## Dependencies
+- @supabase/realtime-js: WebSocket connections
+- webrtc: Voice/video calls
+- wavesurfer.js: Audio waveforms
+- emoji-picker-react: Emoji support
+
+## Features by Plan
+
+### Free
+- Cannot initiate messages
+- Can reply if a premium user messages them first
+- No group chats
+
+### Gold
+- 10 messages/day (unverified), unlimited (verified)
+- Cannot create group chats
+
+### Diamond+
+- Unlimited messages
+- Can create and manage group chats
+- Voice/video calls
+
+## Group Chat Rules
+- Only Diamond/Couple users can create groups
+- Events automatically have group chats
+- Communities have built-in group chats
+- Group creator has admin rights
+- Max 50 members per group (configurable)
+
+## Messaging Logic
+Check if user can send message:
+- Free users: Only if replying to existing conversation
+- Gold users: Check daily limit if unverified
+- Diamond+: Always allowed
+- Store conversation initiator to enable free user replies
+
+## Real-time Events
+- New messages
+- Typing indicators
+- Online status
+- Read receipts
+- Group member changes
+
+## State Management
+- Zustand for active conversations
+- Track conversation initiators
+- SWR for message history
+- Optimistic sending
+
+## Security
+- Message validation
+- Permission checks before sending
+- Rate limiting
+
+## Features
+- Real-time messaging
+- Group chat creation (Diamond+)
+- Free user reply detection
+- Message permissions UI
+- Group admin controls

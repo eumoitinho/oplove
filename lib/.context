@@ -1,0 +1,37 @@
+# Lib Directory Context
+
+## Purpose and Responsibilities
+- Core utility functions and configurations
+- Third-party service integrations (Supabase, etc.)
+- Shared constants and configurations
+- Database connection and client setup
+
+## Dependencies
+### External
+- @supabase/supabase-js
+- zod (for validation schemas)
+- date-fns (for date utilities)
+
+### Internal
+- @/types/database
+- @/types/common
+
+## Exported Functions
+- `supabase` - Main Supabase client
+- `createServerClient` - Server-side Supabase client
+- `cn` - Class name utility function
+- `formatDate` - Date formatting utilities
+- `validateEmail` - Email validation
+- `generateId` - ID generation utility
+
+## State Management Approach
+- No state management (utility functions only)
+- Configuration objects for external services
+
+## Related API Endpoints
+- All API endpoints use the Supabase client from this directory
+
+## Testing Approach
+- Unit tests for utility functions
+- Integration tests for Supabase client configuration
+- Mock external dependencies in tests

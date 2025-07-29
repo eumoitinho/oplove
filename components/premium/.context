@@ -1,0 +1,104 @@
+# Premium Module Context
+
+## Purpose
+Manage subscriptions, payments, and premium feature access control with Brazilian market focus.
+
+## Dependencies
+- @stripe/stripe-js: Credit card payments
+- Custom PIX integration: Brazilian payments (AbacatePay)
+- react-webcam: Verification selfies
+- framer-motion: Premium animations
+- zustand: State management
+
+## Plans
+- **Free**: 
+  * Basic features with ads
+  * Cannot send messages (can reply if messaged by premium)
+  * No group features
+  * Limited profile visibility
+  * Verification required for comments
+
+- **Gold**: 
+  * R$25/month
+  * Limited messaging (10/day without verification)
+  * Event/community participation
+  * Upload videos
+  * Create events (3/month)
+
+- **Diamond**: 
+  * R$45/month
+  * Create group chats
+  * Stories feature
+  * Voice/video calls
+  * All premium features
+  * Unlimited events
+
+- **Couple**: 
+  * R$69.90/month
+  * Shared features for 2 accounts
+  * All Diamond features
+  * Couple-specific content
+
+## Messaging Rules
+- Free users can only reply to conversations initiated by premium users
+- System tracks conversation initiator
+- UI shows different states for free users
+- Daily limits enforced for Gold without verification
+
+## Group Features
+- Group chat creation: Diamond+ only
+- Event chats: Automatic for all participants
+- Community chats: Automatic for all members
+
+## Verification System
+- Document upload (RG, CNH, Passaporte)
+- Selfie verification
+- Liveness detection
+- Admin approval process
+- Removes many restrictions for Gold users
+
+## Access Control
+- Feature flags per plan
+- Verification requirements
+- Usage limits tracking
+- Paywall triggers
+
+## Payment Methods
+- Credit/Debit (Stripe)
+- PIX (AbacatePay)
+- Trial periods
+- Subscription management
+
+## Features
+- Plan comparison table
+- Animated upgrade prompts
+- Payment form with validation
+- Subscription management
+- Usage tracking UI
+- Brazilian tax compliance
+
+## State Management
+- Premium status tracking
+- Feature access control
+- Payment processing states
+- Verification status
+- Usage limits monitoring
+
+## Security
+- Payment data encryption
+- Secure document handling
+- Fraud prevention
+- PCI compliance
+- LGPD compliance
+
+## Mobile Optimization
+- Touch-friendly payment forms
+- Mobile-optimized verification
+- Responsive plan cards
+- Native payment integration
+
+## Analytics
+- Conversion tracking
+- Feature usage metrics
+- Payment success rates
+- Churn analysis

@@ -1,0 +1,49 @@
+# Hooks Directory Context
+
+## Purpose and Responsibilities
+- Custom React hooks for shared logic across OpenLove platform
+- State management hooks with Zustand integration
+- Real-time data hooks with Supabase integration
+- Premium feature access control hooks
+- UI interaction and utility hooks
+
+## Dependencies
+### External
+- react
+- @supabase/supabase-js
+- zustand
+- framer-motion
+- date-fns
+
+### Internal
+- @/lib/supabase
+- @/lib/stores/*
+- @/types/common
+- @/utils/*
+
+## Exported Hooks
+- `useAuth` - Authentication state and methods
+- `usePremiumFeatures` - Premium plan feature access
+- `usePaywall` - Paywall display and upgrade flows
+- `useRealtime` - Real-time subscriptions and updates
+- `useInfiniteScroll` - Infinite scrolling with pagination
+- `useDebounce` - Debounced values and callbacks
+- `useLocalStorage` - Persistent local storage management
+
+## State Management Approach
+- Zustand stores for global state
+- Supabase real-time for live updates
+- Local state for component-specific data
+- Error boundaries for hook failures
+
+## Testing Approach
+- React Testing Library for hook testing
+- Mock external dependencies (Supabase, localStorage)
+- Test custom hook logic in isolation
+- Integration tests with components
+
+## Performance Considerations
+- Memoized callbacks and values
+- Cleanup subscriptions on unmount
+- Debounced API calls
+- Optimistic updates where appropriate

@@ -1,0 +1,57 @@
+# Ads Module Context
+
+## Purpose
+Display and track advertisements based on user plan with frequency control and native integration.
+
+## Dependencies
+- react-intersection-observer: Impression tracking and viewport detection
+- js-cookie: Frequency capping and user preferences
+- framer-motion: Smooth ad animations and transitions
+- @tanstack/react-query: Ad content caching and management
+
+## Ad Placements
+- **Timeline**: Between posts with native styling
+- **Sidebar**: Fixed banner ads with rotation
+- **Stories**: Full-screen interstitial ads
+- **Popup**: Modal overlay ads (limited frequency)
+
+## Frequency by Plan
+- **Free**: Every 5 posts, sidebar ads, story ads
+- **Gold**: Every 10 posts, reduced sidebar frequency
+- **Diamond/Couple**: No ads (premium experience)
+
+## Tracking System
+- **Impressions**: View > 50% for 1+ seconds
+- **Clicks**: Attribution with conversion tracking
+- **Engagement**: Time spent, scroll depth
+- **A/B Testing**: Support for ad variant testing
+
+## Ad Types
+- **Native Content**: Matches platform design
+- **Sponsored Posts**: User-generated style ads
+- **Banner Ads**: Traditional display advertising
+- **Video Ads**: Autoplay with sound controls
+
+## Features
+- Lazy loading for performance
+- Viewport intersection tracking
+- Click attribution and analytics
+- Frequency capping per user
+- Native ad styling with OpenLove branding
+- Non-intrusive user experience
+- Clear "Sponsored" labeling
+- LGPD compliance for Brazilian users
+
+## Performance
+- Lazy load ad content
+- Intersection observer for visibility
+- Debounced tracking events
+- Cached ad content with TTL
+- Minimal bundle size impact
+
+## Privacy & Compliance
+- LGPD compliant tracking
+- User consent management
+- Opt-out capabilities
+- Data retention policies
+- Transparent ad labeling

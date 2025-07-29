@@ -1,0 +1,42 @@
+# Main Routes Context
+
+## Purpose and Responsibilities
+- Main application routes for authenticated users
+- Protected routes with authentication guards
+- Core application features (feed, profile, messages, etc.)
+- Layout management for main app sections
+
+## Dependencies
+### External
+- next/navigation
+- react
+
+### Internal
+- @/components/common/main-layout
+- @/components/feed/*
+- @/components/profile/*
+- @/components/chat/*
+- @/hooks/use-auth
+
+## Exported Pages
+- `/feed` - Main timeline/feed page
+- `/profile/[username]` - User profile pages
+- `/messages` - Chat/messaging interface
+- `/events` - Events listing and management
+- `/communities` - Communities interface
+
+## State Management Approach
+- Server-side data fetching for initial page loads
+- Client-side state for interactive features
+- Real-time updates via Supabase subscriptions
+
+## Related API Endpoints
+- /api/v1/posts/*
+- /api/v1/users/*
+- /api/v1/messages/*
+- /api/v1/events/*
+
+## Testing Approach
+- Page rendering tests
+- Authentication guard tests
+- Data fetching integration tests

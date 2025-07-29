@@ -1,0 +1,38 @@
+# API Routes Context
+
+## Purpose and Responsibilities
+- RESTful API endpoints for the application
+- Request validation and error handling
+- Authentication and authorization
+- Data transformation and response formatting
+
+## Dependencies
+### External
+- next
+- zod (for validation)
+- @supabase/supabase-js
+
+### Internal
+- @/lib/supabase
+- @/services/*
+- @/types/common
+
+## API Structure
+- `/auth/*` - Authentication endpoints
+- `/posts/*` - Post management endpoints
+- `/users/*` - User management endpoints
+- `/messages/*` - Chat/messaging endpoints
+- `/payments/*` - Payment processing endpoints
+
+## State Management Approach
+- Stateless API endpoints
+- Request/response validation
+- Error handling middleware
+
+## Related Services
+- All endpoints use corresponding service functions
+
+## Testing Approach
+- API endpoint testing with Jest
+- Request/response validation testing
+- Authentication flow testing

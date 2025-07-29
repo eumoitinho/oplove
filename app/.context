@@ -1,0 +1,36 @@
+# App Directory Context
+
+## Purpose and Responsibilities
+- Next.js 15 App Router structure
+- Route organization and layout management
+- Page components and route handlers
+- Middleware and authentication guards
+
+## Dependencies
+### External
+- next
+- react
+
+### Internal
+- @/components/*
+- @/hooks/*
+- @/lib/*
+
+## Directory Structure
+- `/(auth)` - Authentication routes (login, register, forgot-password)
+- `/(main)` - Main application routes (feed, profile, messages, etc.)
+- `/(business)` - Business dashboard routes
+- `/api/v1` - API route handlers
+
+## State Management Approach
+- Server components for initial data loading
+- Client components for interactive features
+- Route-level data fetching with proper caching
+
+## Related API Endpoints
+- All API endpoints are defined in `/api/v1`
+
+## Testing Approach
+- Page component testing with React Testing Library
+- API route testing with Jest
+- E2E testing with Playwright
