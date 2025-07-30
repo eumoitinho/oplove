@@ -100,6 +100,7 @@ export function FeedLayout({ children }: FeedLayoutProps) {
             <div className="hidden lg:block lg:col-span-3 h-full">
               <RightSidebar />
             </div>
+            </div>
           </div>
         </div>
       </main>
