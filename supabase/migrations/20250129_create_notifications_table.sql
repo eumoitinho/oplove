@@ -100,7 +100,7 @@ BEGIN
     END IF;
     
     -- Get liker's name
-    SELECT COALESCE(full_name, username) INTO v_liker_name FROM users WHERE id = NEW.user_id;
+    SELECT COALESCE(name, username) INTO v_liker_name FROM users WHERE id = NEW.user_id;
     
     -- Create notification
     PERFORM create_notification(
@@ -132,7 +132,7 @@ BEGIN
     END IF;
     
     -- Get commenter's name
-    SELECT COALESCE(full_name, username) INTO v_commenter_name FROM users WHERE id = NEW.user_id;
+    SELECT COALESCE(name, username) INTO v_commenter_name FROM users WHERE id = NEW.user_id;
     
     -- Create notification
     PERFORM create_notification(
@@ -155,7 +155,7 @@ DECLARE
     v_follower_name TEXT;
 BEGIN
     -- Get follower's name
-    SELECT COALESCE(full_name, username) INTO v_follower_name FROM users WHERE id = NEW.follower_id;
+    SELECT COALESCE(name, username) INTO v_follower_name FROM users WHERE id = NEW.follower_id;
     
     -- Create notification
     PERFORM create_notification(
@@ -179,7 +179,7 @@ DECLARE
     v_conversation_participant UUID;
 BEGIN
     -- Get sender's name
-    SELECT COALESCE(full_name, username) INTO v_sender_name FROM users WHERE id = NEW.sender_id;
+    SELECT COALESCE(name, username) INTO v_sender_name FROM users WHERE id = NEW.sender_id;
     
     -- Get the other participant in the conversation
     SELECT user_id INTO v_conversation_participant 

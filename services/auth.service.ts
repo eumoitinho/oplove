@@ -66,7 +66,7 @@ export class AuthService {
         password: credentials.password,
         options: {
           data: {
-            full_name: credentials.fullName,
+            name: credentials.fullName,
             username: credentials.username,
           },
         },
@@ -94,7 +94,7 @@ export class AuthService {
       const profileData = {
         id: data.user.id,
         email: credentials.email,
-        full_name: credentials.fullName,
+        name: credentials.fullName,
         username: credentials.username,
         avatar_url: null,
         bio: '',

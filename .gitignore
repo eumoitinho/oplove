@@ -25,3 +25,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scripts with sensitive data
+scripts/test-payment-flow.mjs
+scripts/setup-stripe.mjs

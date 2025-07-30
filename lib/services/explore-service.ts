@@ -33,7 +33,7 @@ class ExploreService {
         .select(`
           id,
           username,
-          full_name,
+          name,
           age,
           gender,
           location,
@@ -131,7 +131,7 @@ class ExploreService {
         .select(`
           id,
           username,
-          full_name,
+          name,
           age,
           gender,
           location,
@@ -187,7 +187,7 @@ class ExploreService {
         .select(`
           id,
           username,
-          full_name,
+          name,
           age,
           gender,
           location,

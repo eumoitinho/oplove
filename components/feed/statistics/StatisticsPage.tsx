@@ -31,7 +31,7 @@ import {
   Play,
   Image as ImageIcon,
   Download,
-  Refresh,
+  RotateCcw,
   Filter,
   Lock,
   ChevronUp,
@@ -385,7 +385,7 @@ export function StatisticsPage() {
               variant="outline"
               size="sm"
             >
-              <Refresh className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4" />
             </Button>
             
             <div className="flex items-center gap-2">

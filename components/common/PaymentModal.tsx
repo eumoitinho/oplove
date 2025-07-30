@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Check, Star, Gem, Flame, Crown, CreditCard, Pix, Lock, Shield } from "lucide-react"
+import { X, Check, Star, Gem, Flame, Crown, CreditCard, Lock, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -132,15 +132,14 @@ export function PaymentModal({ isOpen, onClose, selectedPlan = "diamond", onSucc
       // Simular processamento do pagamento
       await new Promise(resolve => setTimeout(resolve, 3000))
       
-      // Aqui seria a integração real com Stripe
+      // Integração real com Stripe
       const response = await fetch('/api/v1/payments/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plan: currentPlan,
-          period: billingPeriod,
-          paymentMethod: 'card',
-          cardData
+          plan_type: currentPlan,
+          billing_period: billingPeriod,
+          payment_method_id: 'pm_card_visa' // Em produção, seria gerado pelo Stripe Elements
         })
       })
 
@@ -174,10 +173,8 @@ export function PaymentModal({ isOpen, onClose, selectedPlan = "diamond", onSucc
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plan: currentPlan,
-          period: billingPeriod,
-          amount: pricing.total,
-          pixData
+          plan_type: currentPlan,
+          billing_period: billingPeriod
         })
       })
 
@@ -325,7 +322,7 @@ export function PaymentModal({ isOpen, onClose, selectedPlan = "diamond", onSucc
                       Cartão
                     </TabsTrigger>
                     <TabsTrigger value="pix">
-                      <Pix className="w-4 h-4 mr-2" />
+                      <CreditCard className="w-4 h-4 mr-2" />
                       PIX
                     </TabsTrigger>
                   </TabsList>

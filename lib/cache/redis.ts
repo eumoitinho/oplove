@@ -1,11 +1,16 @@
 import { Redis } from '@upstash/redis'
 import { trackCacheOperation } from './cache-analytics'
 
-// Initialize Redis client
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
+// Initialize Redis client with fallback for missing env vars
+export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null
+
+// Flag to check if Redis is available
+export const isRedisAvailable = redis !== null
 
 // Cache keys and TTL constants
 export const CACHE_KEYS = {
@@ -81,9 +86,11 @@ export class CacheService {
    * Get cached data with automatic JSON parsing
    */
   static async get<T>(key: string): Promise<T | null> {
+    if (!isRedisAvailable) return null
+    
     const startTime = performance.now()
     try {
-      const data = await redis.get(key)
+      const data = await redis!.get(key)
       const responseTime = performance.now() - startTime
       
       // Track analytics
@@ -118,10 +125,12 @@ export class CacheService {
    * Set cached data with TTL
    */
   static async set(key: string, value: any, ttl: number): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     const startTime = performance.now()
     try {
       const serialized = JSON.stringify(value)
-      await redis.setex(key, ttl, serialized)
+      await redis!.setex(key, ttl, serialized)
       const responseTime = performance.now() - startTime
       
       // Track analytics
@@ -157,10 +166,12 @@ export class CacheService {
    * Delete cached data
    */
   static async del(key: string | string[]): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     const startTime = performance.now()
     try {
       const keys = Array.isArray(key) ? key : [key]
-      await redis.del(...keys)
+      await redis!.del(...keys)
       const responseTime = performance.now() - startTime
       
       // Track analytics for each key
@@ -207,8 +218,10 @@ export class CacheService {
    * Delete by pattern
    */
   static async deletePattern(pattern: string): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      const keys = await redis.keys(pattern)
+      const keys = await redis!.keys(pattern)
       if (keys.length > 0) {
         return this.del(keys)
       }
@@ -223,8 +236,10 @@ export class CacheService {
    * Flush all cache data
    */
   static async flushAll(): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      await redis.flushall()
+      await redis!.flushall()
       return true
     } catch (error) {
       console.error('Cache flushAll error:', error)
@@ -236,8 +251,10 @@ export class CacheService {
    * Check if key exists
    */
   static async exists(key: string): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      const result = await redis.exists(key)
+      const result = await redis!.exists(key)
       return result === 1
     } catch (error) {
       console.error('Cache exists error:', error)
@@ -249,8 +266,10 @@ export class CacheService {
    * Get multiple keys at once
    */
   static async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    if (!isRedisAvailable) return keys.map(() => null)
+    
     try {
-      const results = await redis.mget(...keys)
+      const results = await redis!.mget(...keys)
       return results.map(result => result as T)
     } catch (error) {
       console.error('Cache mget error:', error)
@@ -262,18 +281,19 @@ export class CacheService {
    * Set multiple keys at once
    */
   static async mset(keyValuePairs: Record<string, any>, ttl?: number): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      const pipeline = redis.pipeline()
-      
-      for (const [key, value] of Object.entries(keyValuePairs)) {
+      // Use individual promises instead of pipeline for Upstash compatibility
+      const promises = Object.entries(keyValuePairs).map(([key, value]) => {
         if (ttl) {
-          pipeline.setex(key, ttl, JSON.stringify(value))
+          return redis!.setex(key, ttl, JSON.stringify(value))
         } else {
-          pipeline.set(key, JSON.stringify(value))
+          return redis!.set(key, JSON.stringify(value))
         }
-      }
+      })
       
-      await pipeline.exec()
+      await Promise.all(promises)
       return true
     } catch (error) {
       console.error('Cache mset error:', error)
@@ -313,10 +333,12 @@ export class CacheService {
    * Invalidate cache patterns
    */
   static async invalidatePattern(pattern: string): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      const keys = await redis.keys(pattern)
+      const keys = await redis!.keys(pattern)
       if (keys.length > 0) {
-        await redis.del(...keys)
+        await redis!.del(...keys)
       }
       return true
     } catch (error) {
@@ -333,15 +355,19 @@ export class CacheService {
     limit: number, 
     window: number
   ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+    if (!isRedisAvailable) {
+      return { allowed: true, remaining: limit, resetTime: Date.now() + window * 1000 }
+    }
+    
     try {
       const rateLimitKey = CACHE_KEYS.RATE_LIMIT(key)
-      const current = await redis.incr(rateLimitKey)
+      const current = await redis!.incr(rateLimitKey)
       
       if (current === 1) {
-        await redis.expire(rateLimitKey, window)
+        await redis!.expire(rateLimitKey, window)
       }
       
-      const ttl = await redis.ttl(rateLimitKey)
+      const ttl = await redis!.ttl(rateLimitKey)
       const resetTime = Date.now() + (ttl * 1000)
       
       return {
@@ -359,8 +385,10 @@ export class CacheService {
    * Health check
    */
   static async ping(): Promise<boolean> {
+    if (!isRedisAvailable) return false
+    
     try {
-      const result = await redis.ping()
+      const result = await redis!.ping()
       return result === 'PONG'
     } catch (error) {
       console.error('Redis ping error:', error)
@@ -376,9 +404,17 @@ export class CacheService {
     keyCount: number;
     memoryUsage: string;
   }> {
+    if (!isRedisAvailable) {
+      return {
+        connected: false,
+        keyCount: 0,
+        memoryUsage: 'Redis not configured'
+      }
+    }
+    
     try {
       const ping = await this.ping()
-      const keys = await redis.keys('*')
+      const keys = await redis!.keys('*')
       
       return {
         connected: ping,

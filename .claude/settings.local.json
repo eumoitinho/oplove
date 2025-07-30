@@ -14,7 +14,11 @@
       "Bash(git checkout:*)",
       "Bash(git restore:*)",
       "Bash(pnpm dev:*)",
-      "Bash(del \"D:\\MSYNC PESSOAL\\oplove\\nul\")"
+      "Bash(del \"D:\\MSYNC PESSOAL\\oplove\\nul\")",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

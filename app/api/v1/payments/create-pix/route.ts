@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       amount,
       description: `OpenLove ${plan_type.charAt(0).toUpperCase() + plan_type.slice(1)} - ${billing_period}`,
       externalId: `sub_${user.id}_${Date.now()}`,
-      customerName: profile.full_name || profile.username,
+      customerName: profile.name || profile.username,
       customerEmail: user.email!,
       customerDocument: profile.document,
       expiresIn: 30, // 30 minutes
