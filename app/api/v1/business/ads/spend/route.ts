@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { getAuthUser } from "@/lib/auth"
+import { getAuthenticatedUser } from "@/lib/auth"
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createServerClient()
-    const authUser = await getAuthUser(req)
+    const authUser = await getAuthenticatedUser(req)
 
     if (!authUser) {
       return NextResponse.json({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
-import { getAuthUser } from "@/lib/auth"
+import { getAuthenticatedUser } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = createServerClient()
-    const authUser = await getAuthUser(req)
+    const authUser = await getAuthenticatedUser(req)
 
     // Build queries based on type
     const results: any = {

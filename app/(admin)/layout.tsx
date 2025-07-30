@@ -33,6 +33,27 @@ interface AdminLayoutProps {
   children: React.ReactNode
 }
 
+interface SidebarItemProps {
+  href: string
+  icon: React.ElementType
+  title: string
+}
+
+function SidebarItem({ href, icon: Icon, title }: SidebarItemProps) {
+  const router = useRouter()
+  
+  return (
+    <Button
+      variant="ghost"
+      className="w-full justify-start"
+      onClick={() => router.push(href)}
+    >
+      <Icon className="mr-2 h-4 w-4" />
+      {title}
+    </Button>
+  )
+}
+
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const { user, logout } = useAuth()
   const router = useRouter()
