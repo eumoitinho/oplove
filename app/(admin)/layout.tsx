@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar, SidebarContent, SidebarHeader, SidebarItem, SidebarProvider } from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenuItem, SidebarMenuButton, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { CreditCard, Smartphone, Lock, ChevronLeft, Loader2 } from "lucide-react"
@@ -43,7 +43,7 @@ const planDetails = {
   },
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("credit_card")
   const [loading, setLoading] = useState(false)
   const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null)
@@ -490,5 +490,17 @@ export default function CheckoutPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   )
 }

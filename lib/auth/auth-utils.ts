@@ -20,6 +20,9 @@ export async function getAuthenticatedUser(request?: NextRequest) {
   return profile
 }
 
+// Alias for backward compatibility
+export const getCurrentUser = getAuthenticatedUser
+
 export async function requireAuthentication(request?: NextRequest) {
   const user = await getAuthenticatedUser(request)
   
