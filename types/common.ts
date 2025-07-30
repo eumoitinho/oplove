@@ -26,7 +26,7 @@ export interface Post {
   user?: User
   content: string
   media_urls: string[] | null
-  visibility: "public" | "friends" | "private"
+  visibility?: "public" | "friends" | "private"
   likes_count: number
   comments_count: number
   shares_count: number

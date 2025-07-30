@@ -73,10 +73,29 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
 
   useEffect(() => {
     setChallenges(initializeChallenges())
+    
+    // Cleanup function to stop camera when component unmounts
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
   }, [])
 
   const startCapture = async () => {
     try {
+      // Check if browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        notification.error("Seu navegador não suporta acesso à câmera. Por favor, use um navegador moderno.")
+        return
+      }
+
+      // Check if we're in a secure context (HTTPS)
+      if (!window.isSecureContext) {
+        notification.error("A câmera só pode ser acessada em conexões seguras (HTTPS).")
+        return
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -89,13 +108,34 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
       setStream(mediaStream)
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => resolve(true)
+          }
+        })
         await videoRef.current.play()
       }
 
       setIsCapturing(true)
       startLivenessDetection()
-    } catch (error) {
-      notification.error("Erro ao acessar a câmera")
+    } catch (error: any) {
+      console.error("Camera access error:", error)
+      
+      // Provide specific error messages based on the error type
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        notification.error("Permissão para acessar a câmera foi negada. Por favor, permita o acesso à câmera nas configurações do navegador.")
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        notification.error("Nenhuma câmera foi encontrada no seu dispositivo.")
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        notification.error("A câmera está sendo usada por outro aplicativo. Feche outros aplicativos e tente novamente.")
+      } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+        notification.error("Sua câmera não suporta as configurações solicitadas.")
+      } else if (error.name === 'TypeError') {
+        notification.error("Erro de configuração. Por favor, recarregue a página e tente novamente.")
+      } else {
+        notification.error(`Erro ao acessar a câmera: ${error.message || 'Erro desconhecido'}`)
+      }
     }
   }
 
@@ -312,6 +352,21 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
               <li>• Você precisará realizar movimentos específicos</li>
               <li>• O processo leva cerca de 30 segundos</li>
             </ul>
+          </div>
+          
+          <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                <p className="font-semibold mb-1">Importante:</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Você precisa permitir o acesso à câmera quando solicitado</li>
+                  <li>• Certifique-se de estar em um local bem iluminado</li>
+                  <li>• Use um navegador moderno (Chrome, Firefox, Safari, Edge)</li>
+                  <li>• A conexão precisa ser segura (HTTPS)</li>
+                </ul>
+              </div>
+            </div>
           </div>
           
           <Button onClick={startCapture} className="w-full" size="lg">

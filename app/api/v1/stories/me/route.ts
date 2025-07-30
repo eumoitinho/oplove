@@ -8,11 +8,13 @@ export async function GET(request: NextRequest) {
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
-  // DEBUG: Log auth info
-  console.log('=== STORIES/ME DEBUG ===')
-  console.log('User:', user?.id)
-  console.log('Auth Error:', authError?.message)
-  console.log('Cookies:', request.headers.get('cookie')?.includes('sb-') ? 'PRESENT' : 'MISSING')
+  // DEBUG: Log auth info only when there's an issue
+  if (!user || authError) {
+    console.log('=== STORIES/ME AUTH DEBUG ===')
+    console.log('User:', user?.id)
+    console.log('Auth Error:', authError?.message)
+    console.log('Cookies:', request.headers.get('cookie')?.includes('sb-') ? 'PRESENT' : 'MISSING')
+  }
   
   if (authError || !user) {
     console.log('AUTH FAILED - returning 401')
@@ -38,7 +40,10 @@ export async function GET(request: NextRequest) {
       .gte('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error('Database error fetching user stories:', error)
+      throw error
+    }
 
     // Process stories to add view counts
     const processedStories = stories?.map(story => ({
@@ -52,10 +57,14 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json({ stories: processedStories || [] })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching user stories:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch stories' },
+      { 
+        error: 'Failed to fetch stories',
+        details: error?.message || 'Unknown error',
+        code: error?.code
+      },
       { status: 500 }
     )
   }

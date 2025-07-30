@@ -172,7 +172,7 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
           </div>
           
           {/* User avatar */}
-          <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white dark:border-slate-950">
+          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white dark:border-slate-950">
             <Image
               src={story.user.avatarUrl || '/default-avatar.png'}
               alt={story.user.name}
@@ -182,15 +182,15 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
             
             {/* Boost indicator */}
             {story.isBoosted && (
-              <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1">
-                <Zap className="w-3 h-3 text-black" />
+              <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-0.5 sm:p-1">
+                <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-black" />
               </div>
             )}
           </div>
         </div>
         
         {/* Username */}
-        <p className="text-xs text-center mt-1 truncate w-16">
+        <p className="text-[10px] sm:text-xs text-center mt-1 truncate w-14 sm:w-16">
           {isOwnStory ? 'Seu story' : story.user.username}
         </p>
       </motion.div>
@@ -226,9 +226,9 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => scroll('left')}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full p-1 shadow-lg"
+                className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full p-1 sm:p-1.5 shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.button>
             )}
             
@@ -238,9 +238,9 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => scroll('right')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full p-1 shadow-lg"
+                className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full p-1 sm:p-1.5 shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.button>
             )}
           </AnimatePresence>
@@ -261,26 +261,26 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
             >
               <button
                 onClick={handleCreateStory}
-                className="relative w-16 h-16 rounded-full flex items-center justify-center group"
+                className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center group"
                 disabled={!canPostStories}
               >
                 {/* Story ring */}
                 <div className="absolute inset-0 rounded-full p-[2px] bg-gradient-to-r from-purple-500 to-pink-500">
                   <div className="w-full h-full bg-white dark:bg-slate-950 rounded-full flex items-center justify-center">
-                    <Plus className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
                 
                 {/* Daily limit indicator */}
                 {dailyLimit && (
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-                    <Badge variant="secondary" className="text-xs px-1">
+                    <Badge variant="secondary" className="text-[10px] sm:text-xs px-1">
                       {dailyLimit.storiesPostedToday}/{dailyLimit.dailyLimit}
                     </Badge>
                   </div>
                 )}
               </button>
-              <p className="text-xs text-center mt-1">Adicionar</p>
+              <p className="text-[10px] sm:text-xs text-center mt-1">Adicionar</p>
             </motion.div>
 
             {/* Boosted stories section */}

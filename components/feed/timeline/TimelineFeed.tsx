@@ -70,80 +70,112 @@ export function TimelineFeed({
     rootMargin: "100px",
   })
 
-  // Fetch posts based on active tab
-  const fetchPosts = async (pageNum: number) => {
-    if (!user) return
 
-    try {
-      let result
-      
-      switch (activeTab) {
-        case "for-you":
-          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, pageNum, 10)
-          break
-        case "following":
-          result = await feedAlgorithmService.getFollowingFeed(user.id, pageNum, 10)
-          break
-        case "explore":
-          result = await feedAlgorithmService.getExploreFeed(user.id, pageNum, 10)
-          break
-        default:
-          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, pageNum, 10)
-      }
-
-      if (pageNum === 1) {
-        setPosts(result.data)
-      } else {
-        setPosts((prev: any[]) => [...prev, ...result.data])
-      }
-
-      setHasMore(result.hasMore)
-      setPage(pageNum)
-    } catch (error) {
-      console.error('Error fetching posts:', error)
-      // Fallback para posts vazios em caso de erro
-      setPosts([])
-      setHasMore(false)
-    } finally {
-      // Garantir que o loading sempre seja resetado
-      if (pageNum === 1) {
-        setIsLoading(false)
-      }
-    }
-  }
-
-  // Load initial posts
+  // Load initial posts - simplified to avoid loops
   useEffect(() => {
+    if (!user || currentMainContent !== "timeline") {
+      setIsLoading(false)
+      return
+    }
+
+    let cancelled = false
+
     const loadPosts = async () => {
-      if (!user) {
-        setIsLoading(false)
-        setInitialized(true)
-        return
-      }
+      if (cancelled) return
       
-      // Only load posts if we're showing timeline
-      if (currentMainContent === "timeline") {
-        setIsLoading(true)
-        setPosts([])
-        setPage(1)
-        setHasMore(true)
+      setIsLoading(true)
+      setPosts([])
+      setPage(1)
+      setHasMore(true)
+      
+      try {
+        let result
         
-        await fetchPosts(1)
-      } else {
-        setIsLoading(false)
-      }
-      setInitialized(true)
-    }
-    
-    loadPosts()
-  }, [user, activeTab, currentMainContent])
+        switch (activeTab) {
+          case "for-you":
+            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+            break
+          case "following":
+            result = await feedAlgorithmService.getFollowingFeed(user.id, 1, 10)
+            break
+          case "explore":
+            result = await feedAlgorithmService.getExploreFeed(user.id, 1, 10)
+            break
+          default:
+            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+        }
 
-  // Load more when in view
-  useEffect(() => {
-    if (inView && hasMore && !isLoading && user && initialized) {
-      fetchPosts(page + 1)
+        if (!cancelled) {
+          setPosts(result.data)
+          setHasMore(result.hasMore)
+          setPage(1)
+          setInitialized(true)
+        }
+      } catch (error) {
+        console.error('Error fetching posts:', error)
+        if (!cancelled) {
+          setPosts([])
+          setHasMore(false)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
     }
-  }, [inView, hasMore, page, isLoading, user, initialized])
+
+    loadPosts()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, activeTab, currentMainContent]) // Removed fetchPosts from dependencies
+
+  // Load more when in view - simplified
+  useEffect(() => {
+    if (!inView || !hasMore || isLoading || !user || !initialized) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadMore = async () => {
+      if (cancelled) return
+      
+      try {
+        let result
+        const nextPage = page + 1
+        
+        switch (activeTab) {
+          case "for-you":
+            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, nextPage, 10)
+            break
+          case "following":
+            result = await feedAlgorithmService.getFollowingFeed(user.id, nextPage, 10)
+            break
+          case "explore":
+            result = await feedAlgorithmService.getExploreFeed(user.id, nextPage, 10)
+            break
+          default:
+            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, nextPage, 10)
+        }
+
+        if (!cancelled && result.data.length > 0) {
+          setPosts(prev => [...prev, ...result.data])
+          setHasMore(result.hasMore)
+          setPage(nextPage)
+        }
+      } catch (error) {
+        console.error('Error loading more posts:', error)
+      }
+    }
+
+    loadMore()
+
+    return () => {
+      cancelled = true
+    }
+  }, [inView, page, hasMore, isLoading, user?.id, activeTab, initialized])
 
   // Simulate real-time updates
   useEffect(() => {
@@ -156,14 +188,38 @@ export function TimelineFeed({
     return () => clearInterval(interval)
   }, [])
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
+    if (!user) return
+    
     setIsRefreshing(true)
     setNewPostsCount(0)
-    setPage(1)
-    setHasMore(true)
-    await fetchPosts(1)
-    setIsRefreshing(false)
-  }
+    
+    try {
+      let result
+      
+      switch (activeTab) {
+        case "for-you":
+          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+          break
+        case "following":
+          result = await feedAlgorithmService.getFollowingFeed(user.id, 1, 10)
+          break
+        case "explore":
+          result = await feedAlgorithmService.getExploreFeed(user.id, 1, 10)
+          break
+        default:
+          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+      }
+
+      setPosts(result.data)
+      setHasMore(result.hasMore)
+      setPage(1)
+    } catch (error) {
+      console.error('Error refreshing posts:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [user?.id, activeTab])
 
   // Insert ads based on user's plan and frequency
   const postsWithAds = useMemo(() => {
@@ -355,39 +411,43 @@ export function TimelineFeed({
 
       {/* Feed Tabs */}
       <div className="w-full mb-6">
-        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-1 shadow-sm">
-          <div className="grid w-full grid-cols-3 bg-transparent">
+        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm">
+          <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
             <Button
               onClick={() => onTabChange?.("for-you")}
-              className={`rounded-2xl ${
+              className={cn(
+                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "for-you"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                  : "bg-transparent text-gray-600 dark:text-gray-400"
-              }`}
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
             >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Para você
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Para você</span>
+              <span className="xs:hidden">Você</span>
             </Button>
             <Button
               onClick={() => onTabChange?.("following")}
-              className={`rounded-2xl ${
+              className={cn(
+                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "following"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                  : "bg-transparent text-gray-600 dark:text-gray-400"
-              }`}
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
             >
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Seguindo
             </Button>
             <Button
               onClick={() => onTabChange?.("explore")}
-              className={`rounded-2xl ${
+              className={cn(
+                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "explore"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                  : "bg-transparent text-gray-600 dark:text-gray-400"
-              }`}
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
             >
-              <Compass className="w-4 h-4 mr-2" />
+              <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Explorar
             </Button>
           </div>

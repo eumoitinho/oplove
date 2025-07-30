@@ -105,8 +105,8 @@ class FeedAlgorithmService {
         return cached
       }
 
-      // Generate fresh data
-      const posts = await this.getFallbackPosts((page - 1) * limit, limit)
+      // Generate fresh data - get posts from users the current user follows
+      const posts = await this.getFollowingPosts(userId, (page - 1) * limit, limit)
       const freshData = {
         data: posts,
         hasMore: posts.length === limit,
@@ -144,8 +144,8 @@ class FeedAlgorithmService {
         return cached
       }
 
-      // Generate fresh data
-      const posts = await this.getFallbackPosts((page - 1) * limit, limit)
+      // Generate fresh data - get trending/popular posts
+      const posts = await this.getExplorePosts(userId, (page - 1) * limit, limit)
       const freshData = {
         data: posts,
         hasMore: posts.length === limit,
@@ -196,7 +196,6 @@ class FeedAlgorithmService {
           created_at,
           updated_at,
           user_id,
-          visibility,
           likes_count,
           comments_count,
           shares_count,
@@ -210,7 +209,6 @@ class FeedAlgorithmService {
             premium_type
           )
         `)
-        .eq('visibility', 'public')
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
 
@@ -259,6 +257,115 @@ class FeedAlgorithmService {
     )
     
     return commonInterests.length / Math.max(userInterests.length, postUserInterests.length)
+  }
+
+  /**
+   * Get posts from users that the current user follows
+   */
+  private async getFollowingPosts(userId: string, offset: number, limit: number) {
+    try {
+      // First get the list of users that current user follows
+      const { data: connections, error: connError } = await this.supabase
+        .from('user_connections')
+        .select('connected_user_id')
+        .eq('user_id', userId)
+
+      if (connError || !connections || connections.length === 0) {
+        // If no connections, return empty array
+        return []
+      }
+
+      const followingIds = connections.map(c => c.connected_user_id)
+
+      // Get posts from followed users
+      const { data: posts, error } = await this.supabase
+        .from('posts')
+        .select(`
+          id,
+          content,
+          created_at,
+          updated_at,
+          user_id,
+          likes_count,
+          comments_count,
+          shares_count,
+          media_urls,
+          users (
+            id,
+            username,
+            name,
+            avatar_url,
+            is_verified,
+            premium_type
+          )
+        `)
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (error) {
+        console.error('Error fetching following posts:', error)
+        return []
+      }
+
+      return posts?.map(post => ({
+        ...post,
+        user: post.users,
+        users: undefined
+      })) || []
+    } catch (error) {
+      console.error('Error in getFollowingPosts:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get explore posts (trending, popular, etc)
+   */
+  private async getExplorePosts(userId: string, offset: number, limit: number) {
+    try {
+      // Get posts ordered by engagement (likes + comments)
+      const { data: posts, error } = await this.supabase
+        .from('posts')
+        .select(`
+          id,
+          content,
+          created_at,
+          updated_at,
+          user_id,
+          likes_count,
+          comments_count,
+          shares_count,
+          media_urls,
+          users (
+            id,
+            username,
+            name,
+            avatar_url,
+            is_verified,
+            premium_type
+          )
+        `)
+        .neq('user_id', userId) // Don't show user's own posts in explore
+        .order('likes_count', { ascending: false })
+        .order('comments_count', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (error) {
+        console.error('Error fetching explore posts:', error)
+        return []
+      }
+
+      return posts?.map(post => ({
+        ...post,
+        user: post.users,
+        users: undefined
+      })) || []
+    } catch (error) {
+      console.error('Error in getExplorePosts:', error)
+      return []
+    }
   }
 }
 

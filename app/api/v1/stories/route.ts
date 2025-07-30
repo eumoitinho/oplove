@@ -79,7 +79,10 @@ export async function GET(request: NextRequest) {
 
     const { data: stories, error } = await query
 
-    if (error) throw error
+    if (error) {
+      console.error('Database error fetching stories:', error)
+      throw error
+    }
 
     // Process stories to add user interaction data  
     const processedStories = stories?.map(story => ({
@@ -95,10 +98,14 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json({ stories: processedStories })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching stories:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch stories' },
+      { 
+        error: 'Failed to fetch stories',
+        details: error?.message || 'Unknown error',
+        code: error?.code
+      },
       { status: 500 }
     )
   }
@@ -150,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(story, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating story:', error)
     
     if (error instanceof z.ZodError) {
@@ -161,7 +168,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to create story' },
+      { 
+        error: 'Failed to create story',
+        details: error?.message || 'Unknown error',
+        code: error?.code
+      },
       { status: 500 }
     )
   }

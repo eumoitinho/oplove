@@ -87,10 +87,14 @@ export async function GET(request: NextRequest) {
       canPostMore: storiesPostedToday < dailyLimit,
       remainingStories: Math.max(0, dailyLimit - storiesPostedToday)
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching story limits:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch limits' },
+      { 
+        error: 'Failed to fetch limits',
+        details: error?.message || 'Unknown error',
+        code: error?.code
+      },
       { status: 500 }
     )
   }

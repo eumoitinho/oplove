@@ -11,7 +11,7 @@ export interface Post {
   media: PostMedia[]
   poll: PostPoll | null
   location: PostLocation | null
-  visibility: PostVisibility
+  visibility?: PostVisibility
   is_pinned: boolean
   is_edited: boolean
   edit_history: PostEdit[]
