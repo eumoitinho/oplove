@@ -242,3 +242,6 @@ export type {
 }
 
 export { AbacatePayService }
+
+// Export singleton instance for backward compatibility
+export { getAbacatePayService as abacatepayService }
