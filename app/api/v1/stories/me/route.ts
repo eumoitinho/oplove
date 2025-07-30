@@ -7,7 +7,15 @@ export async function GET(request: NextRequest) {
   
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  // DEBUG: Log auth info
+  console.log('=== STORIES/ME DEBUG ===')
+  console.log('User:', user?.id)
+  console.log('Auth Error:', authError?.message)
+  console.log('Cookies:', request.headers.get('cookie')?.includes('sb-') ? 'PRESENT' : 'MISSING')
+  
   if (authError || !user) {
+    console.log('AUTH FAILED - returning 401')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

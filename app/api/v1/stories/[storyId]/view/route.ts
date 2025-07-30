@@ -16,7 +16,7 @@ const viewSchema = z.object({
 
 // POST /api/v1/stories/[storyId]/view - Mark story as viewed
 export async function POST(request: NextRequest, { params }: Params) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   const { storyId } = params
   
   // Get current user

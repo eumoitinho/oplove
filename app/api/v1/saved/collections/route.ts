@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/auth-utils'
 
 // Listar coleções do usuário
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 // Criar nova coleção
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {

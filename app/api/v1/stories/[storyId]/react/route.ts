@@ -14,7 +14,7 @@ const reactionSchema = z.object({
 
 // POST /api/v1/stories/[storyId]/react - Add reaction to story
 export async function POST(request: NextRequest, { params }: Params) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   const { storyId } = params
   
   // Get current user

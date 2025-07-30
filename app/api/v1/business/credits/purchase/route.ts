@@ -4,7 +4,7 @@ import { abacatepayService } from '@/lib/services/abacatepay.service'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check payment status
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

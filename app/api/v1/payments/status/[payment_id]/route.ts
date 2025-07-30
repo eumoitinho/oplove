@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { payment_id: string } }
 ) {
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

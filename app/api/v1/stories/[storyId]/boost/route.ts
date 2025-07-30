@@ -15,7 +15,7 @@ const boostSchema = z.object({
 
 // POST /api/v1/stories/[storyId]/boost - Boost a story
 export async function POST(request: NextRequest, { params }: Params) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   const { storyId } = params
   
   // Get current user

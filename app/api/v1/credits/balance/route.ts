@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 
 // GET /api/v1/credits/balance - Get user's credit balance
 export async function GET(request: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()

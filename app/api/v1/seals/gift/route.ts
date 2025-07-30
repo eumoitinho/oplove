@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 const giftSealSchema = z.object({
@@ -10,7 +10,7 @@ const giftSealSchema = z.object({
 
 // POST /api/v1/seals/gift - Gift a seal to another user
 export async function POST(request: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()

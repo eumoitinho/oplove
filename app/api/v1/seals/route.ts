@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 
 // GET /api/v1/seals - Get available profile seals
 export async function GET(request: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   
   try {
     const { data: seals, error } = await supabase

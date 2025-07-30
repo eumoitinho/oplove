@@ -9,7 +9,7 @@ interface Params {
 
 // GET /api/v1/stories/[storyId]/viewers - Get story viewers (owner only)
 export async function GET(request: NextRequest, { params }: Params) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   const { storyId } = params
   
   // Get current user

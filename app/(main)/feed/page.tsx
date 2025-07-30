@@ -6,10 +6,10 @@ import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
 import Toast from "@/components/feed/Toast"
 import StoriesCarousel from "@/components/stories/StoriesCarousel"
-import { Feather } from "lucide-react"
+import { Feather, Menu, Home, ArrowUp, X } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
-import { Header } from "@/components/feed"
+import { Header, LeftSidebar, RightSidebar } from "@/components/feed"
 
 type ActiveToast = {
   type: "post" | "message" | "like"
@@ -36,9 +36,16 @@ export default function FeedPage() {
   const [activeToast, setActiveToast] = useState<ActiveToast>(null)
   const [currentMainContent, setCurrentMainContent] = useState<MainContentType>("timeline")
   const [activeTab, setActiveTab] = useState<"for-you" | "following" | "explore">("for-you")
+  const [isDarkMode, setIsDarkMode] = useState(true)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   
   // Initialize security protection
   useSecurityProtection()
+
+  // Theme toggle function
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode)
+  }
 
   // Simulate new posts/messages/likes notification
   useEffect(() => {
@@ -78,6 +85,43 @@ export default function FeedPage() {
   // Wrapper function for TimelineFeed
   const handleTimelineViewChange = (view: string) => {
     setCurrentMainContent(view as MainContentType)
+  }
+
+  // Mobile menu functions
+  const handleFloatingMenuClick = () => {
+    if (currentMainContent === "timeline") {
+      setIsMobileMenuOpen(!isMobileMenuOpen)
+    } else {
+      setCurrentMainContent("timeline")
+      setIsMobileMenuOpen(false)
+    }
+  }
+
+  const getFloatingMenuLabel = () => {
+    return currentMainContent === "timeline" ? "Menu" : "Home"
+  }
+
+  const getFloatingMenuIcon = () => {
+    if (currentMainContent === "timeline") {
+      return isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />
+    }
+    return <Home className="w-5 h-5" />
+  }
+
+  const handleRightFloatingButtonClick = () => {
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false)
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const getRightFloatingButtonLabel = () => {
+    return isMobileMenuOpen ? "Fechar Menu" : "Ir para o topo"
+  }
+
+  const getRightFloatingButtonIcon = () => {
+    return isMobileMenuOpen ? <X className="w-5 h-5" /> : <ArrowUp className="w-5 h-5" />
   }
 
   return (
