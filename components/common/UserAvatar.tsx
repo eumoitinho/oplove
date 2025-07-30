@@ -70,8 +70,8 @@ export function UserAvatar({
         className: "bg-gradient-to-r from-purple-500 to-cyan-500 text-white" 
       },
       couple: { 
-        icon: Heart, 
-        className: "bg-gradient-to-r from-pink-500 to-purple-500 text-white" 
+        icon: Flame, 
+        className: "bg-gradient-to-r from-orange-500 to-red-500 text-white" 
       }
     }
 

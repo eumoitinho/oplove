@@ -80,7 +80,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
             <div className="flex-grow min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold truncate text-gray-900 dark:text-white">
-                  {post.user?.full_name || post.user?.username || "Usuário"}
+                  {post.user?.name || post.user?.username || "Usuário"}
                 </span>
                 {post.user?.is_verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
                 <PlanBadge plan={post.user?.premium_type || "free"} />
