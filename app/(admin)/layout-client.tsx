@@ -1,8 +1,7 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar, SidebarContent, SidebarHeader, SidebarMenuItem, SidebarMenuButton, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -54,7 +53,7 @@ function SidebarItem({ href, icon: Icon, title }: SidebarItemProps) {
   )
 }
 
-export default function AdminLayoutClient({ children }: AdminLayoutProps) {
+export function AdminLayoutClient({ children }: AdminLayoutProps) {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -191,7 +190,7 @@ export default function AdminLayoutClient({ children }: AdminLayoutProps) {
   
   // Filtrar itens baseado nas permissões
   const allowedItems = navigationItems.filter(item => 
-    adminData.permissions[item.permission]
+    adminData.permissions?.[item.permission] ?? false
   )
   
   return (

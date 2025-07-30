@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
@@ -48,7 +48,7 @@ interface DashboardMetrics {
   topContent: Array<{ id: string; title: string; views: number; revenue: number }>
 }
 
-export default function AdminDashboard() {
+export function AdminDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
