@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
-import { abacatepayService } from '@/lib/services/abacatepay.service'
+import { createServerClient } from '@/lib/supabase/server'
+import { getAbacatePayService } from '@/lib/services/abacatepay.service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create PIX payment with AbacatePay
-    const paymentResult = await abacatepayService.createPixPayment({
+    const paymentResult = await getAbacatePayService().createPixPayment({
       amount,
       description,
       customer: {

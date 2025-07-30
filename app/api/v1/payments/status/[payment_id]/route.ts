@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { abacatepayService } from '@/lib/services/abacatepay.service'
+import { getAbacatePayService } from '@/lib/services/abacatepay.service'
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +35,7 @@ export async function GET(
     }
 
     // Check with payment provider
-    const paymentStatus = await abacatepayService.getPaymentStatus(paymentId)
+    const paymentStatus = await getAbacatePayService().getPaymentStatus(paymentId)
 
     if (!paymentStatus.success) {
       return NextResponse.json(

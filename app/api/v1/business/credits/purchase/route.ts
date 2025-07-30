@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
-import { abacatepayService } from '@/lib/services/abacatepay.service'
+import { createServerClient } from '@/lib/supabase/server'
+import { getAbacatePayService } from '@/lib/services/abacatepay.service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     let paymentResult
     if (payment_method === 'pix') {
       // Create PIX payment with AbacatePay
-      paymentResult = await abacatepayService.createPixPayment({
+      paymentResult = await getAbacatePayService().createPixPayment({
         amount: creditPackage.price,
         description: `Créditos OpenLove - ${creditPackage.name}`,
         customer: {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check payment status with provider
-    const paymentStatus = await abacatepayService.getPaymentStatus(paymentId)
+    const paymentStatus = await getAbacatePayService().getPaymentStatus(paymentId)
 
     if (!paymentStatus.success) {
       return NextResponse.json(
