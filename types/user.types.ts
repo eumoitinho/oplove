@@ -285,3 +285,68 @@ export interface UserPermissions {
   can_manage_events: boolean
   can_manage_business: boolean
 }
+
+// User blocking system
+export interface UserBlock {
+  id: string
+  blocker_id: string
+  blocked_id: string
+  reason: string | null
+  blocked_at: string
+  created_at: string
+
+  // Relations
+  blocker: User
+  blocked: User
+}
+
+export interface BlockedUser {
+  block_id: string
+  reason: string | null
+  blocked_at: string
+  user: User
+}
+
+export interface BlockStatus {
+  isBlocked: boolean
+  wasBlockedBy: boolean
+  blockDetails: {
+    reason: string | null
+    blocked_at: string
+  } | null
+}
+
+export interface BlockedUsersResponse {
+  blocked_users: BlockedUser[]
+  total: number
+  pagination: {
+    page: number
+    limit: number
+    hasMore: boolean
+  }
+}
+
+// User reports system
+export type ReportReason = 
+  | "spam"
+  | "harassment" 
+  | "inappropriate_content"
+  | "fake_profile"
+  | "copyright"
+  | "misinformation"
+  | "other"
+
+export interface UserReport {
+  id: string
+  reporter_id: string
+  reported_id: string
+  reason: ReportReason
+  description: string
+  status: "pending" | "reviewed" | "resolved" | "dismissed"
+  created_at: string
+  updated_at: string
+
+  // Relations
+  reporter: User
+  reported: User
+}

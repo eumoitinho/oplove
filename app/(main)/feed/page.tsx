@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { TimelineFeed } from "@/components/feed/timeline/TimelineFeed"
-import { LeftSidebar, RightSidebar } from "@/components/feed"
+import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
-import { Header } from "@/components/feed/Header"
 import Toast from "@/components/feed/Toast"
 import StoriesCarousel from "@/components/stories/StoriesCarousel"
-import { Home, Menu, X, ArrowUp, Sparkles, Feather } from "lucide-react"
+import { Feather } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
+import { Header } from "@/components/feed"
 
 type ActiveToast = {
   type: "post" | "message" | "like"
@@ -33,26 +33,12 @@ type MainContentType =
 
 export default function FeedPage() {
   const { user } = useAuth()
-  const [isDarkMode, setIsDarkMode] = useState(true)
   const [activeToast, setActiveToast] = useState<ActiveToast>(null)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [currentMainContent, setCurrentMainContent] = useState<MainContentType>("timeline")
-  const [showScrollToTop, setShowScrollToTop] = useState(false)
   const [activeTab, setActiveTab] = useState<"for-you" | "following" | "explore">("for-you")
   
   // Initialize security protection
   useSecurityProtection()
-
-  // Check system preference on initial load
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-      setIsDarkMode(prefersDark)
-      if (prefersDark) {
-        document.documentElement.classList.add("dark")
-      }
-    }
-  }, [])
 
   // Simulate new posts/messages/likes notification
   useEffect(() => {
@@ -77,85 +63,12 @@ export default function FeedPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Handle scroll to show/hide scroll-to-top button
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 200) {
-        setShowScrollToTop(true)
-      } else {
-        setShowScrollToTop(false)
-      }
-    }
-
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
   // Reset to "for-you" tab when returning to timeline
   useEffect(() => {
     if (currentMainContent === "timeline") {
       setActiveTab("for-you")
     }
   }, [currentMainContent])
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
-    document.documentElement.classList.toggle("dark")
-  }
-
-  const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
-
-  // Lógica do botão flutuante esquerdo (Menu / Home) - SOME quando sidebar abre
-  const handleFloatingMenuClick = () => {
-    if (currentMainContent !== "timeline") {
-      setCurrentMainContent("timeline") // Volta para o feed se não estiver na timeline
-    } else {
-      setIsMobileMenuOpen(true) // Abre a sidebar se estiver na timeline
-    }
-  }
-
-  const getFloatingMenuIcon = () => {
-    if (currentMainContent !== "timeline") {
-      return <Home className="w-5 h-5" /> // Ícone de Home se não estiver na timeline
-    } else {
-      return <Menu className="w-5 h-5" /> // Ícone de Menu se estiver na timeline
-    }
-  }
-
-  const getFloatingMenuLabel = () => {
-    if (currentMainContent !== "timeline") {
-      return "Voltar ao Feed"
-    } else {
-      return "Abrir Menu"
-    }
-  }
-
-  // Lógica do botão flutuante direito (Voltar ao Topo / Fechar Menu)
-  const handleRightFloatingButtonClick = () => {
-    if (isMobileMenuOpen) {
-      setIsMobileMenuOpen(false) // Fecha a sidebar se estiver aberta
-    } else {
-      handleScrollToTop() // Volta ao topo se a sidebar estiver fechada
-    }
-  }
-
-  const getRightFloatingButtonIcon = () => {
-    if (isMobileMenuOpen) {
-      return <X className="w-5 h-5" /> // Ícone de X se a sidebar estiver aberta
-    } else {
-      return <ArrowUp className="w-5 h-5" /> // Ícone de seta para cima se a sidebar estiver fechada
-    }
-  }
-
-  const getRightFloatingButtonLabel = () => {
-    if (isMobileMenuOpen) {
-      return "Fechar Menu"
-    } else {
-      return "Voltar ao topo"
-    }
-  }
 
   // Wrapper function to handle view changes
   const handleViewChange = (view: string) => {
@@ -328,3 +241,9 @@ export default function FeedPage() {
     </div>
   )
 }
+
+
+
+
+
+
