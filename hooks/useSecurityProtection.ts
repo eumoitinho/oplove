@@ -228,6 +228,9 @@ export function useSecurityProtection() {
 
     // Add some additional protection against tampering
     const protectConsole = () => {
+      // Skip console protection in development to avoid conflicts with Fast Refresh
+      if (process.env.NODE_ENV === 'development') return
+      
       const originalLog = console.log
       const originalWarn = console.warn
       const originalError = console.error

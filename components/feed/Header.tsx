@@ -45,8 +45,8 @@ export function Header({ isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileM
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 h-20 flex items-center">
-      <div className="max-w-screen-xl mx-auto px-4 w-full">
-        <div className="flex items-center justify-between gap-4">
+      <div className="max-w-screen-xl mx-auto px-2 xs:px-4 w-full">
+        <div className="flex items-center justify-between gap-2 xs:gap-4">
           {/* Mobile: Create Post Button | Desktop: Empty div for spacing */}
           <div className="flex items-center gap-2 lg:hidden">
             <Button

@@ -57,16 +57,16 @@ interface PasswordChangeData {
 export function useSettings() {
   const { user } = useAuth()
   const [settings, setSettings] = useState<UserSettings>({
-    // Valores padrão baseados no usuário atual
-    username: user?.username || "",
-    email: user?.email || "",
+    // Valores padrão - serão preenchidos pelo loadUserSettings
+    username: "",
+    email: "",
     phone: "",
     
-    full_name: user?.full_name || "",
-    bio: user?.bio || "",
-    location: user?.location || "",
-    website: user?.website || "",
-    birth_date: user?.birth_date || "",
+    full_name: "",
+    bio: "",
+    location: "",
+    website: "",
+    birth_date: "",
     
     profile_visibility: "public",
     show_online_status: true,
@@ -107,20 +107,50 @@ export function useSettings() {
 
   const loadUserSettings = async () => {
     try {
-      // TODO: Implementar chamada real para API
-      // const response = await fetch('/api/settings')
-      // const data = await response.json()
-      
-      // Por enquanto, usar dados do usuário atual
+      // TODO: Implementar chamada real para API de configurações do usuário
+      // Por enquanto, usar todos os dados do usuário atual como placeholders
       setSettings(prev => ({
         ...prev,
+        // Dados da conta
         username: user?.username || "",
         email: user?.email || "",
-        full_name: user?.full_name || "",
+        phone: user?.phone || "",
+        
+        // Dados do perfil (corrigindo mapeamento do User type)
+        full_name: user?.name || "", // User.name maps to full_name in settings
         bio: user?.bio || "",
         location: user?.location || "",
         website: user?.website || "",
         birth_date: user?.birth_date || "",
+        
+        // Configurações de privacidade (usando nested preferences)
+        profile_visibility: user?.preferences?.privacy?.profile_visibility || "public",
+        show_online_status: user?.preferences?.privacy?.show_online_status ?? true,
+        show_last_seen: user?.preferences?.privacy?.show_last_seen ?? true,
+        allow_messages_from: user?.preferences?.privacy?.allow_messages_from || "everyone",
+        show_activity_status: true, // Default as it's not in the User type
+        
+        // Configurações de notificação (usando nested preferences)
+        email_notifications: user?.preferences?.notifications?.email_notifications ?? true,
+        push_notifications: user?.preferences?.notifications?.push_notifications ?? true,
+        notification_likes: user?.preferences?.notifications?.types?.likes ?? true,
+        notification_comments: user?.preferences?.notifications?.types?.comments ?? true,
+        notification_follows: user?.preferences?.notifications?.types?.follows ?? true,
+        notification_messages: user?.preferences?.notifications?.types?.messages ?? true,
+        notification_mentions: user?.preferences?.notifications?.types?.mentions ?? true,
+        notification_events: true, // Default as it's not in the User type
+        notification_communities: true, // Default as it's not in the User type
+        quiet_hours_enabled: user?.preferences?.notifications?.quiet_hours?.enabled ?? false,
+        quiet_hours_start: user?.preferences?.notifications?.quiet_hours?.start || "22:00",
+        quiet_hours_end: user?.preferences?.notifications?.quiet_hours?.end || "08:00",
+        
+        // Configurações de aparência (usando nested preferences)
+        theme: user?.preferences?.theme || "system",
+        language: user?.preferences?.language || "pt-BR",
+        
+        // Configurações de segurança (defaults)
+        two_factor_enabled: false, // TODO: Add to User type if needed
+        login_alerts: true, // TODO: Add to User type if needed
       }))
     } catch (error) {
       console.error("Error loading settings:", error)

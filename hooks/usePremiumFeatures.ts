@@ -23,6 +23,9 @@ interface PremiumFeatures {
   canAddLocation: boolean
   canSchedulePosts: boolean
   canCreateStories: boolean
+  canPostStories: boolean
+  dailyStoryLimit: number
+  canBoostStories: boolean
   canMonetizeContent: boolean
   maxPostLength: number
   
@@ -92,6 +95,9 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canAddLocation: false,
     canSchedulePosts: false,
     canCreateStories: false,
+    canPostStories: false,
+    dailyStoryLimit: 3, // Only for verified free users
+    canBoostStories: false,
     canMonetizeContent: false,
     maxPostLength: 280,
     
@@ -133,6 +139,9 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canAddLocation: true,
     canSchedulePosts: false,
     canCreateStories: false,
+    canPostStories: true,
+    dailyStoryLimit: 5, // 10 if verified
+    canBoostStories: false,
     canMonetizeContent: false,
     maxPostLength: 500,
     
@@ -174,6 +183,9 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canAddLocation: true,
     canSchedulePosts: true,
     canCreateStories: true,
+    canPostStories: true,
+    dailyStoryLimit: 10, // Unlimited if verified
+    canBoostStories: true,
     canMonetizeContent: true,
     maxPostLength: 1000,
     
@@ -216,6 +228,9 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canAddLocation: true,
     canSchedulePosts: true,
     canCreateStories: true,
+    canPostStories: true,
+    dailyStoryLimit: 10, // Unlimited if verified
+    canBoostStories: true,
     canMonetizeContent: true,
     maxPostLength: 1000,
     
@@ -250,9 +265,14 @@ export function usePremiumFeatures() {
     if (user?.is_verified) {
       const verifiedFeatures = { ...baseFeatures }
       
-      if (plan === "gold") {
+      if (plan === "free") {
+        verifiedFeatures.canPostStories = true // Free verified can post stories
+      } else if (plan === "gold") {
         verifiedFeatures.messagesPerDay = -1 // Unlimited messages
         verifiedFeatures.maxEventsPerMonth = -1 // Unlimited events
+        verifiedFeatures.dailyStoryLimit = 10 // Increased limit
+      } else if (plan === "diamond" || plan === "couple") {
+        verifiedFeatures.dailyStoryLimit = -1 // Unlimited stories
       }
       
       return verifiedFeatures
@@ -302,6 +322,24 @@ export function usePremiumFeatures() {
     return null
   }
   
+  // Get story limit based on plan and verification
+  const getStoryLimit = () => {
+    if (!user) return 0
+    
+    const plan = user.premium_type || "free"
+    const isVerified = user.is_verified || false
+    
+    if (plan === "free") {
+      return isVerified ? 3 : 0
+    } else if (plan === "gold") {
+      return isVerified ? 10 : 5
+    } else if (plan === "diamond" || plan === "couple") {
+      return isVerified ? -1 : 10 // -1 means unlimited
+    }
+    
+    return 0
+  }
+  
   return {
     ...features,
     
@@ -313,6 +351,7 @@ export function usePremiumFeatures() {
     // Helper methods
     requiresUpgrade,
     getRequiredPlan,
+    getStoryLimit,
     
     // User info
     userPlan: user?.premium_type || "free",

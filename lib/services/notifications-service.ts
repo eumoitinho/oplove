@@ -95,7 +95,7 @@ class NotificationsService {
     try {
       const { count, error } = await this.supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .eq('read', false)
 

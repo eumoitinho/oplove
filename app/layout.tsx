@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Providers } from "@/components/common/providers"
 import "@/styles/globals.css"
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
     telephone: false,
   },
   metadataBase: new URL("https://openlove.com.br"),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "OpenLove",
+  },
   openGraph: {
     title: "OpenLove - Rede Social do Amor",
     description: "A rede social brasileira para encontros, relacionamentos e conexões autênticas.",
@@ -53,6 +59,16 @@ export const metadata: Metadata = {
     },
   },
     generator: 'v0.dev'
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({

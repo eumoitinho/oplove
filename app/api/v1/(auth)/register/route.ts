@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -56,9 +57,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create user profile
+    // Create user profile using service role to bypass RLS
     if (authData.user) {
-      const { error: profileError } = await supabase.from("users").insert({
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      )
+      
+      const { error: profileError } = await supabaseAdmin.from("users").insert({
         id: authData.user.id,
         email,
         username,
@@ -70,11 +82,17 @@ export async function POST(request: NextRequest) {
       })
 
       if (profileError) {
-        // If profile creation fails, delete the auth user
-        await supabase.auth.admin.deleteUser(authData.user.id)
+        console.error("Profile creation error:", profileError)
+        
+        // If profile creation fails, try to delete the auth user
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        } catch (deleteError) {
+          console.error("Failed to delete auth user after profile creation failed:", deleteError)
+        }
         
         return NextResponse.json(
-          { error: "Erro ao criar perfil do usuário", success: false },
+          { error: profileError.message || "Erro ao criar perfil do usuário", success: false },
           { status: 500 }
         )
       }
@@ -96,6 +114,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.error("Register endpoint error:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor", success: false },
       { status: 500 }

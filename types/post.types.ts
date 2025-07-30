@@ -104,6 +104,50 @@ export interface PostInteraction {
   user: User
 }
 
+export interface PostShare {
+  id: string
+  post_id: string
+  user_id: string
+  share_type: "public" | "private" | "story"
+  message: string | null
+  shared_at: string
+  created_at: string
+  updated_at: string
+
+  // Relations
+  post: Post
+  user: User
+}
+
+export interface PostSave {
+  id: string
+  post_id: string
+  user_id: string
+  collection_id: string | null
+  saved_at: string
+  created_at: string
+
+  // Relations
+  post: Post
+  user: User
+  collection: SavedCollection | null
+}
+
+export interface SavedCollection {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  is_private: boolean
+  posts_count: number
+  created_at: string
+  updated_at: string
+
+  // Relations
+  user: User
+  saved_posts: PostSave[]
+}
+
 export interface PostEdit {
   id: string
   post_id: string

@@ -88,7 +88,13 @@ export async function POST(request: NextRequest) {
 
 async function handlePaymentSucceeded(supabase: any, data: any) {
   try {
-    // Find subscription by provider payment ID
+    // Check if this is a credit purchase
+    if (data.metadata?.type === 'credit_purchase') {
+      await handleCreditPurchaseSucceeded(supabase, data)
+      return
+    }
+
+    // Otherwise, handle as subscription payment
     const { data: subscription, error: subError } = await supabase
       .from("subscriptions")
       .select("*")
@@ -137,9 +143,109 @@ async function handlePaymentSucceeded(supabase: any, data: any) {
   }
 }
 
+async function handleCreditPurchaseSucceeded(supabase: any, data: any) {
+  try {
+    const { business_id, package_id, credits } = data.metadata || {}
+    
+    if (!business_id || !package_id || !credits) {
+      console.error("Invalid credit purchase metadata:", data.metadata)
+      return
+    }
+
+    // Get the pending transaction
+    const { data: transaction, error: txError } = await supabase
+      .from("credit_transactions")
+      .select("*")
+      .eq("payment_reference", data.id)
+      .eq("payment_status", "pending")
+      .single()
+
+    if (txError || !transaction) {
+      console.error("Pending transaction not found for payment:", data.id)
+      return
+    }
+
+    // Get current business credit balance
+    const { data: business, error: bizError } = await supabase
+      .from("businesses")
+      .select("credit_balance")
+      .eq("id", business_id)
+      .single()
+
+    if (bizError || !business) {
+      console.error("Business not found:", business_id)
+      return
+    }
+
+    const newBalance = business.credit_balance + credits
+
+    // Start a transaction to update both the business balance and transaction record
+    const { error: updateError } = await supabase.rpc("process_credit_purchase", {
+      p_business_id: business_id,
+      p_transaction_id: transaction.id,
+      p_new_balance: newBalance,
+      p_payment_id: data.id,
+      p_paid_at: data.paidAt || new Date().toISOString()
+    })
+
+    if (updateError) {
+      // If the RPC doesn't exist, do it manually
+      // Update business credit balance
+      await supabase
+        .from("businesses")
+        .update({
+          credit_balance: newBalance,
+          total_credits_purchased: supabase.raw("total_credits_purchased + ?", [credits]),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", business_id)
+
+      // Update transaction status
+      await supabase
+        .from("credit_transactions")
+        .update({
+          payment_status: "paid",
+          balance_after: newBalance,
+          metadata: {
+            ...transaction.metadata,
+            paid_at: data.paidAt || new Date().toISOString(),
+            payment_provider_data: data
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", transaction.id)
+    }
+
+    console.log(`Credit purchase succeeded for business ${business_id}: ${credits} credits added`)
+  } catch (error) {
+    console.error("Error handling credit purchase succeeded:", error)
+    throw error
+  }
+}
+
 async function handlePaymentExpired(supabase: any, data: any) {
   try {
-    // Update subscription status to expired
+    // Check if this is a credit purchase
+    if (data.metadata?.type === 'credit_purchase') {
+      // Update credit transaction status
+      await supabase
+        .from("credit_transactions")
+        .update({
+          payment_status: "expired",
+          metadata: {
+            expired_at: data.expiredAt || new Date().toISOString(),
+            payment_provider_data: data
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq("payment_reference", data.id)
+        .eq("payment_status", "pending")
+      
+      console.log(`Credit purchase payment expired: ${data.id}`)
+      return
+    }
+
+    // Otherwise, handle as subscription payment
     await supabase
       .from("subscriptions")
       .update({
@@ -168,7 +274,27 @@ async function handlePaymentExpired(supabase: any, data: any) {
 
 async function handlePaymentCanceled(supabase: any, data: any) {
   try {
-    // Update subscription status to canceled
+    // Check if this is a credit purchase
+    if (data.metadata?.type === 'credit_purchase') {
+      // Update credit transaction status
+      await supabase
+        .from("credit_transactions")
+        .update({
+          payment_status: "canceled",
+          metadata: {
+            canceled_at: data.canceledAt || new Date().toISOString(),
+            payment_provider_data: data
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq("payment_reference", data.id)
+        .eq("payment_status", "pending")
+      
+      console.log(`Credit purchase payment canceled: ${data.id}`)
+      return
+    }
+
+    // Otherwise, handle as subscription payment
     await supabase
       .from("subscriptions")
       .update({

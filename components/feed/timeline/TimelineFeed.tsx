@@ -26,6 +26,7 @@ import { NotificationsView } from "../notifications/NotificationsView"
 import { EventsView } from "../events/EventsView"
 import { CommunitiesView } from "../communities/CommunitiesView"
 import { OpenDates } from "../../dating/OpenDates"
+import { VerificationForm } from "../../verification/VerificationForm"
 
 interface TimelineFeedProps {
   currentMainContent?: string
@@ -310,6 +311,21 @@ export function TimelineFeed({
         )
       case "settings":
         return <SettingsPage />
+      case "verification":
+        return (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Verificação de Conta
+              </h2>
+            </div>
+            <VerificationForm />
+          </motion.div>
+        )
       case "plans":
         // Redirect to plans page
         router.push("/plans")
@@ -327,6 +343,7 @@ export function TimelineFeed({
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
+          data-create-post
         >
           <CreatePost onSuccess={() => handleRefresh()} />
         </motion.div>

@@ -185,7 +185,7 @@ export function SettingsPage() {
                   type="tel"
                   value={settings.phone}
                   onChange={(e) => updateSetting('phone', e.target.value)}
-                  placeholder="+55 11 99999-9999"
+                  placeholder={user?.phone || '+55 11 99999-9999'}
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
                 />
               </div>
@@ -210,7 +210,8 @@ export function SettingsPage() {
                 <Input 
                   id="full_name"
                   value={settings.full_name}
-                  onChange={(e) => updateSetting( full_name, e.target.value)}
+                  onChange={(e) => updateSetting('full_name', e.target.value)}
+                  placeholder={user?.name || 'Seu nome completo'}
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
                 />
               </div>
@@ -220,7 +221,8 @@ export function SettingsPage() {
                 <Textarea 
                   id="bio"
                   value={settings.bio}
-                  onChange={(e) => updateSetting( bio, e.target.value)}
+                  onChange={(e) => updateSetting('bio', e.target.value)}
+                  placeholder={user?.bio || 'Conte um pouco sobre você...'}
                   placeholder="Conte um pouco sobre você..."
                   rows={4}
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
@@ -232,7 +234,8 @@ export function SettingsPage() {
                 <Input 
                   id="location"
                   value={settings.location}
-                  onChange={(e) => updateSetting( location, e.target.value)}
+                  onChange={(e) => updateSetting('location', e.target.value)}
+                  placeholder={user?.location || 'Cidade, Estado'}
                   placeholder="Cidade, Estado"
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
                 />
@@ -244,7 +247,8 @@ export function SettingsPage() {
                   id="website"
                   type="url"
                   value={settings.website}
-                  onChange={(e) => updateSetting( website, e.target.value)}
+                  onChange={(e) => updateSetting('website', e.target.value)}
+                  placeholder={user?.website || 'https://seusite.com'}
                   placeholder="https://seusite.com"
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
                 />
@@ -256,7 +260,8 @@ export function SettingsPage() {
                   id="birth_date"
                   type="date"
                   value={settings.birth_date}
-                  onChange={(e) => updateSetting( birth_date, e.target.value)}
+                  onChange={(e) => updateSetting('birth_date', e.target.value)}
+                  placeholder={user?.birth_date || ''}
                   className="mt-2 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
                 />
               </div>
@@ -280,7 +285,7 @@ export function SettingsPage() {
                 <Label htmlFor="profile_visibility">Visibilidade do perfil</Label>
                 <Select 
                   value={settings.profile_visibility}
-                  onValueChange={(value) => updateSetting( profile_visibility, value)}
+                  onValueChange={(value) => updateSetting('profile_visibility', value)}
                 >
                   <SelectTrigger className="mt-2">
                     <SelectValue />
@@ -304,7 +309,7 @@ export function SettingsPage() {
                   id="show_online_status"
                   checked={settings.show_online_status}
                   onCheckedChange={(checked) => 
-                    updateSetting( show_online_status, checked)
+                    updateSetting('show_online_status', checked)
                   }
                 />
               </div>
@@ -320,7 +325,7 @@ export function SettingsPage() {
                   id="show_last_seen"
                   checked={settings.show_last_seen}
                   onCheckedChange={(checked) => 
-                    updateSetting( show_last_seen, checked)
+                    updateSetting('show_last_seen', checked)
                   }
                 />
               </div>
@@ -329,7 +334,7 @@ export function SettingsPage() {
                 <Label htmlFor="allow_messages_from">Permitir mensagens de</Label>
                 <Select 
                   value={settings.allow_messages_from}
-                  onValueChange={(value) => updateSetting( allow_messages_from, value)}
+                  onValueChange={(value) => updateSetting('allow_messages_from', value)}
                 >
                   <SelectTrigger className="mt-2">
                     <SelectValue />
@@ -370,7 +375,7 @@ export function SettingsPage() {
                     id="email_notifications"
                     checked={settings.email_notifications}
                     onCheckedChange={(checked) => 
-                      updateSetting( email_notifications, checked)
+                      updateSetting('email_notifications', checked)
                     }
                   />
                 </div>
@@ -384,7 +389,7 @@ export function SettingsPage() {
                     id="push_notifications"
                     checked={settings.push_notifications}
                     onCheckedChange={(checked) => 
-                      updateSetting( push_notifications, checked)
+                      updateSetting('push_notifications', checked)
                     }
                   />
                 </div>
@@ -402,7 +407,7 @@ export function SettingsPage() {
                     id="notification_likes"
                     checked={settings.notification_likes}
                     onCheckedChange={(checked) => 
-                      updateSetting( notification_likes, checked)
+                      updateSetting('notification_likes', checked)
                     }
                   />
                 </div>
@@ -416,7 +421,7 @@ export function SettingsPage() {
                     id="notification_comments"
                     checked={settings.notification_comments}
                     onCheckedChange={(checked) => 
-                      updateSetting( notification_comments, checked)
+                      updateSetting('notification_comments', checked)
                     }
                   />
                 </div>
@@ -430,7 +435,7 @@ export function SettingsPage() {
                     id="notification_follows"
                     checked={settings.notification_follows}
                     onCheckedChange={(checked) => 
-                      updateSetting( notification_follows, checked)
+                      updateSetting('notification_follows', checked)
                     }
                   />
                 </div>
@@ -444,7 +449,7 @@ export function SettingsPage() {
                     id="notification_messages"
                     checked={settings.notification_messages}
                     onCheckedChange={(checked) => 
-                      updateSetting( notification_messages, checked)
+                      updateSetting('notification_messages', checked)
                     }
                   />
                 </div>

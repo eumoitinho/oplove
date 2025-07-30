@@ -24,7 +24,7 @@ export function useAuth() {
           const { data: profile } = await supabase
             .from("users")
             .select("*")
-            .eq("auth_id", session.user.id)
+            .eq("id", session.user.id)
             .single()
           
           if (profile && mounted) {
@@ -51,7 +51,7 @@ export function useAuth() {
         const { data: profile } = await supabase
           .from("users")
           .select("*")
-          .eq("auth_id", session.user.id)
+          .eq("id", session.user.id)
           .single()
         
         if (profile && mounted) {

@@ -3,12 +3,13 @@
  */
 
 export type PremiumType = "free" | "gold" | "diamond" | "couple"
+export type AccountType = "personal" | "business"
 
 export interface User {
   id: string
   email: string
   username: string
-  full_name: string
+  name: string // Changed from full_name to match database
   avatar_url: string | null
   cover_url: string | null
   bio: string
@@ -18,6 +19,8 @@ export interface User {
   gender: "male" | "female" | "other" | "prefer_not_to_say" | null
   looking_for: "friendship" | "dating" | "relationship" | "networking" | null
   premium_type: PremiumType
+  account_type?: AccountType // New field for account type
+  business_id?: string | null // Reference to business if account is business type
   is_verified: boolean
   is_online: boolean
   last_seen: string | null

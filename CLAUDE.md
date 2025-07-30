@@ -2,14 +2,15 @@
 
 ## 🎯 Project Overview
 
-OpenLove is a modern social network focused on authentic connections and meaningful relationships. Currently in version 0.3.2-alpha, it's a fully functional platform comparable to major social networks with a focus on adult content monetization and premium features.
+OpenLove is a modern social network focused on authentic connections and meaningful relationships. Currently in version 0.3.3-alpha, it's a fully functional platform comparable to major social networks with a focus on adult content monetization and premium features.
 
 ### Key Information
 - **Tech Stack**: Next.js 15, React 19, TypeScript, Supabase, Tailwind CSS, Redis Upstash
 - **Status**: Production-ready MVP with real payment processing
-- **Monetization**: Subscription plans + content sales with commission model
+- **Monetization**: Subscription plans + content sales + credits system with commission model
 - **Target**: Brazilian market initially, Portuguese language
 - **Cache**: Advanced Redis caching with SWR, compression, analytics, and auto-invalidation
+- **Latest Feature**: Stories system with boosts and gift seals (v0.3.3)
 
 ## 🏗️ Project Structure
 
@@ -24,6 +25,7 @@ OpenLove is a modern social network focused on authentic connections and meaning
 │   ├── /auth             # Authentication components
 │   ├── /feed             # Timeline and posts
 │   ├── /chat             # Messaging system
+│   ├── /stories          # Stories system (new)
 │   ├── /premium          # Paywall and subscriptions
 │   ├── /business         # Business profiles
 │   └── /common           # Shared components
@@ -49,6 +51,7 @@ OpenLove is a modern social network focused on authentic connections and meaning
 - Cannot create events
 - Sees ads every 5 posts
 - 3 photos/month upload limit
+- Can post 3 stories/day (only if verified)
 
 #### Gold Plan (R$25/month)
 - 10 messages/day (unverified), unlimited (verified)
@@ -57,12 +60,15 @@ OpenLove is a modern social network focused on authentic connections and meaning
 - Can join up to 5 communities
 - Cannot create group chats
 - Sees ads every 10 posts
+- Can post 5 stories/day (10 if verified)
+- Cannot boost stories
 
 #### Diamond Plan (R$45/month)
 - Unlimited everything
 - Can create group chats (50 members max)
 - Voice/video calls
-- 24h Stories
+- 24h Stories (10/day unverified, unlimited verified)
+- Can boost stories and profiles
 - Profile analytics
 - Can monetize content
 - No ads
@@ -106,8 +112,22 @@ OpenLove is a modern social network focused on authentic connections and meaning
 - `businesses` - business accounts
 - `paid_content` - monetizable content
 - `advertisements` - ad system
+- `stories` - ephemeral content system (new)
+- `story_views` - view and reaction tracking (new)
+- `user_credits` - credit balance management (new)
+- `profile_seals` - gift seals catalog (new)
 
-### Recent Changes (v0.3.2)
+### Recent Changes
+
+#### v0.3.3 - Stories System
+- Stories with 24h expiration
+- Daily posting limits by plan
+- Story boosts with credits
+- Profile seal gifts
+- Reactions and replies
+- View tracking
+
+#### v0.3.2 - Messaging Update
 ```sql
 -- Added to conversations table
 ALTER TABLE conversations 
@@ -153,6 +173,7 @@ usePremiumFeatures() - Feature flags by plan
 useMessagePermissions() - Chat restrictions
 usePaywall() - Premium content gating
 useRealtime() - WebSocket subscriptions
+useUserCredits() - Credit balance management (new)
 ```
 
 ### API Structure
@@ -162,6 +183,9 @@ useRealtime() - WebSocket subscriptions
 /api/messages/* - Chat system
 /api/payments/* - Stripe/PIX integration
 /api/users/* - Profile management
+/api/stories/* - Stories system (new)
+/api/credits/* - Credits management (new)
+/api/seals/* - Profile seals (new)
 ```
 
 ### Security
@@ -181,13 +205,15 @@ useRealtime() - WebSocket subscriptions
 - Verification system
 - Free user reply feature
 - Group chat restrictions
+- Stories system with boosts (v0.3.3)
+- Credits system and gift seals (v0.3.3)
 
 ### In Progress 🚧
-- Stories feature (Diamond+)
 - Video calls (WebRTC)
 - Business profiles
 - Ad system implementation
 - Content moderation AI
+- Stories analytics dashboard
 
 ### Pending 📝
 - Live streaming
@@ -317,6 +343,297 @@ const canSend = canSendMessage(conversation)
 ```typescript
 if (requiresVerification && !user.is_verified) {
   return <VerificationPrompt />
+}
+```
+
+## 🛡️ Sistema de Verificação de Identidade
+
+OpenLove implementa um sistema completo de verificação de identidade com tecnologia de ponta para máxima segurança e prevenção de fraudes.
+
+### Arquitetura do Sistema
+
+#### Componentes Principais
+- **VerificationForm**: Fluxo principal com múltiplas etapas de verificação
+- **DocumentUpload**: Upload e validação de documentos oficiais (RG, CNH, Passaporte)
+- **FaceScanCapture**: Captura facial 3D usando MediaPipe/FaceDetector API
+- **LivenessDetection**: Detecção de vida real com desafios anti-spoofing
+- **API Processing**: Processamento assíncrono com validação automática
+
+#### Fluxo de Verificação
+
+```typescript
+// 1. Coleta de dados pessoais
+interface PersonalData {
+  fullName: string
+  cpf: string
+  birthDate: string
+  documentType: 'rg' | 'cnh' | 'passport'
+  documentNumber: string
+}
+
+// 2. Upload de documentos
+- Frente do documento (obrigatório)
+- Verso do documento (se aplicável)
+- Validação automática via AI/OCR
+- Detecção de adulteração
+
+// 3. FaceScan 3D
+- Captura de múltiplos ângulos faciais
+- Análise de geometria facial única
+- Geração de template biométrico
+- Detecção de características distintivas
+
+// 4. Liveness Detection
+- Piscar olhos (2x)
+- Sorrir naturalmente
+- Virar cabeça (esquerda/direita)
+- Balançar cabeça (cima/baixo)
+- Análise de movimento natural
+```
+
+### Tecnologias Utilizadas
+
+#### Face Detection APIs
+```typescript
+// 1. Browser Native FaceDetector (preferencial)
+if ('FaceDetector' in window) {
+  const detector = new FaceDetector({
+    fastMode: false,
+    maxDetectedFaces: 1
+  })
+}
+
+// 2. MediaPipe (fallback)
+import { FaceDetection } from '@mediapipe/face_detection'
+const faceDetection = new FaceDetection({
+  model: 'full',
+  minDetectionConfidence: 0.5
+})
+```
+
+#### Liveness Challenges
+```typescript
+interface LivenessChallenge {
+  type: "blink" | "smile" | "turn_left" | "turn_right" | "nod"
+  instruction: string
+  duration: number
+  completed: boolean
+}
+
+// Pontuação automática
+const livenessScore = (completedChallenges / totalChallenges) * 100
+```
+
+### Estrutura do Banco de Dados
+
+#### Tabela user_verifications
+```sql
+CREATE TABLE user_verifications (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  
+  -- Dados pessoais
+  full_name TEXT NOT NULL,
+  cpf TEXT NOT NULL,
+  birth_date DATE NOT NULL,
+  
+  -- Documento
+  document_type TEXT CHECK (document_type IN ('rg', 'cnh', 'passport')),
+  document_number TEXT NOT NULL,
+  
+  -- Arquivos no Storage
+  document_front_url TEXT NOT NULL,
+  document_back_url TEXT,
+  selfie_url TEXT NOT NULL,
+  
+  -- Dados biométricos (JSON)
+  face_scan_data JSONB,
+  
+  -- Status e resultado
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'manual_review')),
+  verification_score DECIMAL(5,2) DEFAULT 0.00,
+  
+  -- Review
+  reviewed_by UUID REFERENCES users(id),
+  reviewer_notes TEXT,
+  
+  -- Timestamps
+  submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Storage Bucket
+```sql
+-- Bucket para documentos de verificação
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('verification-documents', 'verification-documents', false);
+
+-- Políticas RLS para segurança
+CREATE POLICY "Users can upload own verification documents" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'verification-documents' 
+    AND auth.uid()::text = (storage.foldername(name))[2]
+  );
+```
+
+### API Endpoints
+
+#### POST /api/v1/verification/submit
+```typescript
+// Payload
+interface VerificationSubmission {
+  fullName: string
+  cpf: string
+  birthDate: string
+  documentType: string
+  documentNumber: string
+  documentFront: File
+  documentBack?: File
+  selfiePhoto: File
+  faceScanData: string // JSON serialized
+}
+
+// Response
+interface VerificationResponse {
+  success: boolean
+  message: string
+  data: {
+    verificationId: string
+    status: 'pending'
+    expectedReviewTime: '48 horas'
+  }
+}
+```
+
+### Processamento Automático
+
+#### Background Processing
+```typescript
+async function processVerificationAsync(verificationId: string) {
+  // 1. Validação de documentos (AWS Textract, Google Vision)
+  // 2. Comparação facial (selfie vs documento)
+  // 3. Verificação de autenticidade
+  // 4. Consulta em bases de fraude
+  
+  // Simulação: 80% aprovação automática
+  const isApproved = Math.random() > 0.2
+  const score = isApproved ? 85 + Math.random() * 10 : 45 + Math.random() * 20
+  
+  // Atualização automática após 30 segundos
+  setTimeout(async () => {
+    await updateVerificationStatus(verificationId, {
+      status: isApproved ? 'approved' : 'manual_review',
+      verification_score: score,
+      reviewed_at: new Date().toISOString()
+    })
+  }, 30000)
+}
+```
+
+### Segurança e Prevenção de Fraude
+
+#### Anti-Spoofing Measures
+- **Liveness Detection**: Detecta tentativas com fotos/vídeos
+- **3D Face Analysis**: Análise de profundidade facial
+- **Movement Validation**: Validação de movimentos naturais
+- **Quality Assessment**: Análise de qualidade de imagem
+- **Temporal Analysis**: Verificação de consistência temporal
+
+#### Data Protection
+- **Criptografia**: Todos os dados sensíveis criptografados
+- **RLS Policies**: Row Level Security em todas as tabelas
+- **Access Control**: Usuários só acessam próprios dados
+- **Admin Separation**: Políticas separadas para administradores
+- **Audit Trail**: Log completo de todas as ações
+
+### Integração na Interface
+
+#### Acesso ao Sistema
+```typescript
+// Sidebar navigation
+const userMenuItems = [
+  { icon: User, label: "Meu Perfil", view: "user-profile" },
+  { icon: Shield, label: "Verificação", view: "verification" }, // ← Novo
+  { icon: Settings, label: "Configurações", view: "settings" }
+]
+
+// Timeline routing
+case "verification":
+  return <VerificationForm />
+```
+
+#### Status Indicators
+```typescript
+// User profile badge
+{user?.is_verified && (
+  <div className="w-2 h-2 bg-green-500 rounded-full" />
+)}
+
+// Plan benefits
+- Gold: Recursos completos após verificação
+- Diamond: Prioridade na fila de verificação
+- Free: Verificação disponível mas limitada
+```
+
+### Configurações e Customização
+
+#### Environment Variables
+```bash
+# Feature flags
+VERIFICATION_ENABLED=true
+FACESCAN_3D_ENABLED=true
+LIVENESS_DETECTION_ENABLED=true
+
+# Processing
+VERIFICATION_AUTO_APPROVAL_THRESHOLD=80
+VERIFICATION_PROCESSING_DELAY=30000
+VERIFICATION_MAX_RETRIES=3
+
+# Storage
+VERIFICATION_STORAGE_BUCKET=verification-documents
+VERIFICATION_MAX_FILE_SIZE=10485760 # 10MB
+```
+
+#### Customization Options
+```typescript
+// Challenges configuration
+const challengeConfig = {
+  enabledChallenges: ['blink', 'smile', 'turn_left', 'turn_right'],
+  challengeDuration: 3000,
+  minCompletionRate: 0.8,
+  retryLimit: 2
+}
+
+// Document validation
+const documentConfig = {
+  supportedTypes: ['rg', 'cnh', 'passport'],
+  maxFileSize: 10 * 1024 * 1024, // 10MB  
+  requiredQuality: 0.8,
+  ocrValidation: true
+}
+```
+
+### Compliance e Regulamentações
+
+#### LGPD Compliance
+- Consentimento explícito para coleta de dados biométricos
+- Direito ao esquecimento (exclusão de dados)
+- Portabilidade de dados
+- Minimização de dados coletados
+- Transparência no processamento
+
+#### Retention Policies
+```typescript
+// Retenção de dados
+const retentionPolicy = {
+  approvedVerifications: '2 years',
+  rejectedVerifications: '1 year', 
+  biometricData: '1 year after account deletion',
+  documentImages: 'Deleted after approval/rejection',
+  auditLogs: '5 years'
 }
 ```
 
@@ -549,6 +866,178 @@ CACHE_ANALYTICS_ENABLED=true
 4. **Use SWR for critical paths** - Provides instant responses
 5. **Compress large datasets** - Reduces bandwidth costs
 6. **Warm caches proactively** - Better user experience
+
+## 📸 Stories System (v0.3.3)
+
+OpenLove Stories is an ephemeral content system similar to Instagram/WhatsApp Stories, with advanced monetization features.
+
+### Story Features
+
+#### Basic Features
+- **24-hour ephemeral content** - Photos/videos that disappear
+- **Horizontal carousel** - Below main header, above feed
+- **Full-screen viewer** - Immersive viewing experience
+- **Progress indicators** - Shows story progression
+- **Reactions** - 6 emoji options (like, love, fire, wow, sad, angry)
+- **Direct replies** - Send private messages to story creators
+- **View tracking** - See who viewed your stories
+
+#### Advanced Features
+- **Story Boosts** - Pay credits to increase visibility
+- **Profile Seals** - Gift virtual badges to users
+- **Daily limits** - Based on plan and verification
+- **Boost analytics** - Track impressions and engagement
+
+### Daily Story Limits
+
+| Plan | Unverified | Verified |
+|------|------------|----------|
+| Free | 0/day | 3/day |
+| Gold | 5/day | 10/day |
+| Diamond | 10/day | Unlimited |
+| Couple | 10/day | Unlimited |
+
+### Credits System
+
+#### Credit Uses
+1. **Story Boosts**
+   - 6 hours: 50 credits
+   - 12 hours: 90 credits (recommended)
+   - 24 hours: 150 credits
+
+2. **Profile Seals** (15-100 credits)
+   - Coração de Ouro: 50 credits
+   - Diamante: 100 credits
+   - Rosa: 15 credits
+   - And 7 more options...
+
+3. **Trending Boosts**
+   - Feed boost: Variable pricing
+   - Explore page: Variable pricing
+   - OpenDate boost: Variable pricing
+
+#### Credit Packages
+```typescript
+// Example packages (configured in admin)
+{ credits: 100, price: 'R$ 10,00' }
+{ credits: 500, price: 'R$ 45,00' } // 10% bonus
+{ credits: 1000, price: 'R$ 80,00' } // 25% bonus
+```
+
+### Implementation
+
+#### Key Components
+```typescript
+// Stories carousel on feed
+import { StoriesCarousel } from '@/components/stories'
+<StoriesCarousel className="sticky top-16 z-40" />
+
+// Story viewer modal
+import { StoryViewer } from '@/components/stories'
+<StoryViewer 
+  stories={stories} 
+  onClose={() => setViewerOpen(false)} 
+/>
+
+// Story creation
+import { StoryCreator } from '@/components/stories'
+<StoryCreator onSuccess={handleStoryCreated} />
+```
+
+#### API Endpoints
+```typescript
+// Stories CRUD
+GET    /api/v1/stories              // List stories
+POST   /api/v1/stories              // Create story
+DELETE /api/v1/stories/[id]         // Delete story
+
+// Interactions
+POST   /api/v1/stories/[id]/view    // Mark viewed
+POST   /api/v1/stories/[id]/react   // Add reaction
+POST   /api/v1/stories/[id]/reply   // Send reply
+POST   /api/v1/stories/[id]/boost   // Boost story
+
+// Credits
+GET    /api/v1/credits/balance      // Get balance
+POST   /api/v1/seals/gift           // Gift seal
+```
+
+#### Database Tables
+- `stories` - Main story content
+- `story_views` - Views and reactions
+- `story_replies` - Direct messages
+- `story_daily_limits` - Posting limits
+- `story_boosts` - Boost purchases
+- `user_credits` - Credit balances
+- `user_credit_transactions` - Transaction history
+- `profile_seals` - Available seals
+- `user_profile_seals` - Gifted seals
+
+### Business Rules
+
+#### Posting Rules
+1. Only verified free users can post
+2. Limits reset at midnight user timezone
+3. Failed posts don't count against limit
+4. Limits enforced by database triggers
+
+#### Boost Rules
+1. Only story owner can boost
+2. One active boost per story
+3. Credits deducted immediately
+4. Boosts can't be cancelled
+
+#### View Tracking
+1. Each user views once per story
+2. Real-time view count updates
+3. Story owner sees full viewer list
+4. Anonymous viewing not supported
+
+### UI/UX Guidelines
+
+#### Story Creation Flow
+1. Click "+" button in carousel
+2. Select/capture media
+3. Add optional caption
+4. Preview and post
+5. Show success with view count
+
+#### Viewer Experience
+1. Tap to advance, hold to pause
+2. Swipe up for reactions
+3. Swipe left/right for navigation
+4. Auto-advance after duration
+5. Close on swipe down
+
+#### Boost Purchase Flow
+1. Click boost button on own story
+2. Select boost duration
+3. Show estimated reach
+4. Confirm with credit balance
+5. Track performance in real-time
+
+### Performance Considerations
+
+#### Caching Strategy
+```typescript
+// Story feeds cached with SWR
+stories:${userId}:following    // TTL: 5 minutes
+stories:boosted               // TTL: 2 minutes
+story:${storyId}              // TTL: Until expiry
+```
+
+#### Media Optimization
+- Auto-compress images >1MB
+- Generate video thumbnails
+- Progressive loading
+- CDN distribution
+- Lazy load off-screen stories
+
+#### Real-time Updates
+- WebSocket for view counts
+- Optimistic UI updates
+- Background sync
+- Offline story queue
 # Convenções de Código - OpenLove
 
 ## TypeScript

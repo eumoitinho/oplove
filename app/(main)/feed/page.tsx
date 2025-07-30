@@ -6,8 +6,10 @@ import { LeftSidebar, RightSidebar } from "@/components/feed"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/feed/Header"
 import Toast from "@/components/feed/Toast"
-import { Home, Menu, X, ArrowUp } from "lucide-react"
+import StoriesCarousel from "@/components/stories/StoriesCarousel"
+import { Home, Menu, X, ArrowUp, Sparkles, Feather } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
+import { useAuth } from "@/hooks/useAuth"
 
 type ActiveToast = {
   type: "post" | "message" | "like"
@@ -18,17 +20,19 @@ type MainContentType =
   | "timeline"
   | "who-to-follow"
   | "trending-topics"
-  | "upcoming-events"
+  | "upcoming-events"  
   | "user-profile"
   | "notifications"
   | "messages"
   | "saved-items"
   | "settings"
+  | "verification"
   | "support"
   | "stats"
   | "open-dates"
 
 export default function FeedPage() {
+  const { user } = useAuth()
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [activeToast, setActiveToast] = useState<ActiveToast>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -165,9 +169,9 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-slate-950 dark:via-gray-900 dark:to-slate-950 text-gray-900 dark:text-white transition-colors duration-500">
-      {/* Artistic Background */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.15),rgba(0,0,0,0))]" />
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none">
+      {/* Fixed Artistic Background */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.15),rgba(0,0,0,0))]" />
         <div className="absolute top-[10%] left-[5%] w-32 md:w-64 h-32 md:h-64 rounded-full bg-gradient-to-r from-purple-500/5 to-pink-500/5 dark:from-purple-500/10 dark:to-pink-500/10 blur-3xl subtle-breathe" />
         <div
           className="absolute top-[40%] right-[10%] w-40 md:w-80 h-40 md:h-80 rounded-full bg-gradient-to-r from-pink-500/5 to-cyan-500/5 dark:from-pink-500/10 dark:to-cyan-500/10 blur-3xl subtle-breathe"
@@ -187,30 +191,45 @@ export default function FeedPage() {
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
+      {/* Stories Carousel - Full width - Only show when user is authenticated */}
+      {user && (
+        <div className="relative z-10 pt-20">
+          <StoriesCarousel />
+        </div>
+      )}
+
       {/* Main Content Layout */}
-      <main className="relative z-10 max-w-screen-xl mx-auto pt-24 px-4 pb-24 lg:pb-4">
-        {" "}
-        {/* Added pb-24 for floating buttons */}
-        <div className={`grid grid-cols-1 ${isMobileMenuOpen ? "lg:grid-cols-1" : "lg:grid-cols-[280px_1fr]"} ${currentMainContent !== "messages" && !isMobileMenuOpen ? "xl:grid-cols-[280px_1fr_320px]" : ""} gap-6`}>
-          {/* Left Sidebar (Desktop) */}
-          <LeftSidebar 
-            className={`${isMobileMenuOpen ? "hidden" : "hidden lg:block"}`} 
-            onViewChange={handleViewChange} 
-            currentView={currentMainContent} 
-          />
+      <main className={`relative z-10 pb-20 lg:pb-4 ${user ? '' : 'pt-20'}`}>
+        <div className="w-full layout-container px-4">
+          <div className="flex gap-6 max-w-screen-2xl mx-auto">
+            {/* Left Sidebar (Desktop) */}
+            {!isMobileMenuOpen && (
+              <div className="hidden lg:block sidebar-fixed-width" style={{width: '280px'}}>
+                <LeftSidebar 
+                  onViewChange={handleViewChange} 
+                  currentView={currentMainContent} 
+                />
+              </div>
+            )}
 
-          {/* Main Content Area */}
-          <TimelineFeed
-            currentMainContent={currentMainContent}
-            onViewChange={handleTimelineViewChange}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+            {/* Main Content Area with side margins */}
+            <div className="flex-1 min-w-0 lg:max-w-none xl:max-w-[calc(100%-600px)] lg:px-4 xl:px-6 relative">
+              <TimelineFeed
+                currentMainContent={currentMainContent}
+                onViewChange={handleTimelineViewChange}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+              
+            </div>
 
-          {/* Right Sidebar (Desktop) - Hidden on messages view and mobile menu */}
-          {currentMainContent !== "messages" && !isMobileMenuOpen && (
-            <RightSidebar className="hidden xl:block" onViewChange={handleViewChange} currentView={currentMainContent} />
-          )}
+            {/* Right Sidebar (Desktop) - Hidden on messages view and mobile menu */}
+            {currentMainContent !== "messages" && !isMobileMenuOpen && (
+              <div className="hidden xl:block sidebar-fixed-width" style={{width: '320px'}}>
+                <RightSidebar onViewChange={handleViewChange} currentView={currentMainContent} />
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
@@ -226,37 +245,82 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* Floating Buttons (Mobile Only) */}
-      <div className="lg:hidden fixed bottom-4 w-full px-4 z-50 flex justify-between items-center">
-        {/* Left Floating Button (Sidebar / Home) - SOME quando sidebar abre */}
-        {!isMobileMenuOpen && (
-          <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 dark:from-purple-400 dark:via-pink-400 dark:to-cyan-400 p-[0.5px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
-            <Button
-              size="icon"
-              className="w-12 h-12 rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 flex items-center justify-center group"
-              onClick={handleFloatingMenuClick}
-              aria-label={getFloatingMenuLabel()}
-            >
-              {getFloatingMenuIcon()}
-            </Button>
-          </div>
-        )}
 
-        {/* Right Floating Button (Scroll to Top / Close Sidebar) */}
-        {(showScrollToTop || isMobileMenuOpen) && (
-          <div
-            className={`bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 dark:from-purple-400 dark:via-pink-400 dark:to-cyan-400 p-[0.5px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl ${isMobileMenuOpen ? "ml-auto" : ""}`}
+      {/* Bottom Navigation Bar (Mobile Only) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 z-50">
+        <div className="flex items-center justify-around px-4 py-3">
+          {/* Menu/Home Button */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="w-10 h-10 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={handleFloatingMenuClick}
+            aria-label={getFloatingMenuLabel()}
           >
+            {getFloatingMenuIcon()}
+          </Button>
+
+          {/* Create Post Button - Center */}
+          <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 dark:from-purple-400 dark:via-pink-400 dark:to-cyan-400 p-[1px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
             <Button
-              size="icon"
-              className="w-12 h-12 rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 flex items-center justify-center group"
-              onClick={handleRightFloatingButtonClick}
-              aria-label={getRightFloatingButtonLabel()}
+              size="lg"
+              className="w-14 h-14 rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 flex items-center justify-center group shadow-lg"
+              onClick={() => {
+                const createPostElement = document.querySelector('[data-create-post]') as HTMLElement;
+                if (createPostElement) {
+                  createPostElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  // Focus on textarea after scroll
+                  setTimeout(() => {
+                    const textarea = createPostElement.querySelector('textarea');
+                    if (textarea) {
+                      textarea.focus();
+                    }
+                  }, 300);
+                }
+              }}
+              aria-label="Criar Post"
             >
-              {getRightFloatingButtonIcon()}
+              <Feather className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
             </Button>
           </div>
-        )}
+
+          {/* Scroll to Top / Close Menu Button */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="w-10 h-10 rounded-full text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={handleRightFloatingButtonClick}
+            aria-label={getRightFloatingButtonLabel()}
+          >
+            {getRightFloatingButtonIcon()}
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop Create Post Button - Fixed bottom right */}
+      <div className="hidden lg:block fixed bottom-6 right-6 z-50">
+        <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 dark:from-purple-400 dark:via-pink-400 dark:to-cyan-400 p-[1px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
+          <Button
+            size="lg"
+            className="w-16 h-16 rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 flex items-center justify-center group shadow-lg"
+            onClick={() => {
+              const createPostElement = document.querySelector('[data-create-post]') as HTMLElement;
+              if (createPostElement) {
+                createPostElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Focus on textarea after scroll
+                setTimeout(() => {
+                  const textarea = createPostElement.querySelector('textarea');
+                  if (textarea) {
+                    textarea.focus();
+                  }
+                }, 300);
+              }
+            }}
+            aria-label="Criar Post"
+          >
+            <Feather className="w-7 h-7 group-hover:rotate-12 transition-transform duration-300" />
+          </Button>
+        </div>
       </div>
 
       {/* Toast Notification */}

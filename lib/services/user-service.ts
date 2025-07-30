@@ -28,7 +28,7 @@ export class UserService {
   // Update user profile
   static async updateUserProfile(
     userId: string, 
-    updates: Partial<Pick<User, 'bio' | 'location' | 'website' | 'avatar_url' | 'full_name'>>
+    updates: Partial<Pick<User, 'bio' | 'location' | 'website' | 'avatar_url' | 'name'>>
   ): Promise<{ data: User | null; error: string | null }> {
     try {
       const { data, error } = await supabase
@@ -56,27 +56,45 @@ export class UserService {
   // Upload avatar to Supabase Storage
   static async uploadAvatar(userId: string, file: File): Promise<{ data: string | null; error: string | null }> {
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${userId}/avatar.${fileExt}`
+      const { StorageService } = await import('./storage.service')
+      
+      const result = await StorageService.uploadFile({
+        userId,
+        file,
+        type: 'avatar',
+        isServer: false
+      })
 
-      // Upload file to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) {
-        console.error('Error uploading avatar:', uploadError)
-        return { data: null, error: uploadError.message }
+      if (result.error) {
+        return { data: null, error: result.error }
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName)
-
-      return { data: publicUrl, error: null }
+      return { data: result.url, error: null }
     } catch (error) {
       console.error('Error in uploadAvatar:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  }
+
+  // Upload cover image to Supabase Storage
+  static async uploadCover(userId: string, file: File): Promise<{ data: string | null; error: string | null }> {
+    try {
+      const { StorageService } = await import('./storage.service')
+      
+      const result = await StorageService.uploadFile({
+        userId,
+        file,
+        type: 'cover',
+        isServer: false
+      })
+
+      if (result.error) {
+        return { data: null, error: result.error }
+      }
+
+      return { data: result.url, error: null }
+    } catch (error) {
+      console.error('Error in uploadCover:', error)
       return { data: null, error: (error as Error).message }
     }
   }

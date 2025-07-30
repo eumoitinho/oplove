@@ -36,7 +36,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 import { useMessagePermissions } from "@/hooks/useMessagePermissions"
 import { messagesService, type Message, type Conversation, PlanLimitError } from "@/lib/services/messages-service"
-import { toast } from "sonner"
+import { notification } from "@/lib/services/notification-service"
 import { createClient } from "@/app/lib/supabase-browser"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -122,7 +122,7 @@ export function MessagesView() {
       setConversations(data || [])
     } catch (error) {
       console.error('Error loading conversations:', error)
-      toast.error('Erro ao carregar conversas')
+      notification.error('Erro ao carregar conversas')
     } finally {
       setLoading(false)
     }
@@ -134,7 +134,7 @@ export function MessagesView() {
       setMessages(data)
     } catch (error) {
       console.error('Error loading messages:', error)
-      toast.error('Erro ao carregar mensagens')
+      notification.error('Erro ao carregar mensagens')
     }
   }
 
@@ -208,13 +208,13 @@ export function MessagesView() {
     // Check permissions
     if (!permissions.canSendMessage(conversation)) {
       if (permissions.isFreePlan) {
-        toast.error('Usuários gratuitos não podem enviar mensagens. Faça upgrade para Gold!')
+        notification.error('Usuários gratuitos não podem enviar mensagens. Faça upgrade para Gold!')
       } else if (permissions.isGoldPlan && !permissions.isVerified) {
         const remaining = permissions.getRemainingMessages()
         if (remaining === 0) {
-          toast.error('Limite diário de mensagens atingido. Verifique sua conta para mensagens ilimitadas!')
+          notification.error('Limite diário de mensagens atingido. Verifique sua conta para mensagens ilimitadas!')
         } else {
-          toast.error(`Você tem ${remaining} mensagens restantes hoje`)
+          notification.error(`Você tem ${remaining} mensagens restantes hoje`)
         }
       }
       return
@@ -233,15 +233,15 @@ export function MessagesView() {
       if (permissions.isGoldPlan && !permissions.isVerified) {
         const remaining = permissions.getRemainingMessages() - 1
         if (remaining > 0 && remaining <= 3) {
-          toast.info(`${remaining} mensagens restantes hoje`)
+          notification.info(`${remaining} mensagens restantes hoje`)
         }
       }
     } catch (error) {
       console.error('Error sending message:', error)
       if (error instanceof PlanLimitError) {
-        toast.error(error.message)
+        notification.error(error.message)
       } else {
-        toast.error('Erro ao enviar mensagem')
+        notification.error('Erro ao enviar mensagem')
       }
     }
   }
@@ -276,7 +276,7 @@ export function MessagesView() {
 
     // Check file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Máximo 50MB')
+      notification.error('Arquivo muito grande. Máximo 50MB')
       return
     }
 
@@ -297,16 +297,16 @@ export function MessagesView() {
         if (type === 'photo') {
           const remaining = permissions.getRemainingPhotos()
           if (remaining === 0) {
-            toast.error('Limite mensal de fotos atingido. Faça upgrade para Gold!')
+            notification.error('Limite mensal de fotos atingido. Faça upgrade para Gold!')
           } else {
-            toast.error(`Você tem ${remaining} fotos restantes este mês`)
+            notification.error(`Você tem ${remaining} fotos restantes este mês`)
           }
         } else {
-          toast.error('Usuários gratuitos não podem enviar vídeos. Faça upgrade para Gold!')
+          notification.error('Usuários gratuitos não podem enviar vídeos. Faça upgrade para Gold!')
         }
       } else {
         const remaining = type === 'photo' ? permissions.getRemainingPhotos() : permissions.getRemainingVideos()
-        toast.error(`Limite mensal de ${type === 'photo' ? 'fotos' : 'vídeos'} atingido (${remaining} restantes)`)
+        notification.error(`Limite mensal de ${type === 'photo' ? 'fotos' : 'vídeos'} atingido (${remaining} restantes)`)
       }
       return
     }
@@ -327,13 +327,13 @@ export function MessagesView() {
       
       setSelectedFile(null)
       setUploadProgress(0)
-      toast.success('Arquivo enviado!')
+      notification.success('Arquivo enviado!')
     } catch (error) {
       console.error('Error sending file:', error)
       if (error instanceof PlanLimitError) {
-        toast.error(error.message)
+        notification.error(error.message)
       } else {
-        toast.error('Erro ao enviar arquivo')
+        notification.error('Erro ao enviar arquivo')
       }
     }
   }
@@ -360,7 +360,7 @@ export function MessagesView() {
       setIsRecording(true)
     } catch (error) {
       console.error('Error starting recording:', error)
-      toast.error('Erro ao acessar microfone')
+      notification.error('Erro ao acessar microfone')
     }
   }
 
@@ -382,10 +382,10 @@ export function MessagesView() {
         user.id,
         audioBlob
       )
-      toast.success('Áudio enviado!')
+      notification.success('Áudio enviado!')
     } catch (error) {
       console.error('Error sending audio:', error)
-      toast.error('Erro ao enviar áudio')
+      notification.error('Erro ao enviar áudio')
     }
   }
 
@@ -401,10 +401,10 @@ export function MessagesView() {
       )
       setEditingMessage(null)
       setEditContent("")
-      toast.success('Mensagem editada')
+      notification.success('Mensagem editada')
     } catch (error) {
       console.error('Error editing message:', error)
-      toast.error('Erro ao editar mensagem')
+      notification.error('Erro ao editar mensagem')
     }
   }
 
@@ -414,10 +414,10 @@ export function MessagesView() {
 
     try {
       await messagesService.deleteMessage(messageId, user.id)
-      toast.success('Mensagem apagada')
+      notification.success('Mensagem apagada')
     } catch (error) {
       console.error('Error deleting message:', error)
-      toast.error('Erro ao apagar mensagem')
+      notification.error('Erro ao apagar mensagem')
     }
   }
 
@@ -426,20 +426,20 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      toast.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
       return
     }
 
     try {
       await messagesService.initiateVoiceCall(selectedConversation, user.id)
       // Here you would integrate with WebRTC service
-      toast.info('Iniciando chamada de voz...')
+      notification.info('Iniciando chamada de voz...')
     } catch (error) {
       console.error('Error initiating voice call:', error)
       if (error instanceof PlanLimitError) {
-        toast.error(error.message)
+        notification.error(error.message)
       } else {
-        toast.error('Erro ao iniciar chamada')
+        notification.error('Erro ao iniciar chamada')
       }
     }
   }
@@ -449,20 +449,20 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      toast.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
       return
     }
 
     try {
       await messagesService.initiateVideoCall(selectedConversation, user.id)
       // Here you would integrate with WebRTC service
-      toast.info('Iniciando chamada de vídeo...')
+      notification.info('Iniciando chamada de vídeo...')
     } catch (error) {
       console.error('Error initiating video call:', error)
       if (error instanceof PlanLimitError) {
-        toast.error(error.message)
+        notification.error(error.message)
       } else {
-        toast.error('Erro ao iniciar chamada')
+        notification.error('Erro ao iniciar chamada')
       }
     }
   }
@@ -900,10 +900,10 @@ export function MessagesView() {
                 className="rounded-full hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => {
                   if (permissions.isFreePlan) {
-                    toast.error('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
+                    notification.error('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
                   } else {
                     // TODO: Implement new conversation modal
-                    toast.info('Em breve: Nova conversa')
+                    notification.info('Em breve: Nova conversa')
                   }
                 }}
                 disabled={permissions.isFreePlan}

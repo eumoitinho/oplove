@@ -7,15 +7,19 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, Camera, ArrowRight, ArrowLeft, Mail, Lock, User, AtSign, Calendar, Star, Gem, Crown, Check, Heart, Users } from "lucide-react"
+import { MapPin, Camera, ArrowRight, ArrowLeft, Mail, Lock, User, AtSign, Calendar, Star, Gem, Crown, Check, Heart, Users, Building2 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/app/lib/supabase-browser"
 import { toast } from "sonner"
 import type { PremiumType } from "@/types/user.types"
+import { PaymentModal } from "@/components/common/PaymentModal"
 
 interface FormData {
+  // Account type selection
+  accountType: "personal" | "business"
+  
   // Basic user info (matching database schema)
   name: string
   username: string
@@ -51,7 +55,11 @@ interface FormErrors {
 export function RegisterForm() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [formData, setFormData] = useState<FormData>({
+    // Account type
+    accountType: "personal",
+    
     // Basic info
     name: "",
     username: "",
@@ -222,6 +230,9 @@ export function RegisterForm() {
     const newErrors: FormErrors = {}
 
     if (step === 1) {
+      // Account type selection validation
+      if (!formData.accountType) newErrors.accountType = "Selecione um tipo de conta"
+    } else if (step === 2) {
       // Basic info validation
       if (!formData.name) newErrors.name = "Nome completo é obrigatório"
       else if (formData.name.length < 2) newErrors.name = "Nome deve ter pelo menos 2 caracteres"
@@ -253,22 +264,26 @@ export function RegisterForm() {
           newErrors.birthDate = "Você deve ter pelo menos 18 anos"
         }
       }
-    } else if (step === 2) {
-      // Profile preferences validation
-      if (!formData.gender) newErrors.gender = "Selecione seu gênero"
-      if (!formData.lookingFor) newErrors.lookingFor = "Selecione o que você procura"
     } else if (step === 3) {
+      // Profile preferences validation - Skip for business accounts
+      if (formData.accountType === "personal") {
+        if (!formData.gender) newErrors.gender = "Selecione seu gênero"
+        if (!formData.lookingFor) newErrors.lookingFor = "Selecione o que você procura"
+      }
+    } else if (step === 4) {
       // Profile details validation
       if (!formData.bio) newErrors.bio = "Bio é obrigatória"
       else if (formData.bio.length < 10) newErrors.bio = "Bio deve ter pelo menos 10 caracteres"
       
       // Profile picture is optional in the database, so we won't require it
-    } else if (step === 4) {
+    } else if (step === 5) {
       // Location validation
       if (!formData.city) newErrors.city = "Cidade é obrigatória"
-    } else if (step === 5) {
-      // Plan and terms validation
-      if (!formData.plan) newErrors.plan = "Selecione um plano"
+    } else if (step === 6) {
+      // Plan and terms validation - Different plans for business
+      if (formData.accountType === "personal") {
+        if (!formData.plan) newErrors.plan = "Selecione um plano"
+      }
       if (!formData.termsAccepted) newErrors.terms = "Você deve aceitar os termos de uso"
       if (!formData.privacyAccepted) newErrors.privacy = "Você deve aceitar a política de privacidade"
     }
@@ -280,12 +295,26 @@ export function RegisterForm() {
   // Handle navigation
   const handleNext = () => {
     if (validateStep()) {
-      setStep((prev) => Math.min(prev + 1, 5))
+      let nextStep = step + 1
+      
+      // Skip profile preferences for business accounts
+      if (formData.accountType === "business" && nextStep === 3) {
+        nextStep = 4
+      }
+      
+      setStep(Math.min(nextStep, 6))
     }
   }
 
   const handleBack = () => {
-    setStep((prev) => Math.max(prev - 1, 1))
+    let prevStep = step - 1
+    
+    // Skip profile preferences for business accounts when going back
+    if (formData.accountType === "business" && prevStep === 3) {
+      prevStep = 2
+    }
+    
+    setStep(Math.max(prevStep, 1))
   }
 
   // Handle plan selection
@@ -329,13 +358,20 @@ export function RegisterForm() {
         
         // Update user profile with additional information
         if (result.data?.user) {
+          const updateData: any = {
+            bio: formData.bio,
+            location: `${formData.city}, ${formData.state}`,
+            account_type: formData.accountType
+          }
+
+          // Only set premium_type for personal accounts
+          if (formData.accountType === "personal") {
+            updateData.premium_type = formData.plan
+          }
+
           const { error: updateError } = await supabase
             .from("users")
-            .update({
-              bio: formData.bio,
-              location: `${formData.city}, ${formData.state}`,
-              premium_type: formData.plan
-            })
+            .update(updateData)
             .eq("id", result.data.user.id)
 
           if (updateError) {
@@ -344,22 +380,30 @@ export function RegisterForm() {
 
           // Upload profile picture if exists
           if (formData.profilePicture) {
-            const fileExt = formData.profilePicture.name.split('.').pop()
-            const fileName = `${result.data.user.id}-${Date.now()}.${fileExt}`
-            
-            const { error: uploadError } = await supabase.storage
-              .from('profile-pictures')
-              .upload(fileName, formData.profilePicture)
+            try {
+              // Upload to the new upload API endpoint
+              const uploadFormData = new FormData()
+              uploadFormData.append('file', formData.profilePicture)
+              uploadFormData.append('type', 'avatar')
 
-            if (!uploadError) {
-              const { data: { publicUrl } } = supabase.storage
-                .from('profile-pictures')
-                .getPublicUrl(fileName)
+              const uploadResponse = await fetch('/api/v1/upload', {
+                method: 'POST',
+                body: uploadFormData
+              })
 
-              await supabase
-                .from("users")
-                .update({ avatar_url: publicUrl })
-                .eq("id", result.data.user.id)
+              if (uploadResponse.ok) {
+                const { url } = await uploadResponse.json()
+                
+                // Update user profile with avatar URL
+                await supabase
+                  .from("users")
+                  .update({ avatar_url: url })
+                  .eq("id", result.data.user.id)
+              } else {
+                console.error('Failed to upload profile picture')
+              }
+            } catch (error) {
+              console.error('Error uploading profile picture:', error)
             }
           }
         }
@@ -376,10 +420,16 @@ export function RegisterForm() {
           return
         }
 
-        // Redirect based on plan
+        // Handle routing based on account type
+        if (formData.accountType === "business") {
+          toast.success("Conta empresarial criada! Redirecionando para configurar seu negócio...")
+          router.push("/business/register")
+          return
+        }
+
+        // Open payment modal for paid plans (personal accounts only)
         if (formData.plan !== "free") {
-          const checkoutUrl = `/checkout?plan=${formData.plan}&email=${encodeURIComponent(formData.email)}`
-          router.push(checkoutUrl as any)
+          setShowPaymentModal(true)
           return
         }
 
@@ -399,7 +449,7 @@ export function RegisterForm() {
     <div className="w-full">
       {/* Progress Indicator */}
       <div className="flex justify-center mb-6 gap-2">
-        {[1, 2, 3, 4, 5].map((s) => (
+        {[1, 2, 3, 4, 5, 6].map((s) => (
           <div
             key={s}
             className={`h-2 w-2 rounded-full transition-colors ${
@@ -413,8 +463,89 @@ export function RegisterForm() {
 
       {/* Form Steps */}
       <div className="space-y-6">
-        {/* Step 1: Basic Info */}
+        {/* Step 1: Account Type Selection */}
         {step === 1 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-center">Tipo de Conta</h2>
+            <p className="text-center text-gray-600 dark:text-gray-400">
+              Escolha o tipo de conta que melhor se adequa às suas necessidades
+            </p>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {/* Personal Account */}
+              <div
+                className={`relative rounded-lg border-2 p-6 transition-all cursor-pointer hover:shadow-md ${
+                  formData.accountType === "personal" 
+                    ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20" 
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+                onClick={() => setFormData(prev => ({ ...prev, accountType: "personal" }))}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-full bg-pink-100 dark:bg-pink-900/50">
+                    <Heart className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-semibold">Conta Pessoal</h3>
+                      {formData.accountType === "personal" && <Check className="w-5 h-5 text-pink-600" />}
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-3">
+                      Para pessoas que querem se conectar, fazer amigos e encontrar relacionamentos
+                    </p>
+                    <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                      <li>• Criar perfil pessoal</li>
+                      <li>• Enviar mensagens e fazer posts</li>
+                      <li>• Participar de comunidades</li>
+                      <li>• Encontrar eventos e pessoas</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Business Account */}
+              <div
+                className={`relative rounded-lg border-2 p-6 transition-all cursor-pointer hover:shadow-md ${
+                  formData.accountType === "business" 
+                    ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20" 
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+                onClick={() => setFormData(prev => ({ ...prev, accountType: "business" }))}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/50">
+                    <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-semibold">Conta Profissional</h3>
+                      {formData.accountType === "business" && <Check className="w-5 h-5 text-purple-600" />}
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-3">
+                      Para empresas, criadores de conteúdo e profissionais
+                    </p>
+                    <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                      <li>• Criar perfil empresarial</li>
+                      <li>• Fazer anúncios e campanhas</li>
+                      <li>• Vender conteúdo e serviços</li>
+                      <li>• Dashboard e analytics</li>
+                      <li>• Criar eventos e promoções</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Dica:</strong> Você pode converter uma conta pessoal em profissional mais tarde se desejar.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Basic Info */}
+        {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Informações Básicas</h2>
             
@@ -549,8 +680,8 @@ export function RegisterForm() {
           </div>
         )}
 
-        {/* Step 2: Profile Preferences */}
-        {step === 2 && (
+        {/* Step 3: Profile Preferences - Only for personal accounts */}
+        {step === 3 && formData.accountType === "personal" && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Preferências do Perfil</h2>
             
@@ -598,8 +729,8 @@ export function RegisterForm() {
           </div>
         )}
 
-        {/* Step 3: Profile Details */}
-        {step === 3 && (
+        {/* Step 4: Profile Details */}
+        {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Detalhes do Perfil</h2>
             
@@ -675,8 +806,8 @@ export function RegisterForm() {
           </div>
         )}
 
-        {/* Step 4: Location */}
-        {step === 4 && (
+        {/* Step 5: Location */}
+        {step === 5 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Localização</h2>
             
@@ -717,12 +848,14 @@ export function RegisterForm() {
           </div>
         )}
 
-        {/* Step 5: Plan Selection & Terms */}
-        {step === 5 && (
+        {/* Step 6: Plan Selection & Terms */}
+        {step === 6 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">Escolha seu Plano</h2>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {formData.accountType === "personal" ? (
+              <>
+                <h2 className="text-xl font-semibold text-center">Escolha seu Plano</h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Free Plan */}
               <div
                 className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
@@ -832,9 +965,29 @@ export function RegisterForm() {
                   <li>✓ Jogos exclusivos</li>
                 </ul>
               </div>
-            </div>
+                </div>
 
-            {errors.plan && <p className="text-sm text-red-500">{errors.plan}</p>}
+                {errors.plan && <p className="text-sm text-red-500">{errors.plan}</p>}
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold text-center">Termos para Conta Profissional</h2>
+                
+                <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                  <h3 className="font-semibold mb-2">Conta Profissional Inclui:</h3>
+                  <ul className="space-y-2 text-sm">
+                    <li>• Dashboard completo com analytics</li>
+                    <li>• Sistema de créditos para anúncios</li>
+                    <li>• Criação de campanhas publicitárias</li>
+                    <li>• Venda de conteúdo e serviços</li>
+                    <li>• Suporte prioritário</li>
+                  </ul>
+                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                    Após criar sua conta, você será direcionado para configurar seu perfil empresarial.
+                  </p>
+                </div>
+              </>
+            )}
 
             {/* Terms and Privacy */}
             <div className="space-y-3 mt-6">
@@ -887,11 +1040,11 @@ export function RegisterForm() {
         </Button>
         
         <Button
-          onClick={step === 5 ? handleSubmit : handleNext}
-          disabled={loading || (step === 1 && checkingUsername)}
+          onClick={step === 6 ? handleSubmit : handleNext}
+          disabled={loading || (step === 2 && checkingUsername)}
           className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
         >
-          {loading ? "Processando..." : step === 5 ? "Criar Conta" : "Próximo"}
+          {loading ? "Processando..." : step === 6 ? "Criar Conta" : "Próximo"}
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
@@ -912,6 +1065,17 @@ export function RegisterForm() {
           Faça login
         </Link>
       </p>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        selectedPlan={formData.plan as "gold" | "diamond" | "couple"}
+        onSuccess={() => {
+          toast.success("Pagamento processado com sucesso!")
+          router.push("/feed")
+        }}
+      />
     </div>
   )
 }

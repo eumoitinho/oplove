@@ -16,7 +16,7 @@ export function TestAuth() {
     const { data: profile, error } = await supabase
       .from("users")
       .select("*")
-      .eq("auth_id", session?.user?.id)
+      .eq("id", session?.user?.id)
       .single()
     
     console.log("Profile:", profile)
@@ -25,7 +25,7 @@ export function TestAuth() {
     // 3. Testar query sem auth (se RLS estiver causando problema)
     const { data: allUsers, error: allError } = await supabase
       .from("users")
-      .select("auth_id, username")
+      .select("id, username")
       .limit(5)
     
     console.log("All users:", allUsers)

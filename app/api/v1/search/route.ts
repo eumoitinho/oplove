@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       let usersQuery = supabase
         .from("users")
         .select("*")
-        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,bio.ilike.%${query}%`)
+        .or(`username.ilike.%${query}%,name.ilike.%${query}%,bio.ilike.%${query}%`)
         .limit(limit)
         .range(offset, offset + limit - 1)
 

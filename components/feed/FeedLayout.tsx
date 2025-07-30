@@ -67,9 +67,9 @@ export function FeedLayout({ children }: FeedLayoutProps) {
       )}
 
       <main className="h-[calc(100vh-5rem)] overflow-hidden">
-        <div className="container mx-auto px-4 h-full">
+        <div className="container mx-auto px-2 xs:px-4 h-full">
           <div className="max-w-7xl mx-auto h-full">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-full">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 xs:gap-4 md:gap-6 h-full">
             {/* Left Sidebar - Hidden on mobile, shown as slide-out menu */}
             <div
               className={cn(
@@ -77,7 +77,7 @@ export function FeedLayout({ children }: FeedLayoutProps) {
                 "transform transition-transform duration-300 ease-in-out",
                 "md:transform-none md:col-span-3",
                 "bg-white dark:bg-gray-800 md:bg-transparent",
-                "w-80 md:w-auto h-full",
+                "w-[280px] xs:w-80 md:w-auto h-full",
                 "md:block",
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
               )}

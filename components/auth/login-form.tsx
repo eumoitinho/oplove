@@ -93,8 +93,39 @@ export function LoginForm() {
           // Aguardar um pouco para garantir que a sessão seja estabelecida
           await new Promise(resolve => setTimeout(resolve, 100))
           
-          // Redirecionar para o feed
-          router.push("/feed")
+          // Try to get user profile to check account type
+          try {
+            const { data: userData, error: userError } = await supabase
+              .from("users")
+              .select("id, business_id")
+              .eq("id", data.user.id)
+              .single()
+            
+            if (!userError && userData) {
+              // Check if user has account_type column
+              const { data: userWithType } = await supabase
+                .from("users")
+                .select("account_type")
+                .eq("id", data.user.id)
+                .single()
+              
+              // Redirect based on account type if column exists
+              if (userWithType?.account_type === "business" && userData?.business_id) {
+                router.push("/business/dashboard")
+              } else if (userWithType?.account_type === "business" && !userData?.business_id) {
+                router.push("/business/register")
+              } else {
+                router.push("/feed")
+              }
+            } else {
+              // Default redirect if user not found
+              router.push("/feed")
+            }
+          } catch (error) {
+            console.error("Error checking user type:", error)
+            // Default redirect on error
+            router.push("/feed")
+          }
         }
       } catch (error) {
         console.error("Sign in error:", error)
@@ -126,14 +157,48 @@ export function LoginForm() {
       if (error) {
         setErrors({ email: "", password: "", code: "Código inválido ou expirado" })
         toast.error("Código inválido")
-      } else {
+      } else if (data.user) {
         toast.success("Verificação realizada com sucesso!")
-        const targetUrl = redirectUrl || "/feed"
-        console.log("Redirecionando após verificação para:", targetUrl)
-        // Aguardar um pouco para garantir que a sessão seja estabelecida
-        setTimeout(() => {
-          router.push(targetUrl as any)
-        }, 500)
+        
+        // Try to get user profile to check account type
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("id, business_id")
+            .eq("id", data.user.id)
+            .single()
+          
+          let targetUrl = redirectUrl || "/feed"
+          
+          if (!userError && userData) {
+            // Check if user has account_type column
+            const { data: userWithType } = await supabase
+              .from("users")
+              .select("account_type")
+              .eq("id", data.user.id)
+              .single()
+            
+            // Determine redirect URL based on account type if column exists
+            if (userWithType?.account_type === "business" && userData?.business_id) {
+              targetUrl = "/business/dashboard"
+            } else if (userWithType?.account_type === "business" && !userData?.business_id) {
+              targetUrl = "/business/register"
+            }
+          }
+          
+          console.log("Redirecionando após verificação para:", targetUrl)
+          // Aguardar um pouco para garantir que a sessão seja estabelecida
+          setTimeout(() => {
+            router.push(targetUrl as any)
+          }, 500)
+        } catch (error) {
+          console.error("Error checking user type in verification:", error)
+          // Default redirect on error
+          const targetUrl = redirectUrl || "/feed"
+          setTimeout(() => {
+            router.push(targetUrl as any)
+          }, 500)
+        }
       }
     } catch (error) {
       console.error("Verification error:", error)
