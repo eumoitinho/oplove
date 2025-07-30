@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis'
+import { trackCacheOperation } from './cache-analytics'
 
 // Initialize Redis client
 export const redis = new Redis({
@@ -17,9 +18,15 @@ export const CACHE_KEYS = {
   USER_STATS: (userId: string) => `user_stats:${userId}`,
   USER_FOLLOWERS: (userId: string) => `followers:${userId}`,
   USER_FOLLOWING: (userId: string) => `following:${userId}`,
+  USER_PREFERENCES: (userId: string) => `user_prefs:${userId}`,
+  USER_POSTS_COUNT: (userId: string) => `user_posts_count:${userId}`,
+  USER_LIKED_POSTS: (userId: string) => `user_liked_posts:${userId}`,
+  USER_PREMIUM_CONTENT: (userId: string) => `user_premium:${userId}`,
+  USER_SUBSCRIPTION: (userId: string) => `user_sub:${userId}`,
   
   // Content caches
   POST: (postId: string) => `post:${postId}`,
+  POST_DETAILS: (postId: string) => `post_details:${postId}`,
   POST_COMMENTS: (postId: string, page: number) => `post_comments:${postId}:${page}`,
   POST_LIKES: (postId: string) => `post_likes:${postId}`,
   
@@ -74,10 +81,34 @@ export class CacheService {
    * Get cached data with automatic JSON parsing
    */
   static async get<T>(key: string): Promise<T | null> {
+    const startTime = performance.now()
     try {
       const data = await redis.get(key)
+      const responseTime = performance.now() - startTime
+      
+      // Track analytics
+      trackCacheOperation({
+        key,
+        operation: 'get',
+        hit: data !== null,
+        responseTime,
+        timestamp: Date.now()
+      })
+      
       return data as T
     } catch (error) {
+      const responseTime = performance.now() - startTime
+      
+      // Track error
+      trackCacheOperation({
+        key,
+        operation: 'get',
+        hit: false,
+        responseTime,
+        timestamp: Date.now(),
+        error: (error as Error).message
+      })
+      
       console.error('Cache get error:', error)
       return null
     }
@@ -87,10 +118,36 @@ export class CacheService {
    * Set cached data with TTL
    */
   static async set(key: string, value: any, ttl: number): Promise<boolean> {
+    const startTime = performance.now()
     try {
-      await redis.setex(key, ttl, JSON.stringify(value))
+      const serialized = JSON.stringify(value)
+      await redis.setex(key, ttl, serialized)
+      const responseTime = performance.now() - startTime
+      
+      // Track analytics
+      trackCacheOperation({
+        key,
+        operation: 'set',
+        hit: true,
+        responseTime,
+        timestamp: Date.now(),
+        size: new Blob([serialized]).size
+      })
+      
       return true
     } catch (error) {
+      const responseTime = performance.now() - startTime
+      
+      // Track error
+      trackCacheOperation({
+        key,
+        operation: 'set',
+        hit: false,
+        responseTime,
+        timestamp: Date.now(),
+        error: (error as Error).message
+      })
+      
       console.error('Cache set error:', error)
       return false
     }
@@ -100,12 +157,77 @@ export class CacheService {
    * Delete cached data
    */
   static async del(key: string | string[]): Promise<boolean> {
+    const startTime = performance.now()
     try {
       const keys = Array.isArray(key) ? key : [key]
       await redis.del(...keys)
+      const responseTime = performance.now() - startTime
+      
+      // Track analytics for each key
+      keys.forEach(k => {
+        trackCacheOperation({
+          key: k,
+          operation: 'delete',
+          hit: true,
+          responseTime,
+          timestamp: Date.now()
+        })
+      })
+      
       return true
     } catch (error) {
+      const responseTime = performance.now() - startTime
+      const keys = Array.isArray(key) ? key : [key]
+      
+      // Track error for each key
+      keys.forEach(k => {
+        trackCacheOperation({
+          key: k,
+          operation: 'delete',
+          hit: false,
+          responseTime,
+          timestamp: Date.now(),
+          error: (error as Error).message
+        })
+      })
+      
       console.error('Cache delete error:', error)
+      return false
+    }
+  }
+
+  /**
+   * Alias for del method
+   */
+  static async delete(key: string | string[]): Promise<boolean> {
+    return this.del(key)
+  }
+
+  /**
+   * Delete by pattern
+   */
+  static async deletePattern(pattern: string): Promise<boolean> {
+    try {
+      const keys = await redis.keys(pattern)
+      if (keys.length > 0) {
+        return this.del(keys)
+      }
+      return true
+    } catch (error) {
+      console.error('Cache deletePattern error:', error)
+      return false
+    }
+  }
+
+  /**
+   * Flush all cache data
+   */
+  static async flushAll(): Promise<boolean> {
+    try {
+      await redis.flushall()
+      return true
+    } catch (error) {
+      console.error('Cache flushAll error:', error)
       return false
     }
   }

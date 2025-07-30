@@ -5,10 +5,11 @@
 OpenLove is a modern social network focused on authentic connections and meaningful relationships. Currently in version 0.3.2-alpha, it's a fully functional platform comparable to major social networks with a focus on adult content monetization and premium features.
 
 ### Key Information
-- **Tech Stack**: Next.js 15, React 19, TypeScript, Supabase, Tailwind CSS
+- **Tech Stack**: Next.js 15, React 19, TypeScript, Supabase, Tailwind CSS, Redis Upstash
 - **Status**: Production-ready MVP with real payment processing
 - **Monetization**: Subscription plans + content sales with commission model
 - **Target**: Brazilian market initially, Portuguese language
+- **Cache**: Advanced Redis caching with SWR, compression, analytics, and auto-invalidation
 
 ## 🏗️ Project Structure
 
@@ -28,7 +29,10 @@ OpenLove is a modern social network focused on authentic connections and meaning
 │   └── /common           # Shared components
 ├── /hooks                # Custom React hooks
 ├── /lib                  # Core libraries
-├── /services             # API services
+│   ├── /cache           # Redis caching layer
+│   ├── /services        # Business logic services
+│   ├── /stores         # Zustand state management
+│   └── /utils          # Helper utilities
 ├── /types                # TypeScript definitions
 ├── /utils                # Helper functions
 └── /supabase            # Database migrations
@@ -315,6 +319,236 @@ if (requiresVerification && !user.is_verified) {
   return <VerificationPrompt />
 }
 ```
+
+## 🚀 Advanced Cache System
+
+OpenLove implements a comprehensive Redis-based caching system for optimal performance and bandwidth efficiency.
+
+### Cache Architecture
+
+#### Core Services
+- **CacheService**: Basic Redis operations with analytics tracking
+- **TimelineCacheService**: Timeline-specific caching with different TTLs per tab
+- **ProfileCacheService**: User profile and recommendation caching
+- **CacheInvalidationService**: Distributed cache invalidation with event-driven approach
+- **CacheFallbackService**: Circuit breaker pattern for resilience
+- **StaleWhileRevalidateService**: Background refresh for fresh data
+- **CacheCompressionService**: Automatic compression for large datasets
+- **CachePrewarmingService**: Proactive cache warming for new users
+- **CacheAnalyticsService**: Performance monitoring and health scoring
+
+#### Cache Keys Structure
+```typescript
+// Timeline caches
+timeline:${userId}:${tab}:${page} // TTL: 5-15min depending on tab
+feed_algo:${userId}             // TTL: 12 hours
+
+// User data
+user:${userId}                  // TTL: 30 minutes
+user_stats:${userId}           // TTL: 15 minutes
+followers:${userId}            // TTL: 1 hour
+following:${userId}            // TTL: 1 hour
+
+// Content
+post:${postId}                 // TTL: varies
+post_comments:${postId}:${page} // TTL: 3 minutes
+trending_posts                 // TTL: 5 minutes
+```
+
+#### TTL Strategy
+- **Timeline feeds**: 5min (for-you), 10min (following), 15min (explore)
+- **User profiles**: 30 minutes
+- **Recommendations**: 20 minutes
+- **Trending content**: 5 minutes
+- **Statistics**: 15 minutes
+
+### Advanced Features
+
+#### 1. Stale-While-Revalidate
+```typescript
+import { useSWR } from '@/lib/cache'
+
+const result = await useSWR({
+  key: 'timeline:user123:for-you:1',
+  fetcher: () => fetchTimelineFeed(userId, 1),
+  config: {
+    ttl: 300,           // 5 minutes fresh
+    staleTime: 600,     // 10 minutes stale
+    revalidateInBackground: true
+  }
+})
+
+// Returns immediately with stale data, refreshes in background
+```
+
+#### 2. Automatic Compression
+```typescript
+import { setCompressed, getCompressed } from '@/lib/cache'
+
+// Automatically compresses if data > 1KB
+await setCompressed('large-timeline', timelineData, 300)
+const data = await getCompressed('large-timeline')
+```
+
+#### 3. Cache Pre-warming
+```typescript
+import { prewarmNewUser } from '@/lib/cache'
+
+// Automatically called on user registration
+const jobId = await prewarmNewUser(userId)
+
+// Pre-warms:
+// - User profile and preferences
+// - Timeline feeds (for-you, explore)
+// - Recommendations and trending content
+```
+
+#### 4. Smart Invalidation
+```typescript
+import { invalidateUser, invalidatePost } from '@/lib/cache'
+
+// Post creation invalidates multiple caches
+await invalidatePost(postId, userId)
+// Invalidates:
+// - Author's timeline
+// - Followers' timelines  
+// - Explore feeds
+// - Post counts
+```
+
+#### 5. Circuit Breaker Pattern
+```typescript
+import { cacheWithFallback } from '@/lib/cache'
+
+const result = await cacheWithFallback({
+  key: 'user:123',
+  fetcher: () => fetchUserProfile(userId),
+  fallbackData: defaultUserProfile,
+  ttl: 1800
+})
+
+// Automatically opens circuit on failures
+// Uses fallback data when circuit is open
+```
+
+### Performance Monitoring
+
+#### Cache Health Score
+- **Hit Rate**: Target >70%
+- **Response Time**: Target <500ms
+- **Error Rate**: Target <5%
+- **Overall Score**: 0-100
+
+#### Real-time Analytics
+```typescript
+import { cacheAnalyticsService } from '@/lib/cache'
+
+const health = cacheAnalyticsService.getCacheHealthScore()
+const stats = cacheAnalyticsService.getRealTimeStats()
+const recommendations = cacheAnalyticsService.getRecommendations()
+```
+
+#### API Endpoints
+- `GET /api/cache/stats` - Cache statistics and health
+- `GET /api/cache/manage?action=health` - Health report
+- `POST /api/cache/manage?action=invalidate` - Manual invalidation
+- `POST /api/cache/manage?action=prewarm-user` - Manual pre-warming
+
+### Usage Patterns
+
+#### Timeline Feeds
+```typescript
+import { TimelineCacheService } from '@/lib/cache'
+
+// Cached with different TTLs per tab
+const feed = await TimelineCacheService.getTimelineFeed(userId, 'for-you', 1)
+
+// Prefetches next page in background
+if (page === 1) {
+  TimelineCacheService.prefetchNextPage(userId, 'for-you', 1, fetchFunction)
+}
+```
+
+#### User Profiles
+```typescript
+import { ProfileCacheService } from '@/lib/cache'
+
+// Caches user data with batch loading
+const users = await ProfileCacheService.getMultipleProfiles(userIds)
+
+// Warms cache for recommendations
+await ProfileCacheService.warmRecommendations(userId)
+```
+
+#### Rate Limiting
+```typescript
+import { CacheService } from '@/lib/cache'
+
+const { allowed, remaining } = await CacheService.checkRateLimit(
+  `api:${userId}`, 
+  100,    // 100 requests
+  3600    // per hour
+)
+```
+
+### Cache Warming Strategy
+
+1. **New User Registration**:
+   - Profile and preferences
+   - Default timeline feeds
+   - Trending content
+   - Recommendations
+
+2. **Premium Users**:
+   - Priority warming queue
+   - Extended TTLs
+   - Predictive prefetching
+
+3. **Popular Content**:
+   - Trending posts and topics
+   - Viral content detection
+   - Global cache warming
+
+### Bandwidth Optimization
+
+- **Compression**: Automatic for payloads >1KB
+- **Compression Ratios**: Average 60-70% reduction
+- **Smart TTLs**: Longer for stable data, shorter for dynamic
+- **Prefetching**: Background loading of likely-needed data
+- **Batch Operations**: Bulk cache operations for efficiency
+
+### Cache Invalidation Events
+
+```typescript
+// User actions trigger smart invalidation
+'user_updated'      → Profile + timeline caches
+'post_created'      → Author + followers' timelines
+'post_liked'        → Post details only (lightweight)
+'user_followed'     → Both users' timelines + recommendations
+'subscription_changed' → User profile + premium content
+```
+
+### Configuration
+
+```typescript
+// Environment variables
+UPSTASH_REDIS_REST_URL=your-upstash-redis-rest-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-redis-rest-token
+
+// Enable/disable features
+CACHE_COMPRESSION_ENABLED=true
+CACHE_PREWARMING_ENABLED=true
+CACHE_ANALYTICS_ENABLED=true
+```
+
+### Best Practices
+
+1. **Always use cache for timeline feeds** - Major bandwidth savings
+2. **Invalidate sparingly** - Use event-driven invalidation
+3. **Monitor health scores** - Aim for >80 health score
+4. **Use SWR for critical paths** - Provides instant responses
+5. **Compress large datasets** - Reduces bandwidth costs
+6. **Warm caches proactively** - Better user experience
 # Convenções de Código - OpenLove
 
 ## TypeScript
