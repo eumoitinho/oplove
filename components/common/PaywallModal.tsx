@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { X, Check, Star, Gem, Heart, Lock } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { motion } from "framer-motion"
+import { Check, Star, Gem, Heart, Lock, Crown, Zap } from "lucide-react"
+import { BaseModal, BaseModalFooter } from "@/components/ui/base-modal"
+import { BaseCard } from "@/components/ui/base-card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import type { PremiumPlan } from "@/types/common"
@@ -21,9 +23,11 @@ const planFeatures = {
   gold: {
     name: "Gold",
     price: "R$ 25",
-    icon: Star,
-    color: "text-yellow-500",
-    bgColor: "bg-gradient-to-br from-yellow-400 to-orange-500",
+    priceDetail: "/mês",
+    icon: Crown,
+    iconBg: "bg-yellow-500/10",
+    iconColor: "text-yellow-500",
+    cardGradient: "from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20",
     features: [
       "10 mensagens por dia (ilimitado se verificado)",
       "Até 5 imagens por post",
@@ -36,9 +40,11 @@ const planFeatures = {
   diamond: {
     name: "Diamond",
     price: "R$ 45",
+    priceDetail: "/mês",
     icon: Gem,
-    color: "text-cyan-500",
-    bgColor: "bg-gradient-to-br from-cyan-400 to-blue-500",
+    iconBg: "bg-cyan-500/10",
+    iconColor: "text-cyan-500",
+    cardGradient: "from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20",
     features: [
       "Tudo do plano Gold",
       "Mensagens ilimitadas",
@@ -53,11 +59,13 @@ const planFeatures = {
     ],
   },
   couple: {
-    name: "Casal",
+    name: "Dupla Hot",
     price: "R$ 69,90",
+    priceDetail: "/mês",
     icon: Heart,
-    color: "text-pink-500",
-    bgColor: "bg-gradient-to-br from-pink-400 to-purple-500",
+    iconBg: "bg-pink-500/10",
+    iconColor: "text-pink-500",
+    cardGradient: "from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20",
     features: [
       "Todos os recursos Diamond para 2 contas",
       "Perfil compartilhado opcional",
@@ -107,126 +115,161 @@ export function PaywallModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden">
-        <div className="relative">
-          {/* Header with gradient */}
-          <div className="bg-gradient-to-br from-purple-600 to-pink-600 p-6 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                <Lock className="h-6 w-6" />
-                Recurso Premium
-              </DialogTitle>
-            </DialogHeader>
-            <p className="mt-2 text-lg opacity-90">
-              Para {featureInfo.description}, você precisa de um plano {planFeatures[featureInfo.plan as keyof typeof planFeatures]?.name} ou superior.
-            </p>
-          </div>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+      variant="gradient"
+      className="max-w-2xl"
+    >
+      {/* Header Section */}
+      <div className="text-center space-y-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-2">
+          <Lock className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+        </div>
+        <h2 className="text-xl xs:text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+          Desbloqueie recursos incríveis
+        </h2>
+        <p className="text-sm xs:text-base text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+          Para {featureInfo.description}, você precisa fazer upgrade para o plano 
+          <span className="font-semibold text-gray-900 dark:text-white">
+            {' '}{planFeatures[featureInfo.plan as keyof typeof planFeatures]?.name}
+          </span> ou superior.
+        </p>
+      </div>
 
-          {/* Plans */}
-          <div className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Escolha seu plano:</h3>
-            <div className="grid gap-4">
-              {availablePlans.map(([planKey, plan]) => {
-                const PlanIcon = plan.icon
-                const isSelected = selectedPlan === planKey
-                const isCurrentPlan = currentPlan === planKey
+      {/* Plans Section */}
+      <div className="mt-8 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Escolha o plano ideal para você:</h3>
+        <div className="grid gap-4">
+          {availablePlans.map(([planKey, plan]) => {
+            const PlanIcon = plan.icon
+            const isSelected = selectedPlan === planKey
+            const isCurrentPlan = currentPlan === planKey
+            const isBestValue = planKey === "diamond"
 
-                return (
-                  <motion.div
-                    key={planKey}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <button
-                      onClick={() => setSelectedPlan(planKey as PremiumPlan)}
-                      disabled={isCurrentPlan}
-                      className={cn(
-                        "w-full p-4 rounded-lg border-2 transition-all text-left",
-                        isSelected
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-gray-200 hover:border-gray-300",
-                        isCurrentPlan && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("p-2 rounded-lg", plan.bgColor)}>
-                              <PlanIcon className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-lg flex items-center gap-2">
-                                {plan.name}
-                                {isCurrentPlan && (
-                                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
-                                    Plano atual
-                                  </span>
-                                )}
-                              </h4>
-                              <p className="text-2xl font-bold text-purple-600">
-                                {plan.price}
-                                <span className="text-sm font-normal text-gray-500">/mês</span>
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-4 grid gap-2">
-                            {plan.features.slice(0, 4).map((feat, index) => (
-                              <div key={index} className="flex items-start gap-2 text-sm">
-                                <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                <span className="text-gray-600">{feat}</span>
-                              </div>
-                            ))}
-                            {plan.features.length > 4 && (
-                              <p className="text-sm text-purple-600 font-medium">
-                                +{plan.features.length - 4} recursos adicionais
-                              </p>
-                            )}
-                          </div>
+            return (
+              <motion.div
+                key={planKey}
+                whileHover={{ scale: isCurrentPlan ? 1 : 1.02 }}
+                whileTap={{ scale: isCurrentPlan ? 1 : 0.98 }}
+              >
+                <BaseCard
+                  variant="bordered"
+                  hover={!isCurrentPlan}
+                  animate={false}
+                  className={cn(
+                    "relative cursor-pointer transition-all duration-300",
+                    "bg-gradient-to-br",
+                    plan.cardGradient,
+                    isSelected && !isCurrentPlan && "ring-2 ring-purple-500 dark:ring-purple-400",
+                    isCurrentPlan && "opacity-60 cursor-not-allowed"
+                  )}
+                  onClick={() => !isCurrentPlan && setSelectedPlan(planKey as PremiumPlan)}
+                >
+                  {/* Best Value Badge */}
+                  {isBestValue && !isCurrentPlan && (
+                    <div className="absolute -top-3 right-4 xs:right-6">
+                      <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-3 py-1">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Mais Popular
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col xs:flex-row xs:items-start gap-4">
+                    {/* Plan Icon and Info */}
+                    <div className="flex items-start gap-3 xs:gap-4 flex-1">
+                      <div className={cn(
+                        "p-3 rounded-xl flex-shrink-0",
+                        plan.iconBg
+                      )}>
+                        <PlanIcon className={cn("w-6 h-6", plan.iconColor)} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-lg text-gray-900 dark:text-white">
+                            {plan.name}
+                          </h4>
+                          {isCurrentPlan && (
+                            <Badge variant="secondary" className="text-xs">
+                              Seu plano atual
+                            </Badge>
+                          )}
                         </div>
                         
-                        {isSelected && !isCurrentPlan && (
-                          <div className="flex-shrink-0 ml-4">
-                            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center">
-                              <Check className="h-4 w-4 text-white" />
+                        <div className="mt-1">
+                          <span className="text-2xl xs:text-3xl font-bold text-gray-900 dark:text-white">
+                            {plan.price}
+                          </span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {plan.priceDetail}
+                          </span>
+                        </div>
+
+                        {/* Features list */}
+                        <div className="mt-4 space-y-2">
+                          {plan.features.slice(0, 3).map((feat, index) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{feat}</span>
                             </div>
-                          </div>
-                        )}
+                          ))}
+                          {plan.features.length > 3 && (
+                            <button className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline mt-2">
+                              Ver todos os {plan.features.length} benefícios
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </button>
-                  </motion.div>
-                )
-              })}
-            </div>
+                    </div>
 
-            {/* Action buttons */}
-            <div className="flex gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                className="flex-1"
-              >
-                Talvez depois
-              </Button>
-              <Button
-                onClick={handleUpgrade}
-                disabled={currentPlan === selectedPlan}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-              >
-                Fazer upgrade agora
-              </Button>
-            </div>
-
-            {/* Benefits reminder */}
-            <div className="mt-4 p-4 bg-purple-50 rounded-lg">
-              <p className="text-sm text-purple-700 text-center">
-                <strong>💎 Dica:</strong> Usuários verificados ganham benefícios extras em todos os planos!
-              </p>
-            </div>
-          </div>
+                    {/* Selection indicator */}
+                    {isSelected && !isCurrentPlan && (
+                      <div className="flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-purple-600 dark:bg-purple-500 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </BaseCard>
+              </motion.div>
+            )
+          })}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Action buttons */}
+        <BaseModalFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="flex-1 xs:flex-initial"
+          >
+            Talvez depois
+          </Button>
+          <Button
+            onClick={handleUpgrade}
+            disabled={currentPlan === selectedPlan}
+            className="flex-1 xs:flex-initial bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Fazer upgrade agora
+          </Button>
+        </BaseModalFooter>
+
+        {/* Benefits reminder */}
+        <BaseCard 
+          variant="gradient" 
+          padding="sm"
+          className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800"
+        >
+          <p className="text-xs xs:text-sm text-center text-purple-700 dark:text-purple-300">
+            <span className="font-semibold">💎 Dica Pro:</span> Usuários verificados desbloqueiam benefícios exclusivos em todos os planos!
+          </p>
+        </BaseCard>
+      </div>
+    </BaseModal>
   )
 }

@@ -19,11 +19,11 @@ export interface ModalProps {
 }
 
 const sizeClasses = {
-  sm: "max-w-md",
-  md: "max-w-lg",
-  lg: "max-w-2xl",
-  xl: "max-w-4xl",
-  full: "max-w-[95vw] max-h-[95vh]",
+  sm: "max-w-[calc(100vw-1rem)] xs:max-w-sm sm:max-w-md",
+  md: "max-w-[calc(100vw-1rem)] xs:max-w-md sm:max-w-lg",
+  lg: "max-w-[calc(100vw-1rem)] xs:max-w-lg sm:max-w-2xl",
+  xl: "max-w-[calc(100vw-1rem)] xs:max-w-xl sm:max-w-4xl",
+  full: "max-w-[calc(100vw-0.5rem)] max-h-[calc(100vh-0.5rem)] xs:max-w-[95vw] xs:max-h-[95vh]",
 }
 
 /**
@@ -81,7 +81,7 @@ export function Modal({
             <Dialog.Content asChild>
               <motion.div
                 className={cn(
-                  "fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900",
+                  "fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-lg xs:rounded-2xl bg-white p-3 xs:p-4 sm:p-6 shadow-2xl dark:bg-gray-900",
                   sizeClasses[size],
                   className,
                 )}
@@ -93,12 +93,12 @@ export function Modal({
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     {title && (
-                      <Dialog.Title className="text-xl font-semibold text-gray-900 dark:text-white">
+                      <Dialog.Title className="text-lg xs:text-xl font-semibold text-gray-900 dark:text-white">
                         {title}
                       </Dialog.Title>
                     )}
                     {description && (
-                      <Dialog.Description className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      <Dialog.Description className="mt-2 text-xs xs:text-sm text-gray-600 dark:text-gray-400">
                         {description}
                       </Dialog.Description>
                     )}
@@ -107,16 +107,16 @@ export function Modal({
                   {showCloseButton && (
                     <Dialog.Close asChild>
                       <button
-                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                        className="rounded-lg p-1 xs:p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300 min-w-[44px] min-h-[44px] flex items-center justify-center"
                         aria-label="Fechar modal"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4 xs:h-5 xs:w-5" />
                       </button>
                     </Dialog.Close>
                   )}
                 </div>
 
-                <div className={cn("mt-4", title || description ? "mt-6" : "")}>{children}</div>
+                <div className={cn("mt-3 xs:mt-4", title || description ? "xs:mt-6" : "")}>{children}</div>
               </motion.div>
             </Dialog.Content>
           </Dialog.Portal>

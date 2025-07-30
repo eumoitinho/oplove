@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { useAuth } from "./useAuth"
+import { CONTENT_LIMITS } from "@/utils/constants"
 import type { PremiumPlan } from "@/types/common"
 
 interface PremiumFeatures {
@@ -10,13 +11,14 @@ interface PremiumFeatures {
   canCreateGroups: boolean
   canVideoCall: boolean
   messagesPerDay: number
+  maxGroupMembers: number
   
   // Media
   canUploadImages: boolean
   canUploadVideos: boolean
   maxImagesPerPost: number
-  monthlyPhotoLimit: number
-  monthlyVideoLimit: number
+  maxVideoLength: number // in seconds
+  storageLimit: number // in bytes
   
   // Content
   canCreatePolls: boolean
@@ -78,17 +80,18 @@ interface PremiumFeatures {
 const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
   free: {
     // Messaging
-    canSendMessages: false, // Can only reply if premium user messages first
+    canSendMessages: false, // Cannot send messages without verification
     canCreateGroups: false,
     canVideoCall: false,
-    messagesPerDay: 0,
+    messagesPerDay: CONTENT_LIMITS.free.dailyMessageLimit,
+    maxGroupMembers: CONTENT_LIMITS.free.maxGroupMembers,
     
     // Media
-    canUploadImages: false,
+    canUploadImages: true, // Can upload 1 photo per post
     canUploadVideos: false,
-    maxImagesPerPost: 0,
-    monthlyPhotoLimit: 3,
-    monthlyVideoLimit: 0,
+    maxImagesPerPost: CONTENT_LIMITS.free.maxPhotosPerPost,
+    maxVideoLength: CONTENT_LIMITS.free.maxVideoLength,
+    storageLimit: CONTENT_LIMITS.free.storageLimit,
     
     // Content
     canCreatePolls: false,
@@ -125,14 +128,15 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canSendMessages: true,
     canCreateGroups: false,
     canVideoCall: false,
-    messagesPerDay: 10, // Unlimited if verified
+    messagesPerDay: CONTENT_LIMITS.gold.dailyMessageLimit, // 200/day, unlimited if verified
+    maxGroupMembers: CONTENT_LIMITS.gold.maxGroupMembers,
     
     // Media
     canUploadImages: true,
-    canUploadVideos: false,
-    maxImagesPerPost: 5,
-    monthlyPhotoLimit: 50,
-    monthlyVideoLimit: 0,
+    canUploadVideos: true,
+    maxImagesPerPost: CONTENT_LIMITS.gold.maxPhotosPerPost, // 10 photos per post
+    maxVideoLength: CONTENT_LIMITS.gold.maxVideoLength, // 5 minutes
+    storageLimit: CONTENT_LIMITS.gold.storageLimit, // 1GB
     
     // Content
     canCreatePolls: true,
@@ -159,7 +163,7 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canRewind: false,
     
     // Other
-    adsFrequency: 10, // Ad every 10 posts
+    adsFrequency: 10, // Less ads
     hasAnalytics: false,
     hasPrioritySupport: false,
   },
@@ -169,14 +173,15 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canSendMessages: true,
     canCreateGroups: true,
     canVideoCall: true,
-    messagesPerDay: -1, // Unlimited
+    messagesPerDay: CONTENT_LIMITS.diamond.dailyMessageLimit, // Unlimited
+    maxGroupMembers: CONTENT_LIMITS.diamond.maxGroupMembers, // 50 members
     
     // Media
     canUploadImages: true,
     canUploadVideos: true,
-    maxImagesPerPost: -1, // Unlimited
-    monthlyPhotoLimit: -1, // Unlimited
-    monthlyVideoLimit: -1, // Unlimited
+    maxImagesPerPost: CONTENT_LIMITS.diamond.maxPhotosPerPost, // 20 photos per post
+    maxVideoLength: CONTENT_LIMITS.diamond.maxVideoLength, // 30 minutes
+    storageLimit: CONTENT_LIMITS.diamond.storageLimit, // 10GB
     
     // Content
     canCreatePolls: true,
@@ -197,7 +202,7 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     
     // Dating
     canUseDating: true,
-    dailyLikesLimit: 200,
+    dailyLikesLimit: -1, // Unlimited
     dailySuperLikesLimit: 20,
     canUseBoosts: true,
     canRewind: true,
@@ -214,14 +219,15 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     canSendMessages: true,
     canCreateGroups: true,
     canVideoCall: true,
-    messagesPerDay: -1, // Unlimited
+    messagesPerDay: CONTENT_LIMITS.couple.dailyMessageLimit, // Unlimited
+    maxGroupMembers: CONTENT_LIMITS.couple.maxGroupMembers, // 100 members
     
     // Media
     canUploadImages: true,
     canUploadVideos: true,
-    maxImagesPerPost: -1, // Unlimited
-    monthlyPhotoLimit: -1, // Unlimited
-    monthlyVideoLimit: -1, // Unlimited
+    maxImagesPerPost: CONTENT_LIMITS.couple.maxPhotosPerPost, // 30 photos per post
+    maxVideoLength: CONTENT_LIMITS.couple.maxVideoLength, // 1 hour
+    storageLimit: CONTENT_LIMITS.couple.storageLimit, // 20GB
     
     // Content
     canCreatePolls: true,
@@ -281,18 +287,13 @@ export function usePremiumFeatures() {
     return baseFeatures
   }, [user?.premium_type, user?.is_verified])
   
-  // Check if user has reached monthly limits
-  const canUploadMorePhotos = useMemo(() => {
+  // Check if user has reached storage limit
+  const canUploadMoreMedia = useMemo(() => {
     if (!user) return false
-    if (features.monthlyPhotoLimit === -1) return true // Unlimited
-    return user.monthly_photo_count < features.monthlyPhotoLimit
-  }, [user, features.monthlyPhotoLimit])
-  
-  const canUploadMoreVideos = useMemo(() => {
-    if (!user) return false
-    if (features.monthlyVideoLimit === -1) return true // Unlimited
-    return user.monthly_video_count < features.monthlyVideoLimit
-  }, [user, features.monthlyVideoLimit])
+    if (features.storageLimit === -1) return true // Unlimited
+    const usedStorage = user.storage_used || 0
+    return usedStorage < features.storageLimit
+  }, [user, features.storageLimit])
   
   const canSendMoreMessages = useMemo(() => {
     if (!user) return false
@@ -344,8 +345,7 @@ export function usePremiumFeatures() {
     ...features,
     
     // Computed limits
-    canUploadMorePhotos,
-    canUploadMoreVideos,
+    canUploadMoreMedia,
     canSendMoreMessages,
     
     // Helper methods
@@ -358,8 +358,22 @@ export function usePremiumFeatures() {
     isVerified: user?.is_verified || false,
     
     // Usage stats
-    photosUsed: user?.monthly_photo_count || 0,
-    videosUsed: user?.monthly_video_count || 0,
+    storageUsed: user?.storage_used || 0,
     messagesUsedToday: user?.daily_message_count || 0,
+    
+    // Helpers for UI
+    formatStorageLimit: (limit: number) => {
+      if (limit === -1) return "Ilimitado"
+      const gb = limit / (1024 * 1024 * 1024)
+      const mb = limit / (1024 * 1024)
+      return gb >= 1 ? `${gb}GB` : `${mb}MB`
+    },
+    formatVideoLength: (seconds: number) => {
+      if (seconds === 0) return "Não permitido"
+      if (seconds === -1) return "Ilimitado"
+      const minutes = Math.floor(seconds / 60)
+      const hours = Math.floor(minutes / 60)
+      return hours > 0 ? `${hours} hora${hours > 1 ? 's' : ''}` : `${minutes} minutos`
+    }
   }
 }

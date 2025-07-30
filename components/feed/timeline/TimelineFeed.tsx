@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { RefreshCw, TrendingUp, Sparkles, Users, Compass } from "lucide-react"
@@ -27,6 +27,20 @@ import { EventsView } from "../events/EventsView"
 import { CommunitiesView } from "../communities/CommunitiesView"
 import { OpenDates } from "../../dating/OpenDates"
 import { VerificationForm } from "../../verification/VerificationForm"
+
+// Memoized CreatePost wrapper to prevent re-renders
+const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0, y: -20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mb-6"
+    data-create-post
+  >
+    <CreatePost onSuccess={onSuccess} />
+  </motion.div>
+))
+
+MemoizedCreatePost.displayName = 'MemoizedCreatePost'
 
 interface TimelineFeedProps {
   currentMainContent?: string
@@ -64,6 +78,7 @@ export function TimelineFeed({
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [initialized, setInitialized] = useState(false)
+  const [isChangingTab, setIsChangingTab] = useState(false)
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -75,6 +90,7 @@ export function TimelineFeed({
   useEffect(() => {
     if (!user || currentMainContent !== "timeline") {
       setIsLoading(false)
+      setInitialized(true) // Set initialized even when no user
       return
     }
 
@@ -105,9 +121,11 @@ export function TimelineFeed({
             result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
         }
 
-        if (!cancelled) {
-          setPosts(result.data)
-          setHasMore(result.hasMore)
+        if (!cancelled && result) {
+          // Ensure we have valid data
+          const posts = Array.isArray(result.data) ? result.data : []
+          setPosts(posts)
+          setHasMore(result.hasMore === true && posts.length > 0)
           setPage(1)
           setInitialized(true)
         }
@@ -116,6 +134,7 @@ export function TimelineFeed({
         if (!cancelled) {
           setPosts([])
           setHasMore(false)
+          setInitialized(true) // Set initialized even on error
         }
       } finally {
         if (!cancelled) {
@@ -160,10 +179,15 @@ export function TimelineFeed({
             result = await feedAlgorithmService.generatePersonalizedFeed(user.id, nextPage, 10)
         }
 
-        if (!cancelled && result.data.length > 0) {
-          setPosts(prev => [...prev, ...result.data])
-          setHasMore(result.hasMore)
-          setPage(nextPage)
+        if (!cancelled && result) {
+          const newPosts = Array.isArray(result.data) ? result.data : []
+          if (newPosts.length > 0) {
+            setPosts(prev => [...prev, ...newPosts])
+            setHasMore(result.hasMore === true)
+            setPage(nextPage)
+          } else {
+            setHasMore(false)
+          }
         }
       } catch (error) {
         console.error('Error loading more posts:', error)
@@ -177,17 +201,7 @@ export function TimelineFeed({
     }
   }, [inView, page, hasMore, isLoading, user?.id, activeTab, initialized])
 
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        setNewPostsCount((prev: number) => prev + 1)
-      }
-    }, 30000) // Check every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [])
-
+  // Define handleRefresh early to maintain hook order
   const handleRefresh = useCallback(async () => {
     if (!user) return
     
@@ -211,8 +225,9 @@ export function TimelineFeed({
           result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
       }
 
-      setPosts(result.data)
-      setHasMore(result.hasMore)
+      const posts = Array.isArray(result.data) ? result.data : []
+      setPosts(posts)
+      setHasMore(result.hasMore === true && posts.length > 0)
       setPage(1)
     } catch (error) {
       console.error('Error refreshing posts:', error)
@@ -220,6 +235,17 @@ export function TimelineFeed({
       setIsRefreshing(false)
     }
   }, [user?.id, activeTab])
+
+  // Simulate real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (Math.random() > 0.7) {
+        setNewPostsCount((prev: number) => prev + 1)
+      }
+    }, 30000) // Check every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Insert ads based on user's plan and frequency
   const postsWithAds = useMemo(() => {
@@ -393,16 +419,9 @@ export function TimelineFeed({
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Create Post */}
+      {/* Create Post - Outside of tab content to prevent re-renders */}
       {user ? (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-          data-create-post
-        >
-          <CreatePost onSuccess={() => handleRefresh()} />
-        </motion.div>
+        <MemoizedCreatePost onSuccess={handleRefresh} />
       ) : (
         <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
           <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>
@@ -414,7 +433,14 @@ export function TimelineFeed({
         <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm">
           <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
             <Button
-              onClick={() => onTabChange?.("for-you")}
+              onClick={() => {
+                if (activeTab !== "for-you") {
+                  setIsChangingTab(true)
+                  onTabChange?.("for-you")
+                  setTimeout(() => setIsChangingTab(false), 300)
+                }
+              }}
+              disabled={isChangingTab}
               className={cn(
                 "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "for-you"
@@ -427,7 +453,14 @@ export function TimelineFeed({
               <span className="xs:hidden">Você</span>
             </Button>
             <Button
-              onClick={() => onTabChange?.("following")}
+              onClick={() => {
+                if (activeTab !== "following") {
+                  setIsChangingTab(true)
+                  onTabChange?.("following")
+                  setTimeout(() => setIsChangingTab(false), 300)
+                }
+              }}
+              disabled={isChangingTab}
               className={cn(
                 "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "following"
@@ -439,7 +472,14 @@ export function TimelineFeed({
               Seguindo
             </Button>
             <Button
-              onClick={() => onTabChange?.("explore")}
+              onClick={() => {
+                if (activeTab !== "explore") {
+                  setIsChangingTab(true)
+                  onTabChange?.("explore")
+                  setTimeout(() => setIsChangingTab(false), 300)
+                }
+              }}
+              disabled={isChangingTab}
               className={cn(
                 "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "explore"
@@ -487,8 +527,23 @@ export function TimelineFeed({
             )}
           </AnimatePresence>
 
-          {/* Posts */}
-          {postsWithAds.length > 0 ? (
+          {/* Posts with smooth transition */}
+          {isLoading && !posts.length ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
+                      <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10" />
+                </div>
+              ))}
+            </div>
+          ) : postsWithAds.length > 0 ? (
             <AnimatePresence>
               {postsWithAds.map((item: any, index: number) => (
                 <motion.div

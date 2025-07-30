@@ -3,33 +3,73 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/common/UserAvatar"
+import { useAuth } from "@/hooks/useAuth"
 import { Badge } from "@/components/ui/badge"
 import { Flame, MessageCircle, Share, Bookmark, MoreVertical, MapPin, Verified, Gem, Star, Play } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Post } from "@/types/common"
 import { SecureMedia } from "@/components/common/SecureMedia"
+import { usePostInteractions } from "@/hooks/usePostInteractions"
+import { CommentsModal } from "@/components/feed/comments/CommentsModal"
+import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
+import { PostPoll } from "./PostPoll"
 
 interface PostCardProps {
   post: Post
+  onCommentClick?: (postId: string) => void
 }
 
-export function PostCard({ post: initialPost }: PostCardProps) {
-  const [post, setPost] = useState(initialPost)
+export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
+  const { user } = useAuth()
+  const [post] = useState(initialPost)
   const [isLikeAnimating, setIsLikeAnimating] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  
+  const {
+    isLiked,
+    isSaved,
+    likesCount,
+    commentsCount,
+    sharesCount,
+    savesCount,
+    isLoading,
+    handleLike: onLike,
+    handleSave: onSave,
+    handleShare: onShare,
+    handleComment,
+  } = usePostInteractions({
+    postId: post.id,
+    initialLiked: post.is_liked || false,
+    initialSaved: post.is_saved || false,
+    initialLikesCount: post.likes_count || 0,
+    initialCommentsCount: post.comments_count || 0,
+    initialSharesCount: post.shares_count || 0,
+    initialSavesCount: post.saves_count || 0,
+  })
 
   const handleLike = () => {
+    if (isLoading) return
     setIsLikeAnimating(true)
     setTimeout(() => setIsLikeAnimating(false), 600)
-
-    setPost((prev) => ({
-      ...prev,
-      is_liked: !prev.is_liked,
-      likes_count: prev.is_liked ? (prev.likes_count || 0) - 1 : (prev.likes_count || 0) + 1,
-    }))
+    onLike()
   }
 
   const handleSave = () => {
-    setPost((prev) => ({ ...prev, is_saved: !prev.is_saved }))
+    if (isLoading) return
+    onSave()
+  }
+  
+  const handleShare = () => {
+    if (isLoading) return
+    onShare()
+  }
+  
+  const handleCommentClick = () => {
+    if (onCommentClick) {
+      onCommentClick(post.id)
+    } else {
+      setShowComments(true)
+    }
   }
 
   const formatNumber = (num: number) => {
@@ -122,6 +162,30 @@ export function PostCard({ post: initialPost }: PostCardProps) {
             {post.content && (
               <p className="whitespace-pre-wrap text-gray-800 dark:text-white/90 leading-relaxed">{post.content}</p>
             )}
+            
+            {/* Audio Player */}
+            {post.audio_url && (
+              <AudioPlayer
+                src={post.audio_url}
+                title={post.audio_title}
+                artist={post.user?.name || post.user?.username}
+                className="my-3"
+              />
+            )}
+            
+            {/* Poll */}
+            {post.poll && (
+              <PostPoll
+                poll={post.poll}
+                canVote={!!user && user.id !== post.user_id}
+                onVote={async (pollId, optionId) => {
+                  // TODO: Implementar votação
+                  console.log("Vote:", pollId, optionId)
+                }}
+                className="my-3"
+              />
+            )}
+            
             {post.media_urls && post.media_urls.length > 0 && (
               <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm">
                 {post.media_urls.length === 1 ? (
@@ -177,55 +241,70 @@ export function PostCard({ post: initialPost }: PostCardProps) {
           <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
             <Button
               variant="ghost"
+              onClick={handleCommentClick}
+              disabled={isLoading}
               className="text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-300 group/btn"
             >
               <MessageCircle className="w-5 h-5 mr-2 group-hover/btn:scale-110 transition-transform duration-300" />
-              {formatNumber(post.comments_count || 0)}
+              {formatNumber(commentsCount)}
             </Button>
             <Button
               variant="ghost"
+              onClick={handleShare}
+              disabled={isLoading}
               className="text-gray-500 hover:text-green-500 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 transition-all duration-300 group/btn"
             >
               <Share className="w-5 h-5 mr-2 group-hover/btn:scale-110 transition-transform duration-300" />
-              {formatNumber(post.shares_count || 0)}
+              {formatNumber(sharesCount)}
             </Button>
             <Button
               variant="ghost"
               onClick={handleLike}
+              disabled={isLoading}
               className={`hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-all duration-300 group/btn ${
-                post.is_liked
+                isLiked
                   ? "text-orange-500 dark:text-orange-400"
                   : "text-gray-500 hover:text-orange-500 dark:hover:text-orange-400"
               }`}
             >
               <Flame
                 className={`w-5 h-5 mr-2 transition-all duration-300 ${
-                  post.is_liked ? "fill-current" : ""
+                  isLiked ? "fill-current" : ""
                 } ${isLikeAnimating ? "animate-fire-like" : "group-hover/btn:scale-110"}`}
                 style={{
-                  background: post.is_liked ? "linear-gradient(45deg, #db2777, #a855f7, #06b6d4, #f97316)" : undefined,
-                  WebkitBackgroundClip: post.is_liked ? "text" : undefined,
-                  WebkitTextFillColor: post.is_liked ? "transparent" : undefined,
+                  background: isLiked ? "linear-gradient(45deg, #db2777, #a855f7, #06b6d4, #f97316)" : undefined,
+                  WebkitBackgroundClip: isLiked ? "text" : undefined,
+                  WebkitTextFillColor: isLiked ? "transparent" : undefined,
                 }}
               />
-              {formatNumber(post.likes_count || 0)}
+              {formatNumber(likesCount)}
             </Button>
             <Button
               variant="ghost"
               onClick={handleSave}
+              disabled={isLoading}
               className={`hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-300 group/btn ${
-                post.is_saved
+                isSaved
                   ? "text-purple-500 dark:text-purple-400"
                   : "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400"
               }`}
             >
               <Bookmark
-                className={`w-5 h-5 group-hover/btn:scale-110 transition-transform duration-300 ${post.is_saved ? "fill-current" : ""}`}
+                className={`w-5 h-5 group-hover/btn:scale-110 transition-transform duration-300 ${isSaved ? "fill-current" : ""}`}
               />
             </Button>
           </div>
         </div>
       </div>
+      
+      {/* Comments Modal */}
+      {showComments && (
+        <CommentsModal
+          postId={post.id}
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+        />
+      )}
     </article>
   )
 }

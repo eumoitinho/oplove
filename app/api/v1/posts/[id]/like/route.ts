@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase/server"
+import { getCurrentUser } from "@/lib/auth/auth-utils"
 
 // POST /api/v1/posts/[id]/like - Like a post
 export async function POST(
@@ -7,9 +8,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
+    const user = await getCurrentUser()
     
-    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json(
         { error: "Não autorizado", success: false },
@@ -48,16 +49,17 @@ export async function POST(
       )
     }
 
-    // Get updated like count
-    const { count } = await supabase
-      .from("post_likes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", params.id)
+    // Get updated post with like count
+    const { data: post } = await supabase
+      .from("posts")
+      .select("likes_count")
+      .eq("id", params.id)
+      .single()
 
     return NextResponse.json({
       success: true,
       data: {
-        likes_count: count || 0,
+        likes_count: post?.likes_count || 0,
         is_liked: true,
       },
     })
@@ -75,9 +77,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
+    const user = await getCurrentUser()
     
-    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json(
         { error: "Não autorizado", success: false },
@@ -98,16 +100,17 @@ export async function DELETE(
       )
     }
 
-    // Get updated like count
-    const { count } = await supabase
-      .from("post_likes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", params.id)
+    // Get updated post with like count
+    const { data: post } = await supabase
+      .from("posts")
+      .select("likes_count")
+      .eq("id", params.id)
+      .single()
 
     return NextResponse.json({
       success: true,
       data: {
-        likes_count: count || 0,
+        likes_count: post?.likes_count || 0,
         is_liked: false,
       },
     })

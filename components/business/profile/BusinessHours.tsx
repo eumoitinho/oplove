@@ -123,11 +123,11 @@ export function BusinessHours({ businessHours, isOwner = false, onUpdate }: Busi
                       className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                     >
                       <Save className="w-4 h-4 mr-1" />
-                      {loading ? "Saving..." : "Save"}
+                      {loading ? "Salvando..." : "Salvar"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleCancel} disabled={loading}>
                       <X className="w-4 h-4 mr-1" />
-                      Cancel
+                      Cancelar
                     </Button>
                   </>
                 ) : (

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
@@ -17,24 +17,28 @@ interface AuthGuardProps {
 export function AuthGuard({ children, redirectTo = "/auth/login", requireAuth = true, fallback }: AuthGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
+  const [hasRedirected, setHasRedirected] = useState(false)
 
   useEffect(() => {
-    if (!isLoading) {
+    // Only redirect once and when not loading
+    if (!isLoading && !hasRedirected) {
       if (requireAuth && !isAuthenticated) {
         // Store the current path for redirect after login
         const currentPath = window.location.pathname + window.location.search
         if (currentPath !== "/auth/login" && currentPath !== "/auth/register") {
           sessionStorage.setItem("redirectAfterLogin", currentPath)
         }
+        setHasRedirected(true)
         router.push(redirectTo)
       } else if (!requireAuth && isAuthenticated) {
         // Redirect authenticated users away from auth pages
         const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/feed"
         sessionStorage.removeItem("redirectAfterLogin")
+        setHasRedirected(true)
         router.push(redirectPath)
       }
     }
-  }, [isLoading, isAuthenticated, requireAuth, router, redirectTo])
+  }, [isLoading, isAuthenticated, requireAuth, router, redirectTo, hasRedirected])
 
   // Show loading state
   if (isLoading) {
@@ -53,8 +57,8 @@ export function AuthGuard({ children, redirectTo = "/auth/login", requireAuth = 
           <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Loading...</h2>
-          <p className="text-gray-600 dark:text-gray-400">Please wait while we verify your session</p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Carregando...</h2>
+          <p className="text-gray-600 dark:text-gray-400">Por favor, aguarde enquanto verificamos sua sessão</p>
         </motion.div>
       </div>
     )

@@ -83,10 +83,10 @@ export function ForgotPasswordForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Sending...
+                  Enviando...
                 </>
               ) : (
-                "Resend Email"
+                "Reenviar Email"
               )}
             </Button>
 

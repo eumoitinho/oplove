@@ -281,7 +281,7 @@ export function PaidContentCard({ content, onPurchase, onLike, onShare, onPrevie
                   ) : (
                     <ShoppingCart className="w-4 h-4 mr-1" />
                   )}
-                  {isLoading ? "Processing..." : content.price === 0 ? "Get Free" : "Purchase"}
+                  {isLoading ? "Processando..." : content.price === 0 ? "Obter Grátis" : "Comprar"}
                 </Button>
               )}
             </div>

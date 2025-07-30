@@ -1,188 +1,124 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
-import { getAuthenticatedUser } from "@/lib/auth/auth-utils"
+import { NextRequest } from 'next/server'
+import { withAuth } from '@/lib/auth/server'
+import { createServerClient } from '@/lib/supabase/server'
 
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url)
-    const query = searchParams.get("q")
-    const type = searchParams.get("type") || "all"
-    const limit = parseInt(searchParams.get("limit") || "20")
-    const offset = parseInt(searchParams.get("offset") || "0")
-    
-    // Filters
-    const dateRange = searchParams.get("dateRange")
-    const location = searchParams.get("location")
-    const verifiedOnly = searchParams.get("verifiedOnly") === "true"
-    const mediaType = searchParams.get("mediaType")
+// GET /api/v1/search - Search users, posts, hashtags
+export async function GET(request: NextRequest) {
+  return withAuth(async (currentUser) => {
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')?.trim()
+    const type = searchParams.get('type') || 'all' // all, users, posts, hashtags
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const offset = (page - 1) * limit
 
-    if (!query || query.length < 2) {
-      return NextResponse.json({
-        error: "Query must be at least 2 characters long",
-        success: false
-      }, { status: 400 })
+    if (!query) {
+      return {
+        success: false,
+        error: 'Query parameter is required'
+      }
     }
 
-    const supabase = createServerClient()
-    const authUser = await getAuthenticatedUser(req)
-
-    // Build queries based on type
-    const results: any = {
-      users: [],
-      posts: [],
-      totalCount: 0
-    }
+    const supabase = await createServerClient()
+    const results: any = {}
 
     // Search users
-    if (type === "all" || type === "people") {
-      let usersQuery = supabase
-        .from("users")
-        .select("*")
-        .or(`username.ilike.%${query}%,name.ilike.%${query}%,bio.ilike.%${query}%`)
-        .limit(limit)
+    if (type === 'all' || type === 'users') {
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, name, avatar_url, bio, is_verified, premium_type')
+        .or(`username.ilike.%${query}%,name.ilike.%${query}%`)
         .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false })
 
-      if (verifiedOnly) {
-        usersQuery = usersQuery.eq("is_verified", true)
+      if (usersError) {
+        console.error('Error searching users:', usersError)
+      } else {
+        results.users = users || []
       }
-
-      if (location) {
-        usersQuery = usersQuery.ilike("location", `%${location}%`)
-      }
-
-      const { data: users, error: usersError } = await usersQuery
-
-      if (usersError) throw usersError
-      results.users = users || []
     }
 
     // Search posts
-    if (type === "all" || type === "posts" || type === "photos" || type === "videos") {
-      let postsQuery = supabase
-        .from("posts")
+    if (type === 'all' || type === 'posts') {
+      const { data: posts, error: postsError } = await supabase
+        .from('posts')
         .select(`
-          *,
-          user:users(*)
+          id,
+          content,
+          media_urls,
+          media_types,
+          created_at,
+          likes_count,
+          comments_count,
+          shares_count,
+          user:users!user_id (
+            id,
+            username,
+            name,
+            avatar_url,
+            is_verified,
+            premium_type
+          )
         `)
-        .textSearch("content", query)
-        .eq("visibility", "public")
-        .order("created_at", { ascending: false })
-        .limit(limit)
+        .ilike('content', `%${query}%`)
+        .eq('visibility', 'public')
         .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false })
 
-      // Date range filter
-      if (dateRange) {
-        const now = new Date()
-        let startDate = new Date()
+      if (postsError) {
+        console.error('Error searching posts:', postsError)
+      } else {
+        results.posts = posts || []
+      }
+    }
+
+    // Search hashtags
+    if (type === 'all' || type === 'hashtags') {
+      // Extract hashtags from query
+      const hashtagMatch = query.match(/#[\w]+/g)
+      if (hashtagMatch) {
+        const hashtag = hashtagMatch[0].substring(1) // Remove #
         
-        switch (dateRange) {
-          case "today":
-            startDate.setHours(0, 0, 0, 0)
-            break
-          case "week":
-            startDate.setDate(now.getDate() - 7)
-            break
-          case "month":
-            startDate.setMonth(now.getMonth() - 1)
-            break
-          case "year":
-            startDate.setFullYear(now.getFullYear() - 1)
-            break
+        const { data: hashtagPosts, error: hashtagError } = await supabase
+          .from('posts')
+          .select(`
+            id,
+            content,
+            media_urls,
+            media_types,
+            created_at,
+            likes_count,
+            comments_count,
+            shares_count,
+            user:users!user_id (
+              id,
+              username,
+              name,
+              avatar_url,
+              is_verified,
+              premium_type
+            )
+          `)
+          .ilike('content', `%#${hashtag}%`)
+          .eq('visibility', 'public')
+          .range(0, 9) // Top 10 posts for hashtags
+          .order('created_at', { ascending: false })
+
+        if (hashtagError) {
+          console.error('Error searching hashtags:', hashtagError)
+        } else {
+          results.hashtags = [{
+            name: hashtag,
+            posts_count: hashtagPosts?.length || 0,
+            recent_posts: hashtagPosts || []
+          }]
         }
-        
-        postsQuery = postsQuery.gte("created_at", startDate.toISOString())
       }
-
-      const { data: posts, error: postsError } = await postsQuery
-
-      if (postsError) throw postsError
-      
-      let filteredPosts = posts || []
-      
-      // Filter by media type
-      if (type === "photos" || mediaType === "photos") {
-        filteredPosts = filteredPosts.filter(post => 
-          post.media_urls && post.media_urls.some((url: string) => 
-            url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-          )
-        )
-      } else if (type === "videos" || mediaType === "videos") {
-        filteredPosts = filteredPosts.filter(post => 
-          post.media_urls && post.media_urls.some((url: string) => 
-            url.match(/\.(mp4|webm|mov)$/i)
-          )
-        )
-      }
-      
-      results.posts = filteredPosts
     }
 
-    // Calculate total count
-    results.totalCount = results.users.length + results.posts.length
-
-    // Log search query for analytics (optional)
-    if (authUser) {
-      await supabase.from("search_history").insert({
-        user_id: authUser.id,
-        query,
-        type,
-        results_count: results.totalCount
-      })
+    return {
+      success: true,
+      data: results
     }
-
-    return NextResponse.json({
-      data: results,
-      success: true
-    })
-  } catch (error) {
-    console.error("Search error:", error)
-    return NextResponse.json({
-      error: "Failed to perform search",
-      success: false
-    }, { status: 500 })
-  }
-}
-
-// Get trending searches
-export async function POST(req: NextRequest) {
-  try {
-    const supabase = createServerClient()
-    
-    // Get trending searches from the last 24 hours
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    
-    const { data: trending, error } = await supabase
-      .from("search_history")
-      .select("query, count")
-      .gte("created_at", yesterday.toISOString())
-      .order("count", { ascending: false })
-      .limit(10)
-
-    if (error) throw error
-
-    // Group by query and sum counts
-    const trendingMap = new Map()
-    trending?.forEach(item => {
-      const current = trendingMap.get(item.query) || 0
-      trendingMap.set(item.query, current + (item.count || 1))
-    })
-
-    // Convert to array and sort
-    const trendingSearches = Array.from(trendingMap.entries())
-      .map(([query, count]) => ({ query, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
-
-    return NextResponse.json({
-      data: trendingSearches,
-      success: true
-    })
-  } catch (error) {
-    console.error("Trending searches error:", error)
-    return NextResponse.json({
-      error: "Failed to get trending searches",
-      success: false
-    }, { status: 500 })
-  }
+  })
 }

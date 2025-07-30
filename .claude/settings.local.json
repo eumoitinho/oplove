@@ -31,7 +31,10 @@
       "Bash(pnpm update:*)",
       "Bash(grep:*)",
       "Bash(npx tsx:*)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(git push:*)",
+      "Bash(pnpm supabase db:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

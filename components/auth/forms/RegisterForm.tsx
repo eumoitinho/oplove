@@ -393,10 +393,10 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                     {isSubmitting || isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Creating...
+                        Criando...
                       </>
                     ) : (
-                      "Create Account"
+                      "Criar Conta"
                     )}
                   </Button>
                 </div>

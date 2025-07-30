@@ -30,11 +30,11 @@ const planDetails = {
     monthlyPrice: 25,
     description: "Para conexões mais profundas",
     features: [
-      "10 mensagens/dia (sem verificação)",
-      "Mensagens ilimitadas (com verificação)",
-      "Até 5 imagens por post",
-      "Criar 3 eventos/mês",
-      "Entrar em 5 comunidades",
+      "200 mensagens/dia (ilimitadas com verificação)",
+      "10 fotos por post",
+      "Vídeos até 5 minutos",
+      "1GB de armazenamento",
+      "Criar enquetes e eventos",
       "Menos anúncios"
     ]
   },
@@ -44,13 +44,14 @@ const planDetails = {
     monthlyPrice: 45,
     description: "A experiência completa",
     features: [
-      "Tudo ilimitado",
-      "Criar grupos de até 50 membros",
+      "Mensagens ilimitadas",
+      "20 fotos por post",
+      "Vídeos até 30 minutos",
+      "10GB de armazenamento",
+      "Grupos até 50 membros",
       "Chamadas de voz/vídeo",
-      "Stories de 24h",
-      "Monetização de conteúdo",
-      "Sem anúncios",
-      "Suporte prioritário"
+      "Stories exclusivos",
+      "Sem anúncios"
     ]
   },
   couple: {
@@ -60,11 +61,12 @@ const planDetails = {
     description: "Para duplas safadas",
     features: [
       "Todos os recursos Diamond para 2 contas",
-      "Perfil compartilhado de casal",
-      "Conteúdo privado exclusivo",
-      "Chat privado da dupla",
-      "Lives e transmissões conjuntas",
-      "Monetização em conjunto"
+      "30 fotos por post",
+      "Vídeos até 1 hora",
+      "20GB de armazenamento",
+      "Grupos até 100 membros",
+      "Perfil de casal",
+      "Suporte prioritário"
     ]
   }
 }

@@ -131,15 +131,23 @@ export async function POST(
 
       // Criar notificação para o autor (se não for ele mesmo)
       if (post.user_id !== user.id) {
+        // Get user details for notification
+        const { data: userData } = await supabase
+          .from('users')
+          .select('username, full_name')
+          .eq('id', user.id)
+          .single()
+
         await supabase
           .from('notifications')
           .insert({
-            recipient_id: post.user_id,
-            sender_id: user.id,
-            type: 'post_reaction',
-            content: `reagiu ${getReactionText(reaction_type)} ao seu post`,
-            reference_id: postId,
-            metadata: { reaction_type },
+            user_id: post.user_id,
+            from_user_id: user.id,
+            type: 'like',
+            title: 'Nova reação no seu post',
+            content: `${userData?.full_name || userData?.username || "Alguém"} reagiu ${getReactionText(reaction_type)} ao seu post`,
+            entity_id: postId,
+            entity_type: 'post',
             created_at: new Date().toISOString()
           })
       }

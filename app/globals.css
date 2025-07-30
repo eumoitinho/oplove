@@ -4,6 +4,8 @@
 
 /* Import security styles */
 @import '../styles/security.css';
+/* Import cross-browser compatibility styles */
+@import '../styles/compatibility.css';
 
 @layer base {
   :root {
@@ -295,5 +297,16 @@ body {
   }
   .plan-badge-couple {
     @apply bg-pink-400/10 text-pink-400 border-pink-400/30;
+  }
+}
+
+/* Utility classes for better UX */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

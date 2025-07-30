@@ -4,17 +4,13 @@ import { useEffect, useState } from "react"
 import { TimelineFeed } from "@/components/feed/timeline/TimelineFeed"
 import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
-import Toast from "@/components/feed/Toast"
+import { useEngagementToasts } from "@/hooks/useEngagementToasts"
 import StoriesCarousel from "@/components/stories/StoriesCarousel"
 import { Feather, Menu, Home, ArrowUp, X } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
 import { Header, LeftSidebar, RightSidebar } from "@/components/feed"
 
-type ActiveToast = {
-  type: "post" | "message" | "like"
-  count: number
-} | null
 
 type MainContentType =
   | "timeline"
@@ -33,11 +29,13 @@ type MainContentType =
 
 export default function FeedPage() {
   const { user } = useAuth()
-  const [activeToast, setActiveToast] = useState<ActiveToast>(null)
   const [currentMainContent, setCurrentMainContent] = useState<MainContentType>("timeline")
   const [activeTab, setActiveTab] = useState<"for-you" | "following" | "explore">("for-you")
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  
+  // Initialize engagement toasts
+  useEngagementToasts()
   
   // Initialize security protection
   useSecurityProtection()
@@ -46,29 +44,6 @@ export default function FeedPage() {
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode)
   }
-
-  // Simulate new posts/messages/likes notification
-  useEffect(() => {
-    const toastTypes: ActiveToast[] = [
-      { type: "post", count: 5 },
-      { type: "message", count: 1 },
-      { type: "like", count: 3 },
-      { type: "post", count: 10 },
-      { type: "message", count: 2 },
-    ]
-
-    const interval = setInterval(() => {
-      const randomToast = toastTypes[Math.floor(Math.random() * toastTypes.length)]
-      setActiveToast(randomToast)
-
-      // Para posts, não remove automaticamente
-      if (randomToast && randomToast.type !== "post") {
-        setTimeout(() => setActiveToast(null), 4000)
-      }
-    }, 45000) // Show every 45 seconds
-
-    return () => clearInterval(interval)
-  }, [])
 
   // Reset to "for-you" tab when returning to timeline
   useEffect(() => {
@@ -280,8 +255,6 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* Toast Notification */}
-      {activeToast && <Toast type={activeToast.type} count={activeToast.count} onClose={() => setActiveToast(null)} />}
     </div>
   )
 }

@@ -30,8 +30,10 @@ export interface Post {
   likes_count: number
   comments_count: number
   shares_count: number
+  saves_count?: number
   is_liked?: boolean
   is_saved?: boolean
+  is_shared?: boolean
   created_at: string
   updated_at: string
 }

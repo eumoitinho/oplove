@@ -31,6 +31,15 @@ export interface User {
   stats: UserStats
   created_at: string
   updated_at: string
+  
+  // Usage limits and counters
+  daily_message_count: number
+  daily_message_limit: number
+  monthly_photo_count: number
+  monthly_photo_limit: number
+  monthly_video_count: number
+  monthly_video_limit: number
+  storage_used: number // in bytes
 }
 
 export interface UserAddress {

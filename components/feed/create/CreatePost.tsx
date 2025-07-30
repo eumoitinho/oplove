@@ -169,24 +169,31 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       variant="ghost"
                       size="icon"
                       onClick={handleShowMediaUploader}
+                      disabled={!features.canUploadImages || !features.canUploadMoreMedia}
                       className={cn(
                         "relative rounded-full transition-all duration-300",
-                        features.canUploadImages
+                        features.canUploadImages && features.canUploadMoreMedia
                           ? "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
                           : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                       )}
                     >
                       <Camera className="w-5 h-5" />
-                      {!features.canUploadImages && (
-                        <Crown className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500" />
+                      {features.userPlan === "free" && features.maxImagesPerPost === 1 && (
+                        <span className="absolute -top-1 -right-1 text-xs font-bold text-orange-500">1</span>
                       )}
                     </Button>
                   </TooltipTrigger>
-                  {!features.canUploadImages && (
-                    <TooltipContent side="top" className="z-50">
-                      <p className="text-sm">Upload de Imagens • Plano Gold</p>
-                    </TooltipContent>
-                  )}
+                  <TooltipContent side="top" className="z-50">
+                    {!features.canUploadImages ? (
+                      <p className="text-sm">Upload de Imagens • Requer verificação</p>
+                    ) : !features.canUploadMoreMedia ? (
+                      <p className="text-sm">Limite de armazenamento atingido ({features.formatStorageLimit(features.storageUsed)}/{features.formatStorageLimit(features.storageLimit)})</p>
+                    ) : features.userPlan === "free" ? (
+                      <p className="text-sm">Máximo: {features.maxImagesPerPost} foto por post</p>
+                    ) : (
+                      <p className="text-sm">Máximo: {features.maxImagesPerPost} fotos por post • {features.formatStorageLimit(features.storageLimit)} de armazenamento</p>
+                    )}
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
@@ -197,25 +204,30 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => !features.canUploadImages && handlePremiumFeatureClick("gold")}
+                      onClick={() => !features.canUploadVideos ? handlePremiumFeatureClick("gold") : handleShowMediaUploader()}
+                      disabled={!features.canUploadVideos || !features.canUploadMoreMedia}
                       className={cn(
                         "relative rounded-full transition-all duration-300",
-                        features.canUploadImages
+                        features.canUploadVideos && features.canUploadMoreMedia
                           ? "text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                           : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
                       )}
                     >
                       <Video className="w-5 h-5" />
-                      {!features.canUploadImages && (
+                      {!features.canUploadVideos && (
                         <Crown className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500" />
                       )}
                     </Button>
                   </TooltipTrigger>
-                  {!features.canUploadImages && (
-                    <TooltipContent side="top" className="z-50">
+                  <TooltipContent side="top" className="z-50">
+                    {!features.canUploadVideos ? (
                       <p className="text-sm">Upload de Vídeo • Plano Gold</p>
-                    </TooltipContent>
-                  )}
+                    ) : !features.canUploadMoreMedia ? (
+                      <p className="text-sm">Limite de armazenamento atingido</p>
+                    ) : (
+                      <p className="text-sm">Vídeos até {features.formatVideoLength(features.maxVideoLength)}</p>
+                    )}
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
@@ -335,14 +347,22 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
           <MediaUploader
             files={mediaFiles}
             onChange={handleMediaChange}
-            maxFiles={5}
-            maxSize={10}
-            allowVideo={true}
-            allowAudio={true}
+            maxFiles={features.maxImagesPerPost === -1 ? 20 : features.maxImagesPerPost}
+            maxSize={50} // 50MB max per file
+            allowVideo={features.canUploadVideos}
+            allowAudio={features.canUploadImages}
           />
+          {features.storageLimit > 0 && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Armazenamento usado: {features.formatStorageLimit(features.storageUsed)} de {features.formatStorageLimit(features.storageLimit)}
+            </div>
+          )}
           <div className="flex justify-end mt-4 space-x-2">
             <Button
-              onClick={() => setShowMediaUploader(false)}
+              onClick={() => {
+                setShowMediaUploader(false)
+                setMediaFiles([])
+              }}
               variant="ghost"
               size="sm"
             >
@@ -352,6 +372,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
               onClick={() => setShowMediaUploader(false)}
               size="sm"
               className="bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={mediaFiles.length === 0}
             >
               Concluir
             </Button>

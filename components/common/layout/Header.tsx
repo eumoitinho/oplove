@@ -71,14 +71,14 @@ export function Header({ className, showSearch = true, showNotifications = true 
           className,
         )}
       >
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
+        <div className="container mx-auto px-2 xs:px-3 sm:px-4">
+          <div className="flex h-14 xs:h-16 items-center justify-between">
             {/* Logo */}
-            <Link href="/feed" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
-                <Heart className="h-4 w-4 text-white" />
+            <Link href="/feed" className="flex items-center space-x-1 xs:space-x-2">
+              <div className="flex h-6 w-6 xs:h-8 xs:w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
+                <Heart className="h-3 w-3 xs:h-4 xs:w-4 text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <span className="text-base xs:text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate max-w-[80px] xs:max-w-none">
                 OpenLove
               </span>
             </Link>
@@ -167,14 +167,14 @@ export function Header({ className, showSearch = true, showNotifications = true 
             </nav>
 
             {/* Mobile Menu Button */}
-            <div className="flex items-center space-x-2 md:hidden">
+            <div className="flex items-center space-x-1 md:hidden">
               {showSearch && (
-                <Button variant="ghost" size="icon" onClick={() => setIsSearchOpen(true)}>
-                  <Search className="h-5 w-5" />
+                <Button variant="ghost" size="sm" onClick={() => setIsSearchOpen(true)} className="h-8 w-8 p-0 xs:h-9 xs:w-9">
+                  <Search className="h-4 w-4 xs:h-5 xs:w-5" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-                <Menu className="h-5 w-5" />
+              <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(true)} className="h-8 w-8 p-0 xs:h-9 xs:w-9">
+                <Menu className="h-4 w-4 xs:h-5 xs:w-5" />
               </Button>
             </div>
           </div>

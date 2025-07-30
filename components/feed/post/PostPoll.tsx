@@ -1,165 +1,178 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Clock, Users } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { Button } from "@/components/ui/button"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { CheckCircle2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+
+interface Poll {
+  id: string
+  question: string
+  options: PollOption[]
+  total_votes: number
+  expires_at: string
+  multiple_choice: boolean
+  user_has_voted: boolean
+  user_votes?: string[] // option IDs the user voted for
+}
 
 interface PollOption {
   id: string
   text: string
-  votes: number
+  votes_count: number
+  percentage?: number
 }
 
 interface PostPollProps {
-  poll: {
-    id: string
-    question: string
-    options: PollOption[]
-    expires_at: string
-    user_vote?: string
-  }
+  poll: Poll
   canVote: boolean
-  onVote?: (pollId: string, optionId: string) => void
+  onVote: (pollId: string, optionId: string) => Promise<void>
   className?: string
 }
 
 export function PostPoll({ poll, canVote, onVote, className }: PostPollProps) {
-  const [selectedOption, setSelectedOption] = useState<string | null>(poll.user_vote || null)
+  const [selectedOptions, setSelectedOptions] = useState<string[]>(poll.user_votes || [])
   const [isVoting, setIsVoting] = useState(false)
-  const [timeLeft, setTimeLeft] = useState("")
+  const [hasVoted, setHasVoted] = useState(poll.user_has_voted)
 
-  const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0)
   const isExpired = new Date(poll.expires_at) < new Date()
-  const hasVoted = !!selectedOption
+  const showResults = hasVoted || isExpired || !canVote
 
-  // Update time left
-  useEffect(() => {
-    const updateTimeLeft = () => {
-      const now = new Date()
-      const expiresAt = new Date(poll.expires_at)
+  const handleOptionClick = (optionId: string) => {
+    if (!canVote || hasVoted || isExpired) return
 
-      if (expiresAt > now) {
-        setTimeLeft(formatDistanceToNow(expiresAt, { locale: ptBR }))
-      } else {
-        setTimeLeft("Encerrada")
-      }
+    if (poll.multiple_choice) {
+      setSelectedOptions(prev =>
+        prev.includes(optionId)
+          ? prev.filter(id => id !== optionId)
+          : [...prev, optionId]
+      )
+    } else {
+      setSelectedOptions([optionId])
     }
+  }
 
-    updateTimeLeft()
-    const interval = setInterval(updateTimeLeft, 60000) // Update every minute
-
-    return () => clearInterval(interval)
-  }, [poll.expires_at])
-
-  const handleVote = async (optionId: string) => {
-    if (!canVote || hasVoted || isExpired || !onVote) return
-
+  const handleVote = async () => {
+    if (selectedOptions.length === 0) return
+    
     setIsVoting(true)
-    setSelectedOption(optionId)
-
     try {
-      await onVote(poll.id, optionId)
+      // Vote for each selected option
+      for (const optionId of selectedOptions) {
+        await onVote(poll.id, optionId)
+      }
+      setHasVoted(true)
     } catch (error) {
-      setSelectedOption(null)
+      console.error("Error voting:", error)
     } finally {
       setIsVoting(false)
     }
   }
 
-  const getOptionPercentage = (votes: number) => {
-    return totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0
+  const formatTimeLeft = () => {
+    const now = new Date()
+    const expires = new Date(poll.expires_at)
+    const diff = expires.getTime() - now.getTime()
+
+    if (diff <= 0) return "Encerrada"
+
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const days = Math.floor(hours / 24)
+
+    if (days > 0) return `${days} dia${days > 1 ? 's' : ''} restante${days > 1 ? 's' : ''}`
+    if (hours > 0) return `${hours} hora${hours > 1 ? 's' : ''} restante${hours > 1 ? 's' : ''}`
+    
+    const minutes = Math.floor(diff / (1000 * 60))
+    return `${minutes} minuto${minutes > 1 ? 's' : ''} restante${minutes > 1 ? 's' : ''}`
   }
 
   return (
-    <div className={cn("space-y-4 p-4 bg-gray-50 rounded-lg", className)}>
-      {/* Poll Question */}
+    <div className={cn("space-y-3", className)}>
+      <h3 className="font-semibold text-gray-900 dark:text-white">
+        {poll.question}
+      </h3>
+
       <div className="space-y-2">
-        <h4 className="font-medium text-gray-900">{poll.question}</h4>
-
-        <div className="flex items-center space-x-4 text-sm text-gray-500">
-          <div className="flex items-center space-x-1">
-            <Users className="h-4 w-4" />
-            <span>
-              {totalVotes} {totalVotes === 1 ? "voto" : "votos"}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-1">
-            <Clock className="h-4 w-4" />
-            <span>{timeLeft}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Poll Options */}
-      <div className="space-y-2">
-        {poll.options.map((option, index) => {
-          const percentage = getOptionPercentage(option.votes)
-          const isSelected = selectedOption === option.id
-          const showResults = hasVoted || isExpired
+        {poll.options.map((option) => {
+          const isSelected = selectedOptions.includes(option.id)
+          const votedForThis = poll.user_votes?.includes(option.id)
+          const percentage = poll.total_votes > 0 
+            ? Math.round((option.votes_count / poll.total_votes) * 100)
+            : 0
 
           return (
-            <motion.div
+            <div
               key={option.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              onClick={() => handleOptionClick(option.id)}
+              className={cn(
+                "relative rounded-lg border transition-all",
+                showResults
+                  ? "border-gray-200 dark:border-gray-700"
+                  : "border-gray-300 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer",
+                isSelected && !showResults && "border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/20"
+              )}
             >
               {showResults ? (
-                // Results View
-                <div className="relative">
-                  <div
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border transition-all duration-200",
-                      isSelected ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white",
-                    )}
-                  >
-                    <span className="font-medium text-gray-900 relative z-10">{option.text}</span>
-                    <span className="text-sm font-semibold text-gray-700 relative z-10">{percentage}%</span>
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn(
+                      "font-medium",
+                      votedForThis && "text-purple-600 dark:text-purple-400"
+                    )}>
+                      {option.text}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {votedForThis && (
+                        <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {percentage}%
+                      </span>
+                    </div>
                   </div>
-
-                  {/* Progress Bar Background */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 rounded-lg transition-all duration-500",
-                      isSelected ? "bg-purple-100" : "bg-gray-100",
-                    )}
-                    style={{
-                      width: `${percentage}%`,
-                      opacity: 0.3,
-                    }}
-                  />
+                  <Progress value={percentage} className="h-2" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {option.votes_count} {option.votes_count === 1 ? 'voto' : 'votos'}
+                  </span>
                 </div>
               ) : (
-                // Voting View
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start p-3 h-auto text-left transition-all duration-200",
-                    "hover:border-purple-500 hover:bg-purple-50",
-                    isVoting && "opacity-50 cursor-not-allowed",
-                  )}
-                  onClick={() => handleVote(option.id)}
-                  disabled={!canVote || isExpired || isVoting}
-                >
-                  {option.text}
-                </Button>
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{option.text}</span>
+                    {isSelected && (
+                      <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    )}
+                  </div>
+                </div>
               )}
-            </motion.div>
+            </div>
           )
         })}
       </div>
 
-      {/* Poll Status */}
-      {!canVote && !hasVoted && (
-        <p className="text-sm text-gray-500 text-center">Faça login para votar nesta enquete</p>
-      )}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-500 dark:text-gray-400">
+          {poll.total_votes} {poll.total_votes === 1 ? 'voto' : 'votos'} · {formatTimeLeft()}
+        </span>
+        
+        {!showResults && selectedOptions.length > 0 && (
+          <Button
+            size="sm"
+            onClick={handleVote}
+            disabled={isVoting}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {isVoting ? "Votando..." : "Votar"}
+          </Button>
+        )}
+      </div>
 
-      {isExpired && <p className="text-sm text-gray-500 text-center">Esta enquete foi encerrada</p>}
+      {poll.multiple_choice && !showResults && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Você pode escolher múltiplas opções
+        </p>
+      )}
     </div>
   )
 }

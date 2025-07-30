@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth'
+import { CONTENT_LIMITS } from '@/utils/constants'
 import type { Conversation } from '@/lib/services/messages-service'
 
 export function useMessagePermissions() {
@@ -7,7 +8,9 @@ export function useMessagePermissions() {
   const canSendMessage = (conversation?: Conversation) => {
     if (!user) return false
 
-    // Free users cannot send messages
+    const limits = CONTENT_LIMITS[user.premium_type || 'free']
+
+    // Free users cannot send messages without verification
     if (user.premium_type === 'free') {
       // But can reply if a premium user initiated the conversation
       if (conversation?.initiated_by_premium && conversation.initiated_by !== user.id) {
@@ -16,41 +19,44 @@ export function useMessagePermissions() {
       return false
     }
 
-    // Gold users have daily limits
+    // Gold users have daily limits (200/day, unlimited if verified)
     if (user.premium_type === 'gold') {
       // Check if verified (unlimited messages)
-      if (user.is_verified && user.daily_message_limit === -1) {
+      if (user.is_verified) {
         return true
       }
       // Check daily limit
-      return user.daily_message_count < user.daily_message_limit
+      const dailyLimit = limits.dailyMessageLimit
+      return user.daily_message_count < dailyLimit
     }
 
     // Diamond and Couple users have unlimited
-    return user.premium_type === 'diamond' || user.premium_type === 'couple'
+    return limits.dailyMessageLimit === -1
   }
 
   const canSendMedia = (type: 'photo' | 'video') => {
     if (!user) return false
 
-    // Free users have very limited media
+    const limits = CONTENT_LIMITS[user.premium_type || 'free']
+    const storageUsed = user.storage_used || 0
+
+    // Check storage limit first
+    if (storageUsed >= limits.storageLimit) {
+      return false
+    }
+
+    // Free users can send 1 photo per post, no videos
     if (user.premium_type === 'free') {
-      if (type === 'photo') {
-        return user.monthly_photo_count < user.monthly_photo_limit
-      }
-      return false // Free users cannot send videos
+      return type === 'photo' && limits.maxPhotosPerPost > 0
     }
 
-    // Check monthly limits
-    if (type === 'photo') {
-      return user.monthly_photo_limit === -1 || user.monthly_photo_count < user.monthly_photo_limit
-    }
-    
-    if (type === 'video') {
-      return user.monthly_video_limit === -1 || user.monthly_video_count < user.monthly_video_limit
+    // Gold users can send photos and videos up to 5 minutes
+    if (user.premium_type === 'gold') {
+      return type === 'photo' || (type === 'video' && limits.maxVideoLength > 0)
     }
 
-    return false
+    // Diamond and Couple users have full access
+    return true
   }
 
   const canMakeCalls = () => {
@@ -60,26 +66,36 @@ export function useMessagePermissions() {
 
   const canCreateGroups = () => {
     if (!user) return false
-    return user.premium_type === 'diamond' || user.premium_type === 'couple'
+    const limits = CONTENT_LIMITS[user.premium_type || 'free']
+    return limits.maxGroupMembers > 0
   }
 
   const getRemainingMessages = () => {
     if (!user) return 0
+    
+    const limits = CONTENT_LIMITS[user.premium_type || 'free']
+    
+    // Free users cannot send messages
     if (user.premium_type === 'free') return 0
-    if (user.daily_message_limit === -1) return Infinity
-    return Math.max(0, user.daily_message_limit - user.daily_message_count)
+    
+    // Gold users: 200/day, unlimited if verified
+    if (user.premium_type === 'gold') {
+      if (user.is_verified) return Infinity
+      return Math.max(0, limits.dailyMessageLimit - user.daily_message_count)
+    }
+    
+    // Diamond and Couple: unlimited
+    return Infinity
   }
 
-  const getRemainingPhotos = () => {
+  const getRemainingStorage = () => {
     if (!user) return 0
-    if (user.monthly_photo_limit === -1) return Infinity
-    return Math.max(0, user.monthly_photo_limit - user.monthly_photo_count)
-  }
-
-  const getRemainingVideos = () => {
-    if (!user) return 0
-    if (user.monthly_video_limit === -1) return Infinity
-    return Math.max(0, user.monthly_video_limit - user.monthly_video_count)
+    
+    const limits = CONTENT_LIMITS[user.premium_type || 'free']
+    const storageUsed = user.storage_used || 0
+    
+    if (limits.storageLimit === -1) return Infinity
+    return Math.max(0, limits.storageLimit - storageUsed)
   }
 
   return {
@@ -88,13 +104,13 @@ export function useMessagePermissions() {
     canMakeCalls,
     canCreateGroups,
     getRemainingMessages,
-    getRemainingPhotos,
-    getRemainingVideos,
+    getRemainingStorage,
     isFreePlan: user?.premium_type === 'free',
     isGoldPlan: user?.premium_type === 'gold',
     isDiamondPlan: user?.premium_type === 'diamond',
     isCouplePlan: user?.premium_type === 'couple',
     isPremium: user?.premium_type !== 'free',
-    isVerified: user?.is_verified || false
+    isVerified: user?.is_verified || false,
+    limits: user ? CONTENT_LIMITS[user.premium_type || 'free'] : CONTENT_LIMITS.free
   }
 }

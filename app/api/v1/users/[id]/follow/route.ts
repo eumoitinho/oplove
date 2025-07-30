@@ -1,81 +1,72 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
+import { NextRequest } from 'next/server'
+import { withAuth } from '@/lib/auth/server'
+import { createServerClient } from '@/lib/supabase/server'
 
 // POST /api/v1/users/[id]/follow - Follow a user
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const supabase = createServerClient()
+  return withAuth(async (currentUser) => {
+    const targetUserId = params.id
     
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: "Não autorizado", success: false },
-        { status: 401 }
-      )
+    // Can't follow yourself
+    if (currentUser.id === targetUserId) {
+      return {
+        success: false,
+        error: 'Você não pode seguir a si mesmo'
+      }
     }
 
-    // Cannot follow yourself
-    if (params.id === user.id) {
-      return NextResponse.json(
-        { error: "Você não pode seguir a si mesmo", success: false },
-        { status: 400 }
-      )
-    }
+    const supabase = await createServerClient()
 
     // Check if already following
     const { data: existingFollow } = await supabase
-      .from("follows")
-      .select("id")
-      .eq("follower_id", user.id)
-      .eq("following_id", params.id)
+      .from('follows')
+      .select('id')
+      .eq('follower_id', currentUser.id)
+      .eq('following_id', targetUserId)
       .single()
 
     if (existingFollow) {
-      return NextResponse.json(
-        { error: "Você já está seguindo este usuário", success: false },
-        { status: 400 }
-      )
+      return {
+        success: false,
+        error: 'Você já está seguindo este usuário'
+      }
     }
 
     // Create follow relationship
     const { error } = await supabase
-      .from("follows")
+      .from('follows')
       .insert({
-        follower_id: user.id,
-        following_id: params.id,
-        created_at: new Date().toISOString(),
+        follower_id: currentUser.id,
+        following_id: targetUserId
       })
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message, success: false },
-        { status: 400 }
-      )
+      console.error('Error following user:', error)
+      return {
+        success: false,
+        error: 'Erro ao seguir usuário'
+      }
     }
 
-    // Create notification for the followed user
+    // Create notification for the user being followed
     await supabase
-      .from("notifications")
+      .from('notifications')
       .insert({
-        user_id: params.id,
-        type: "follow",
-        actor_id: user.id,
-        created_at: new Date().toISOString(),
+        user_id: targetUserId,
+        type: 'follow',
+        actor_id: currentUser.id,
+        title: `${currentUser.username || currentUser.name} começou a seguir você`,
+        read: false
       })
 
-    return NextResponse.json({
+    return {
       success: true,
-      message: "Agora você está seguindo este usuário",
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Erro interno do servidor", success: false },
-      { status: 500 }
-    )
-  }
+      data: { following: true }
+    }
+  })
 }
 
 // DELETE /api/v1/users/[id]/follow - Unfollow a user
@@ -83,38 +74,50 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const supabase = createServerClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: "Não autorizado", success: false },
-        { status: 401 }
-      )
-    }
+  return withAuth(async (currentUser) => {
+    const targetUserId = params.id
+    const supabase = await createServerClient()
 
     const { error } = await supabase
-      .from("follows")
+      .from('follows')
       .delete()
-      .eq("follower_id", user.id)
-      .eq("following_id", params.id)
+      .eq('follower_id', currentUser.id)
+      .eq('following_id', targetUserId)
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message, success: false },
-        { status: 400 }
-      )
+      console.error('Error unfollowing user:', error)
+      return {
+        success: false,
+        error: 'Erro ao deixar de seguir usuário'
+      }
     }
 
-    return NextResponse.json({
+    return {
       success: true,
-      message: "Você deixou de seguir este usuário",
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Erro interno do servidor", success: false },
-      { status: 500 }
-    )
-  }
+      data: { following: false }
+    }
+  })
+}
+
+// GET /api/v1/users/[id]/follow - Check if following
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return withAuth(async (currentUser) => {
+    const targetUserId = params.id
+    const supabase = await createServerClient()
+
+    const { data } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', currentUser.id)
+      .eq('following_id', targetUserId)
+      .single()
+
+    return {
+      success: true,
+      data: { following: !!data }
+    }
+  })
 }

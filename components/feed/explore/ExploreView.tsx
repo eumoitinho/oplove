@@ -20,6 +20,9 @@ import {
 } from "lucide-react"
 import { UserAvatar } from "@/components/common/UserAvatar"
 import { useAuth } from "@/hooks/useAuth"
+import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
+import { PaymentModal } from "@/components/common/PaymentModal"
+import { useToast } from "@/hooks/useToast"
 import { exploreService } from "@/lib/services/explore-service"
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
 import type { UserProfile, ExploreFilters, Gender, AdultInterest } from "@/types/adult"
@@ -71,11 +74,15 @@ const ADULT_INTERESTS: { value: AdultInterest; label: string; category: string }
 
 export function ExploreView() {
   const { user } = useAuth()
+  const features = usePremiumFeatures()
+  const { showToast } = useToast()
   const [showFilters, setShowFilters] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [profiles, setProfiles] = useState<UserProfile[]>([])
+  const [dailyViewCount, setDailyViewCount] = useState(0)
   
   const [filters, setFilters] = useState<ExploreFilters>({
-    distance_km: 50,
+    distance_km: features.userPlan === "free" ? 25 : 50,
     age_range: { min: 18, max: 65 },
     gender: [],
     interests: [],
@@ -86,16 +93,56 @@ export function ExploreView() {
     relationship_type: 'both'
   })
 
+  // Load daily view count for free users
+  useEffect(() => {
+    if (features.userPlan === "free") {
+      const today = new Date().toDateString()
+      const viewData = localStorage.getItem("dailyExploreData")
+      if (viewData) {
+        const { date, count } = JSON.parse(viewData)
+        if (date === today) {
+          setDailyViewCount(count)
+        } else {
+          localStorage.setItem("dailyExploreData", JSON.stringify({ date: today, count: 0 }))
+          setDailyViewCount(0)
+        }
+      } else {
+        localStorage.setItem("dailyExploreData", JSON.stringify({ date: today, count: 0 }))
+      }
+    }
+  }, [features.userPlan])
+
   // Fetch function for infinite scroll
   const fetchProfiles = useCallback(async (page: number) => {
     if (!user) return { data: [], hasMore: false }
     
+    // Check explore limits for free users
+    if (features.userPlan === "free" && dailyViewCount >= 20) {
+      showToast({
+        title: "Limite diário atingido",
+        description: "Usuários gratuitos podem explorar até 20 perfis por dia. Faça upgrade para explorar ilimitadamente.",
+        type: "warning"
+      })
+      setShowPaymentModal(true)
+      return { data: [], hasMore: false }
+    }
+    
     try {
-      return await exploreService.searchProfiles(user.id, filters, page, 20)
+      const result = await exploreService.searchProfiles(user.id, filters, page, 20)
+      
+      // Update view count for free users
+      if (features.userPlan === "free" && result.data.length > 0) {
+        const newCount = dailyViewCount + result.data.length
+        setDailyViewCount(newCount)
+        const today = new Date().toDateString()
+        localStorage.setItem("dailyExploreData", JSON.stringify({ date: today, count: newCount }))
+      }
+      
+      return result
     } catch (error) {
       return { data: [], hasMore: false }
     }
-  }, [user, filters])
+  }, [user, filters, features.userPlan, dailyViewCount, showToast])
 
   // Infinite scroll
   const {
@@ -168,6 +215,25 @@ export function ExploreView() {
         </Button>
       </div>
 
+      {/* Limite indicator for free users */}
+      {features.userPlan === "free" && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+            <Users className="w-4 h-4" />
+            <span>Perfis visualizados hoje: {dailyViewCount}/20</span>
+            <span className="text-xs opacity-75">• Raio máximo: 25km</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowPaymentModal(true)}
+            className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
+          >
+            Fazer upgrade
+          </Button>
+        </div>
+      )}
+
       {/* Filters Panel */}
       <AnimatePresence>
         {showFilters && (
@@ -182,14 +248,21 @@ export function ExploreView() {
               <div>
                 <label className="text-sm font-medium mb-3 block">
                   Distância: {filters.distance_km}km
+                  {features.userPlan === "free" && (
+                    <span className="text-xs text-gray-500 ml-2">(máximo 25km no plano gratuito)</span>
+                  )}
                 </label>
                 <Slider
                   value={[filters.distance_km]}
-                  onValueChange={([value]) => handleFilterChange('distance_km', value)}
-                  max={200}
+                  onValueChange={([value]) => {
+                    const maxDistance = features.userPlan === "free" ? 25 : 200
+                    handleFilterChange('distance_km', Math.min(value, maxDistance))
+                  }}
+                  max={features.userPlan === "free" ? 25 : 200}
                   min={1}
                   step={1}
                   className="w-full"
+                  disabled={features.userPlan === "free" && filters.distance_km >= 25}
                 />
               </div>
 
@@ -467,6 +540,14 @@ export function ExploreView() {
           </>
         )}
       </div>
+      
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        selectedPlan="gold"
+        onSuccess={() => setShowPaymentModal(false)}
+      />
     </div>
   )
 }

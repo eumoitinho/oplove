@@ -28,8 +28,11 @@ import {
 } from "lucide-react"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/hooks/useAuth"
+import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 import { PostCard } from "@/components/feed/post/PostCard"
 import { PostSkeleton } from "@/components/feed/PostSkeleton"
+import { PaymentModal } from "@/components/common/PaymentModal"
 import type { User, Post } from "@/types/common"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
@@ -88,11 +91,15 @@ const PlanBadge = ({ plan }: { plan: "free" | "gold" | "diamond" | "couple" }) =
 
 export function SearchView({ onBack }: SearchViewProps) {
   const router = useRouter()
+  const { user } = useAuth()
+  const features = usePremiumFeatures()
   const { showToast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [dailySearchCount, setDailySearchCount] = useState(0)
   const [filters, setFilters] = useState<SearchFilters>({})
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([])
   const [searchResults, setSearchResults] = useState<SearchResult>({
@@ -105,13 +112,31 @@ export function SearchView({ onBack }: SearchViewProps) {
 
   const debouncedSearchQuery = useDebounce(searchQuery, 500)
 
-  // Load recent searches from localStorage
+  // Load recent searches and daily count from localStorage
   useEffect(() => {
     const stored = localStorage.getItem("recentSearches")
     if (stored) {
       setRecentSearches(JSON.parse(stored))
     }
-  }, [])
+    
+    // Load daily search count for free users
+    if (features.userPlan === "free") {
+      const today = new Date().toDateString()
+      const searchData = localStorage.getItem("dailySearchData")
+      if (searchData) {
+        const { date, count } = JSON.parse(searchData)
+        if (date === today) {
+          setDailySearchCount(count)
+        } else {
+          // Reset count for new day
+          localStorage.setItem("dailySearchData", JSON.stringify({ date: today, count: 0 }))
+          setDailySearchCount(0)
+        }
+      } else {
+        localStorage.setItem("dailySearchData", JSON.stringify({ date: today, count: 0 }))
+      }
+    }
+  }, [features.userPlan])
 
   // Save recent search
   const saveRecentSearch = useCallback((query: string, type: RecentSearch["type"] = "query") => {
@@ -148,6 +173,17 @@ export function SearchView({ onBack }: SearchViewProps) {
         videos: [],
         totalCount: 0
       })
+      return
+    }
+
+    // Check search limits for free users
+    if (features.userPlan === "free" && dailySearchCount >= 10) {
+      showToast({
+        title: "Limite de buscas atingido",
+        description: "Usuários gratuitos podem realizar até 10 buscas por dia. Faça upgrade para buscar ilimitadamente.",
+        type: "warning"
+      })
+      setShowPaymentModal(true)
       return
     }
 
@@ -227,13 +263,35 @@ export function SearchView({ onBack }: SearchViewProps) {
         )
       )
 
-      setSearchResults({
+      // Apply free user limitations
+      let limitedResults = {
         users: usersResult.data || [],
         posts: allPosts,
         photos: photoPosts,
         videos: videoPosts,
         totalCount: (usersResult.data?.length || 0) + (postsResult.data?.length || 0)
-      })
+      }
+
+      if (features.userPlan === "free") {
+        // Limit results for free users
+        limitedResults = {
+          users: limitedResults.users.slice(0, 5),
+          posts: limitedResults.posts.slice(0, 10),
+          photos: limitedResults.photos.slice(0, 5),
+          videos: limitedResults.videos.slice(0, 3),
+          totalCount: limitedResults.totalCount
+        }
+      }
+
+      setSearchResults(limitedResults)
+
+      // Update search count for free users
+      if (features.userPlan === "free") {
+        const newCount = dailySearchCount + 1
+        setDailySearchCount(newCount)
+        const today = new Date().toDateString()
+        localStorage.setItem("dailySearchData", JSON.stringify({ date: today, count: newCount }))
+      }
     } catch (error) {
       console.error("Search error:", error)
       showToast({
@@ -388,6 +446,24 @@ export function SearchView({ onBack }: SearchViewProps) {
       {/* Search Header */}
       <div className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10">
         <div className="max-w-4xl mx-auto px-4 py-4">
+          {/* Search limit indicator for free users */}
+          {features.userPlan === "free" && (
+            <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                <Search className="w-4 h-4" />
+                <span>Buscas hoje: {dailySearchCount}/10</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPaymentModal(true)}
+                className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
+              >
+                Fazer upgrade
+              </Button>
+            </div>
+          )}
+          
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -649,13 +725,20 @@ export function SearchView({ onBack }: SearchViewProps) {
                           </h4>
                           {renderUserResults(searchResults.users.slice(0, 3))}
                           {searchResults.users.length > 3 && (
-                            <Button
-                              variant="ghost"
-                              onClick={() => setActiveTab("people")}
-                              className="w-full mt-3 text-purple-600 dark:text-purple-400"
-                            >
-                              Ver todos ({searchResults.users.length})
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                onClick={() => setActiveTab("people")}
+                                className="w-full mt-3 text-purple-600 dark:text-purple-400"
+                              >
+                                Ver todos ({searchResults.users.length})
+                              </Button>
+                              {features.userPlan === "free" && (
+                                <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+                                  Resultados limitados para usuários gratuitos
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
@@ -717,6 +800,14 @@ export function SearchView({ onBack }: SearchViewProps) {
           </Tabs>
         )}
       </div>
+      
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        selectedPlan="gold"
+        onSuccess={() => setShowPaymentModal(false)}
+      />
     </div>
   )
 }

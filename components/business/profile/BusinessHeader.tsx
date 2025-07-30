@@ -94,7 +94,7 @@ export function BusinessHeader({ business, isOwner = false, onEdit, onFollow, on
                 disabled={coverImageLoading}
               >
                 <Camera className="w-4 h-4 mr-2" />
-                {coverImageLoading ? "Uploading..." : "Change Cover"}
+                {coverImageLoading ? "Enviando..." : "Alterar Capa"}
               </Button>
             </label>
             <input id="cover-upload" type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />

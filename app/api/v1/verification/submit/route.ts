@@ -2,19 +2,104 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { StorageServerService } from "@/lib/services/storage-server.service"
 import { z } from "zod"
+import { headers } from "next/headers"
+import crypto from "crypto"
 
-// Schema for verification data
+// Schema for verification data with enhanced validation
 const verificationSchema = z.object({
-  fullName: z.string().min(2),
-  cpf: z.string().min(11),
-  birthDate: z.string(),
+  fullName: z.string().min(3).max(100).regex(/^[a-zA-ZÀ-ÿ\s]+$/, "Nome deve conter apenas letras"),
+  cpf: z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, "CPF inválido"),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   documentType: z.enum(["rg", "cnh", "passport"]),
-  documentNumber: z.string().min(1),
+  documentNumber: z.string().min(5).max(20).regex(/^[A-Z0-9-]+$/i, "Número do documento inválido"),
 })
+
+// CPF validation algorithm
+function validateCPF(cpf: string): boolean {
+  const cleanCPF = cpf.replace(/[^\d]/g, '')
+  
+  if (cleanCPF.length !== 11) return false
+  if (/^(\d)\1{10}$/.test(cleanCPF)) return false
+  
+  // Validate check digits
+  let sum = 0
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cleanCPF[i]) * (10 - i)
+  }
+  let checkDigit1 = 11 - (sum % 11)
+  if (checkDigit1 >= 10) checkDigit1 = 0
+  
+  sum = 0
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cleanCPF[i]) * (11 - i)
+  }
+  let checkDigit2 = 11 - (sum % 11)
+  if (checkDigit2 >= 10) checkDigit2 = 0
+  
+  return parseInt(cleanCPF[9]) === checkDigit1 && parseInt(cleanCPF[10]) === checkDigit2
+}
+
+// File validation with security checks
+function validateFile(file: File, type: 'image' | 'document'): { valid: boolean; error?: string } {
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  const allowedTypes = type === 'image' 
+    ? ['image/jpeg', 'image/png', 'image/webp']
+    : ['image/jpeg', 'image/png', 'application/pdf']
+  
+  // Check file size
+  if (file.size > maxSize) {
+    return { valid: false, error: `Arquivo excede o limite de ${maxSize / 1024 / 1024}MB` }
+  }
+  
+  // Check file type
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: `Tipo de arquivo inválido. Permitidos: ${allowedTypes.join(', ')}` }
+  }
+  
+  // Check file name for suspicious patterns
+  const suspiciousPatterns = /\.(exe|scr|bat|cmd|com|pif|vbs|js|jar|zip|rar)$/i
+  if (suspiciousPatterns.test(file.name)) {
+    return { valid: false, error: 'Nome de arquivo suspeito detectado' }
+  }
+  
+  return { valid: true }
+}
+
+// Rate limiting check
+async function checkRateLimit(userId: string, ip: string): Promise<boolean> {
+  const supabase = createServerClient()
+  const windowStart = new Date(Date.now() - 60 * 60 * 1000) // 1 hour window
+  
+  // Check by user ID
+  const { count: userCount } = await supabase
+    .from('user_verifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', windowStart.toISOString())
+  
+  if (userCount && userCount >= 3) return false
+  
+  // Check by IP (stored in reviewer_notes temporarily for demo)
+  const { count: ipCount } = await supabase
+    .from('user_verifications')
+    .select('*', { count: 'exact', head: true })
+    .ilike('reviewer_notes', `%IP:${ip}%`)
+    .gte('created_at', windowStart.toISOString())
+  
+  if (ipCount && ipCount >= 5) return false
+  
+  return true
+}
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerClient()
+    
+    // Get client IP for rate limiting
+    const headersList = headers()
+    const ip = headersList.get('x-forwarded-for')?.split(',')[0] || 
+               headersList.get('x-real-ip') || 
+               'unknown'
     
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -22,6 +107,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Não autorizado", success: false },
         { status: 401 }
+      )
+    }
+    
+    // Check rate limit
+    const canProceed = await checkRateLimit(user.id, ip)
+    if (!canProceed) {
+      return NextResponse.json(
+        { error: "Muitas tentativas de verificação. Tente novamente em 1 hora.", success: false },
+        { status: 429 }
       )
     }
 
@@ -38,6 +132,24 @@ export async function POST(request: NextRequest) {
     }
 
     const validatedData = verificationSchema.parse(textData)
+    
+    // Additional CPF validation
+    if (!validateCPF(validatedData.cpf)) {
+      return NextResponse.json(
+        { error: "CPF inválido", success: false },
+        { status: 400 }
+      )
+    }
+    
+    // Check age (must be 18+)
+    const birthDate = new Date(validatedData.birthDate)
+    const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    if (age < 18) {
+      return NextResponse.json(
+        { error: "Você deve ter pelo menos 18 anos", success: false },
+        { status: 400 }
+      )
+    }
 
     // Extract files
     const documentFront = formData.get('documentFront') as File | null
@@ -49,6 +161,33 @@ export async function POST(request: NextRequest) {
     if (!documentFront || !selfiePhoto) {
       return NextResponse.json(
         { error: "Documentos obrigatórios não fornecidos", success: false },
+        { status: 400 }
+      )
+    }
+    
+    // Validate file security
+    const frontValidation = validateFile(documentFront, 'document')
+    if (!frontValidation.valid) {
+      return NextResponse.json(
+        { error: `Documento frente: ${frontValidation.error}`, success: false },
+        { status: 400 }
+      )
+    }
+    
+    if (documentBack) {
+      const backValidation = validateFile(documentBack, 'document')
+      if (!backValidation.valid) {
+        return NextResponse.json(
+          { error: `Documento verso: ${backValidation.error}`, success: false },
+          { status: 400 }
+        )
+      }
+    }
+    
+    const selfieValidation = validateFile(selfiePhoto, 'image')
+    if (!selfieValidation.valid) {
+      return NextResponse.json(
+        { error: `Selfie: ${selfieValidation.error}`, success: false },
         { status: 400 }
       )
     }
@@ -141,7 +280,8 @@ export async function POST(request: NextRequest) {
         face_scan_data: parsedFaceScanData,
         status: 'pending',
         submitted_at: new Date().toISOString(),
-        verification_score: parsedFaceScanData?.livenessScore || 0
+        verification_score: parsedFaceScanData?.livenessScore || 0,
+        reviewer_notes: `IP:${ip}` // Store IP for rate limiting
       })
       .select()
       .single()

@@ -329,12 +329,12 @@ export function ContentGrid({ businessId, isOwner = false, onCreateContent }: Co
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>
                               <Share2 className="w-4 h-4 mr-2" />
-                              Share
+                              Compartilhar
                             </DropdownMenuItem>
                             {isOwner && (
                               <>
-                                <DropdownMenuItem>Edit</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                <DropdownMenuItem>Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">Excluir</DropdownMenuItem>
                               </>
                             )}
                           </DropdownMenuContent>

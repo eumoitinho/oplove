@@ -142,13 +142,16 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
 
   const handleDelete = async (commentId: string) => {
     try {
-      const response = await fetch(`/api/v1/posts/${postId}/comments?commentId=${commentId}`, {
+      const response = await fetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
         method: "DELETE",
       })
 
       if (response.ok) {
         setComments(prev => prev.filter(c => c.id !== commentId))
         toast.success("Comentário excluído")
+      } else {
+        const data = await response.json()
+        toast.error(data.error || "Erro ao excluir comentário")
       }
     } catch (error) {
       toast.error("Erro ao excluir comentário")
