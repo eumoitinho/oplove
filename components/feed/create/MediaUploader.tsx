@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
 import { motion, AnimatePresence } from "framer-motion"
-import { Upload, X, ImageIcon, Video, AlertCircle } from "lucide-react"
+import { Upload, X, ImageIcon, Video, Music, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -16,6 +16,7 @@ interface MediaUploaderProps {
   maxFiles?: number
   maxSize?: number // in MB
   allowVideo?: boolean
+  allowAudio?: boolean
   className?: string
 }
 
@@ -25,6 +26,7 @@ export function MediaUploader({
   maxFiles = 5,
   maxSize = 10,
   allowVideo = false,
+  allowAudio = false,
   className,
 }: MediaUploaderProps) {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
@@ -86,6 +88,9 @@ export function MediaUploader({
       ...(allowVideo && {
         "video/*": [".mp4", ".mov", ".avi", ".webm"],
       }),
+      ...(allowAudio && {
+        "audio/*": [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".webm"],
+      }),
     },
     maxSize: maxSize * 1024 * 1024,
     multiple: true,
@@ -136,7 +141,13 @@ export function MediaUploader({
                     Arraste arquivos aqui ou <span className="text-purple-600 font-medium">clique para selecionar</span>
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {allowVideo ? "Imagens e vídeos" : "Apenas imagens"} até {maxSize}MB cada
+                    {allowVideo && allowAudio 
+                      ? "Imagens, vídeos e áudios" 
+                      : allowVideo 
+                        ? "Imagens e vídeos" 
+                        : allowAudio 
+                          ? "Imagens e áudios"
+                          : "Apenas imagens"} até {maxSize}MB cada
                   </p>
                 </div>
               )}
@@ -181,6 +192,7 @@ export function MediaUploader({
               const progress = uploadProgress[fileId] || 0
               const preview = getFilePreview(file)
               const isVideo = file.type.startsWith("video/")
+              const isAudio = file.type.startsWith("audio/")
 
               return (
                 <motion.div
@@ -191,12 +203,14 @@ export function MediaUploader({
                   className="relative group"
                 >
                   <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    {preview && !isVideo ? (
+                    {preview && !isVideo && !isAudio ? (
                       <Image src={preview || "/placeholder.svg"} alt={file.name} fill className="object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         {isVideo ? (
                           <Video className="h-8 w-8 text-gray-400" />
+                        ) : isAudio ? (
+                          <Music className="h-8 w-8 text-gray-400" />
                         ) : (
                           <ImageIcon className="h-8 w-8 text-gray-400" />
                         )}

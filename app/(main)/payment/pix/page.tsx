@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Copy, CheckCircle2, Clock, QrCode } from "lucide-react"
@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/useToast"
 import Image from "next/image"
 
-export default function PixPaymentPage() {
+function PixPaymentContent() {
   const [copied, setCopied] = useState(false)
   const [checking, setChecking] = useState(false)
   const [timeLeft, setTimeLeft] = useState(30 * 60) // 30 minutes in seconds
@@ -282,5 +282,13 @@ export default function PixPaymentPage() {
         </motion.div>
       </main>
     </div>
+  )
+}
+
+export default function PixPaymentPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <PixPaymentContent />
+    </Suspense>
   )
 }

@@ -10,6 +10,8 @@ import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 import { PaymentModal } from "@/components/common/PaymentModal"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { AudioRecorder } from "@/components/ui/AudioRecorder"
+import { MediaUploader } from "./MediaUploader"
 import { cn } from "@/lib/utils"
 
 interface CreatePostProps {
@@ -26,6 +28,11 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<"gold" | "diamond" | "couple">("gold")
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false)
+  const [showMediaUploader, setShowMediaUploader] = useState(false)
+  const [mediaFiles, setMediaFiles] = useState<File[]>([])
+  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [audioDuration, setAudioDuration] = useState(0)
 
   if (!user) return null
 
@@ -34,23 +41,56 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
     setShowPaymentModal(true)
   }
 
+  const handleAudioReady = (file: File, duration: number) => {
+    setAudioFile(file)
+    setAudioDuration(duration)
+    setShowAudioRecorder(false)
+  }
+
+  const handleMediaChange = (files: File[]) => {
+    setMediaFiles(files)
+  }
+
+  const handleShowAudioRecorder = () => {
+    if (!features.canUploadImages) {
+      handlePremiumFeatureClick("gold")
+      return
+    }
+    setShowAudioRecorder(true)
+  }
+
+  const handleShowMediaUploader = () => {
+    if (!features.canUploadImages) {
+      handlePremiumFeatureClick("gold")
+      return
+    }
+    setShowMediaUploader(true)
+  }
+
   const handlePublish = async () => {
-    if (!postContent.trim()) return
+    if (!postContent.trim() && mediaFiles.length === 0 && !audioFile) return
 
     setIsSubmitting(true)
 
     try {
-      const postData = {
-        content: postContent.trim(),
-        visibility: postVisibility,
+      const formData = new FormData()
+      formData.append('content', postContent.trim())
+      formData.append('visibility', postVisibility)
+
+      // Adicionar arquivos de mídia
+      mediaFiles.forEach((file, index) => {
+        formData.append(`media_${index}`, file)
+      })
+
+      // Adicionar arquivo de áudio
+      if (audioFile) {
+        formData.append('audio', audioFile)
+        formData.append('audio_duration', audioDuration.toString())
       }
 
       const response = await fetch('/api/v1/posts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(postData),
+        body: formData,
       })
 
       const result = await response.json()
@@ -62,6 +102,11 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
       // Reset form
       setPostContent("")
       setPostVisibility("public")
+      setMediaFiles([])
+      setAudioFile(null)
+      setAudioDuration(0)
+      setShowAudioRecorder(false)
+      setShowMediaUploader(false)
 
       onSuccess?.(result.data)
     } catch (error) {
@@ -96,6 +141,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
 
   return (
     <div
+      data-create-post
       className="mb-4 xs:mb-6 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl xs:rounded-3xl p-4 xs:p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 animate-slide-in-from-top"
     >
       <div className="flex gap-4">
@@ -122,7 +168,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => !features.canUploadImages && handlePremiumFeatureClick("gold")}
+                      onClick={handleShowMediaUploader}
                       className={cn(
                         "relative rounded-full transition-all duration-300",
                         features.canUploadImages
@@ -180,7 +226,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => !features.canUploadImages && handlePremiumFeatureClick("gold")}
+                      onClick={handleShowAudioRecorder}
                       className={cn(
                         "relative rounded-full transition-all duration-300",
                         features.canUploadImages
@@ -273,7 +319,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
               </DropdownMenu>
               <Button
                 onClick={handlePublish}
-                disabled={!postContent.trim() || isSubmitting}
+                disabled={(!postContent.trim() && mediaFiles.length === 0 && !audioFile) || isSubmitting}
                 className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-4 xs:px-6 py-2 text-sm xs:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-1 xs:flex-none"
               >
                 {isSubmitting ? "Publicando..." : "Publicar"}
@@ -282,6 +328,75 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
           </div>
         </div>
       </div>
+
+      {/* Media Uploader */}
+      {showMediaUploader && (
+        <div className="mt-4 p-4 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+          <MediaUploader
+            files={mediaFiles}
+            onChange={handleMediaChange}
+            maxFiles={5}
+            maxSize={10}
+            allowVideo={true}
+            allowAudio={true}
+          />
+          <div className="flex justify-end mt-4 space-x-2">
+            <Button
+              onClick={() => setShowMediaUploader(false)}
+              variant="ghost"
+              size="sm"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => setShowMediaUploader(false)}
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Concluir
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Audio Recorder */}
+      {showAudioRecorder && (
+        <div className="mt-4 p-4 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+          <AudioRecorder
+            onAudioReady={handleAudioReady}
+            onCancel={() => setShowAudioRecorder(false)}
+            maxDuration={300} // 5 minutos
+          />
+        </div>
+      )}
+
+      {/* Audio File Preview */}
+      {audioFile && (
+        <div className="mt-4 p-4 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                <Mic className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Áudio gravado</p>
+                <p className="text-xs text-gray-500">{Math.floor(audioDuration / 60)}:{(audioDuration % 60).toString().padStart(2, '0')}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                setAudioFile(null)
+                setAudioDuration(0)
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+            >
+              Remover
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       <PaymentModal

@@ -1070,7 +1070,7 @@ export function RegisterForm() {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        selectedPlan={formData.plan as "gold" | "diamond" | "couple"}
+        selectedPlan={formData.plan !== "free" ? formData.plan as "gold" | "diamond" | "couple" : "gold"}
         onSuccess={() => {
           toast.success("Pagamento processado com sucesso!")
           router.push("/feed")
