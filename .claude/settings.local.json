@@ -30,7 +30,8 @@
       "Bash(del nul)",
       "Bash(pnpm update:*)",
       "Bash(grep:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(pnpm install:*)"
     ],
     "deny": []
   }
