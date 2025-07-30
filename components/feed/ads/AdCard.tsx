@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface AdContent {
   title: string
@@ -38,8 +39,7 @@ export function AdCard({ ad, onClose, onReport, className }: AdCardProps) {
 
   const handleReport = () => {
     onReport?.()
-    // In a real app, this would open a report modal
-    alert("Anúncio reportado. Obrigado pelo feedback!")
+    toast.success("Anúncio reportado. Obrigado pelo feedback!")
   }
 
   return (

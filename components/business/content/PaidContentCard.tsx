@@ -6,6 +6,7 @@ import { Play, Download, Heart, Share2, Lock, Star, Clock, Users, ShoppingCart, 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface PaidContentCardProps {
@@ -110,10 +111,11 @@ export function PaidContentCard({ content, onPurchase, onLike, onShare, onPrevie
         {/* Thumbnail/Preview */}
         <div className="relative">
           <div className="aspect-video bg-gradient-to-br from-purple-100 to-pink-100 overflow-hidden">
-            <img
+            <Image
               src={content.thumbnail || "/placeholder.svg"}
               alt={content.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
 
             {/* Content Type Badge */}
@@ -311,7 +313,7 @@ export function PaidContentCard({ content, onPurchase, onLike, onShare, onPrevie
             </div>
             <div className="aspect-video bg-black flex items-center justify-center">
               {content.type === "video" ? (
-                <video src={content.previewUrl} controls className="w-full h-full" autoPlay />
+                <video src={content.previewUrl} controls className="w-full h-full" autoPlay preload="metadata" playsInline />
               ) : content.type === "audio" ? (
                 <audio src={content.previewUrl} controls className="w-full" autoPlay />
               ) : (

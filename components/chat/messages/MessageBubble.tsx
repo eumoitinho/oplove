@@ -114,7 +114,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true, isGroupChat =
       case "video":
         return (
           <div className="space-y-2">
-            <video src={message.media_url} controls className="max-w-xs rounded-lg" preload="metadata" />
+            <video src={message.media_url} controls className="max-w-xs rounded-lg" preload="metadata" playsInline />
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         )

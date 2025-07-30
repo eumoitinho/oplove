@@ -1,108 +1,313 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import type React from "react"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Lock, Mail, ArrowRight, ArrowLeft, Shield, CheckCircle } from "lucide-react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { motion } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import { Button } from "@/components/common/button"
-import { Input } from "@/components/common/input"
-import toast from "react-hot-toast"
-
-const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-})
-
-type LoginFormData = z.infer<typeof loginSchema>
+import { useRouter } from "next/navigation"
+import { createClient } from "@/app/lib/supabase-browser"
+import { toast } from "sonner"
 
 export function LoginForm() {
-  const [showPassword, setShowPassword] = useState(false)
-  const { signIn, isLoading } = useAuth()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [verificationCode, setVerificationCode] = useState("")
+  const [step, setStep] = useState<"login" | "verification">("login")
+  const [errors, setErrors] = useState({ email: "", password: "", code: "" })
+  const [loading, setLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [redirectUrl, setRedirectUrl] = useState("")
+
   const router = useRouter()
+  const supabase = createClient()
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  })
+  // Countdown timer for resend code
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
 
-  const onSubmit = async (data: LoginFormData) => {
-    const result = await signIn(data.email, data.password)
+  // Enviar código de verificação
+  const sendVerificationCode = async () => {
+    const supabase = createClient()
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email })
 
-    if (result.success) {
-      toast.success("Login realizado com sucesso!")
-      router.push("/feed")
-    } else {
-      toast.error(result.error || "Erro ao fazer login")
+      if (error) {
+        console.error("Error sending verification code:", error)
+        toast.error("Erro ao enviar código de verificação")
+      }
+    } catch (error) {
+      console.error("Error sending verification code:", error)
     }
   }
 
-  return (
-    <motion.form
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-6"
-    >
-      <div>
-        <Input
-          {...register("email")}
-          type="email"
-          placeholder="Seu email"
-          icon={<Mail className="h-5 w-5" />}
-          error={errors.email?.message}
-        />
-      </div>
+  // Handle initial login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const newErrors = { email: "", password: "", code: "" }
+    let isValid = true
 
-      <div>
-        <Input
-          {...register("password")}
-          type={showPassword ? "text" : "password"}
-          placeholder="Sua senha"
-          icon={<Lock className="h-5 w-5" />}
-          rightIcon={
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+    if (!email) {
+      newErrors.email = "E-mail é obrigatório"
+      isValid = false
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "E-mail inválido"
+      isValid = false
+    }
+
+    if (!password) {
+      newErrors.password = "Senha é obrigatória"
+      isValid = false
+    }
+
+    setErrors(newErrors)
+
+    if (isValid) {
+      setLoading(true)
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password })
+
+        if (error) {
+          if (error.message.includes("Email not confirmed")) {
+            await sendVerificationCode()
+            setStep("verification")
+            setCountdown(60)
+            toast.info("Código de verificação enviado para seu email")
+          } else {
+            setErrors({ email: "", password: error.message, code: "" })
+            toast.error("Erro ao fazer login")
           }
-          error={errors.password?.message}
-        />
-      </div>
+        } else if (data.user) {
+          toast.success("Login realizado com sucesso!")
+          
+          // Aguardar um pouco para garantir que a sessão seja estabelecida
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          // Redirecionar para o feed
+          router.push("/feed")
+        }
+      } catch (error) {
+        console.error("Sign in error:", error)
+        setErrors({ email: "", password: "Erro inesperado. Tente novamente.", code: "" })
+        toast.error("Erro inesperado")
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center">
-          <input type="checkbox" className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-          <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Lembrar de mim</span>
-        </label>
-        <Link href="/forgot-password" className="text-sm text-purple-600 hover:text-purple-500 dark:text-purple-400">
-          Esqueceu a senha?
+  // Verificar código
+  const handleVerification = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!verificationCode) {
+      setErrors({ email: "", password: "", code: "Código é obrigatório" })
+      return
+    }
+
+    setLoading(true)
+    
+    try {
+      // Tentar fazer login novamente após verificação
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password })
+
+      if (error) {
+        setErrors({ email: "", password: "", code: "Código inválido ou expirado" })
+        toast.error("Código inválido")
+      } else {
+        toast.success("Verificação realizada com sucesso!")
+        const targetUrl = redirectUrl || "/feed"
+        console.log("Redirecionando após verificação para:", targetUrl)
+        // Aguardar um pouco para garantir que a sessão seja estabelecida
+        setTimeout(() => {
+          router.push(targetUrl as any)
+        }, 500)
+      }
+    } catch (error) {
+      console.error("Verification error:", error)
+      setErrors({ email: "", password: "", code: "Erro inesperado" })
+      toast.error("Erro na verificação")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Reenviar código
+  const handleResendCode = async () => {
+    if (countdown > 0) return
+
+    setLoading(true)
+    try {
+      await sendVerificationCode()
+      setCountdown(60)
+      toast.success("Código reenviado!")
+    } catch (error) {
+      toast.error("Erro ao reenviar código")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Voltar para o login
+  const handleBackToLogin = () => {
+    setStep("login")
+    setVerificationCode("")
+    setErrors({ email: "", password: "", code: "" })
+  }
+
+  return (
+    <div className="space-y-6">
+      {step === "login" ? (
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
+              E-mail
+            </label>
+            <div className="mt-1 relative">
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
+                aria-label="Digite seu e-mail"
+              />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+            {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="password" className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
+              Senha
+            </label>
+            <div className="mt-1 relative">
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400"
+                aria-label="Digite sua senha"
+              />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+            {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+          </div>
+
+          <div className="flex justify-between items-center">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 transition-colors duration-300"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
+
+          <div className="inline-flex w-full justify-center items-center gap-2 bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 dark:from-pink-500 dark:via-rose-500 dark:to-purple-500 p-[1px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 px-6 py-3 text-base sm:text-lg group"
+            >
+              {loading ? "Entrando..." : "Entrar"}
+              <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-300" />
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={handleVerification} className="space-y-6">
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full mb-4">
+              <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Verificação de Segurança
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Enviamos um código de verificação para <strong>{email}</strong>
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="code" className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
+              Código de Verificação
+            </label>
+            <div className="mt-1 relative">
+              <Input
+                id="code"
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                placeholder="Digite o código"
+                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400 text-center text-lg tracking-widest"
+                aria-label="Digite o código de verificação"
+                maxLength={6}
+              />
+              <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+            {errors.code && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.code}</p>}
+          </div>
+
+          <div className="space-y-4">
+            <div className="inline-flex w-full justify-center items-center gap-2 bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 dark:from-pink-500 dark:via-rose-500 dark:to-purple-500 p-[1px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 px-6 py-3 text-base sm:text-lg group"
+              >
+                {loading ? "Verificando..." : "Verificar"}
+                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-300" />
+              </Button>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBackToLogin}
+              className="w-full rounded-full border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/5"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={countdown > 0 || loading}
+                className="text-sm text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {countdown > 0 ? `Reenviar em ${countdown}s` : "Reenviar código"}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      <p className="mt-6 text-center text-sm sm:text-base text-gray-700 dark:text-white/70">
+        Não tem uma conta?{" "}
+        <Link
+          href="/register"
+          className="text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 font-medium transition-colors duration-300"
+        >
+          Cadastre-se
         </Link>
-      </div>
-
-      <Button type="submit" className="w-full" loading={isLoading}>
-        Entrar
-      </Button>
-
-      <div className="text-center">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          Não tem uma conta?{" "}
-          <Link href="/register" className="text-purple-600 hover:text-purple-500 dark:text-purple-400 font-medium">
-            Cadastre-se
-          </Link>
-        </span>
-      </div>
-    </motion.form>
+      </p>
+    </div>
   )
 }

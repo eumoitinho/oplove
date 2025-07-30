@@ -108,6 +108,9 @@ export function PostMedia({ media, className }: PostMediaProps) {
                     onPlay={() => handleVideoPlay(item.id)}
                     onPause={() => handleVideoPause(item.id)}
                     onClick={(e) => e.stopPropagation()}
+                    preload="metadata"
+                    playsInline
+                    loading="lazy"
                   />
 
                   {/* Video Controls Overlay */}

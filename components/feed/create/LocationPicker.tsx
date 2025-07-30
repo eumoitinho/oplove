@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface Location {
   id: string
@@ -79,7 +80,7 @@ export function LocationPicker({ onSelect, selectedLocation, className }: Locati
 
   const getCurrentLocation = async () => {
     if (!navigator.geolocation) {
-      alert("Geolocalização não é suportada pelo seu navegador")
+      toast.error("Geolocalização não é suportada pelo seu navegador")
       return
     }
 
@@ -103,8 +104,10 @@ export function LocationPicker({ onSelect, selectedLocation, className }: Locati
           setUserLocation(currentLocation)
           onSelect(currentLocation)
           setIsOpen(false)
+          toast.success("Localização obtida com sucesso!")
         } catch (error) {
           console.error("Error getting location details:", error)
+          toast.error("Erro ao obter detalhes da localização")
         } finally {
           setIsLoadingLocation(false)
         }
@@ -112,7 +115,7 @@ export function LocationPicker({ onSelect, selectedLocation, className }: Locati
       (error) => {
         console.error("Error getting location:", error)
         setIsLoadingLocation(false)
-        alert("Não foi possível obter sua localização")
+        toast.error("Não foi possível obter sua localização")
       },
       {
         enableHighAccuracy: true,

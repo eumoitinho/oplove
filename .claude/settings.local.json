@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npm run dev:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(del \"D:\\MSYNC PESSOAL\\oplove\\nul\")"
+    ],
+    "deny": []
+  }
+}

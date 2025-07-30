@@ -4,18 +4,18 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 
 interface PostActionsProps {
-  post: {
+  post?: {
     id: string
-    _count: {
-      likes: number
-      comments: number
-      shares: number
+    _count?: {
+      likes?: number
+      comments?: number
+      shares?: number
     }
-    user_liked: boolean
+    user_liked?: boolean
   }
   onLike?: (postId: string) => void
   onComment?: (postId: string) => void
@@ -26,8 +26,14 @@ interface PostActionsProps {
 
 export function PostActions({ post, onLike, onComment, onShare, userCanInteract, className }: PostActionsProps) {
   const { user } = useAuth()
-  const [isLiked, setIsLiked] = useState(post.user_liked)
-  const [likeCount, setLikeCount] = useState(post._count.likes)
+  
+  // Early return if post is undefined
+  if (!post) {
+    return null
+  }
+  
+  const [isLiked, setIsLiked] = useState(post.user_liked || false)
+  const [likeCount, setLikeCount] = useState(post._count?.likes || 0)
   const [isAnimating, setIsAnimating] = useState(false)
 
   const handleLike = async () => {
@@ -43,7 +49,7 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
     } catch (error) {
       // Revert on error
       setIsLiked(isLiked)
-      setLikeCount(post._count.likes)
+      setLikeCount(post._count?.likes || 0)
     } finally {
       setTimeout(() => setIsAnimating(false), 300)
     }
@@ -102,7 +108,7 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
           )}
         >
           <MessageCircle className="h-5 w-5" />
-          {post._count.comments > 0 && <span className="text-sm font-medium">{formatCount(post._count.comments)}</span>}
+          {post._count?.comments && post._count.comments > 0 && <span className="text-sm font-medium">{formatCount(post._count.comments)}</span>}
         </Button>
 
         {/* Share Button */}
@@ -117,7 +123,7 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
           )}
         >
           <Share2 className="h-5 w-5" />
-          {post._count.shares > 0 && <span className="text-sm font-medium">{formatCount(post._count.shares)}</span>}
+          {post._count?.shares && post._count.shares > 0 && <span className="text-sm font-medium">{formatCount(post._count.shares)}</span>}
         </Button>
       </div>
 

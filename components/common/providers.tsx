@@ -3,7 +3,7 @@
 import type { ReactNode } from "react"
 import { ThemeProvider } from "next-themes"
 import { SWRConfig } from "swr"
-import { Toaster } from "react-hot-toast"
+import { Toaster } from "sonner"
 import { fetcher } from "@/lib/fetcher"
 
 interface ProvidersProps {
@@ -22,16 +22,11 @@ export function Providers({ children }: ProvidersProps) {
         }}
       >
         {children}
-        <Toaster
+        <Toaster 
           position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: "var(--background)",
-              color: "var(--foreground)",
-              border: "1px solid var(--border)",
-            },
-          }}
+          richColors
+          expand
+          duration={4000}
         />
       </SWRConfig>
     </ThemeProvider>

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import security styles */
+@import '../styles/security.css';
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -218,9 +221,15 @@ html {
   display: none;
 }
 
-.no-scrollbar {
+.no-scrollbar,
+.scrollbar-hide {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 }
 
 @layer components {
@@ -232,5 +241,8 @@ html {
   }
   .plan-badge-free {
     @apply bg-gray-400/10 text-gray-400 border-gray-400/30;
+  }
+  .plan-badge-couple {
+    @apply bg-pink-400/10 text-pink-400 border-pink-400/30;
   }
 }

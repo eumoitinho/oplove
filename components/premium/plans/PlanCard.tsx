@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Check, Star, Crown, Users, Heart, Zap } from "lucide-react"
+import { Check, Star, Crown, Flame, Heart, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +23,7 @@ const planIcons = {
   free: Heart,
   gold: Star,
   diamond: Crown,
-  couple: Users,
+  couple: Flame,
 }
 
 const planColors = {

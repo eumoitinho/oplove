@@ -1,326 +1,199 @@
 "use client"
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { ImageIcon, Video, BarChart3, MapPin, Smile, X, Lock, Users, Globe } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Camera, Video, Mic, BarChart2, Globe, Users, Lock, ChevronDown } from "lucide-react"
+import { UserAvatar } from "@/components/common/UserAvatar"
+import { PaywallTooltip } from "@/components/common/PaywallTooltip"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MediaUploader } from "./MediaUploader"
-import { PollCreator } from "./PollCreator"
-import { useAuth } from "@/hooks/use-auth"
-import { cn } from "@/lib/utils"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/useAuth"
+import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 
 interface CreatePostProps {
   onSuccess?: (post: any) => void
-  className?: string
 }
 
-type PostType = "text" | "media" | "poll" | "event"
-type Visibility = "public" | "followers" | "private"
+type Visibility = "public" | "friends" | "private"
 
-const visibilityOptions = {
-  public: { icon: Globe, label: "Público", description: "Todos podem ver" },
-  followers: { icon: Users, label: "Seguidores", description: "Apenas seguidores" },
-  private: { icon: Lock, label: "Privado", description: "Apenas você" },
-}
-
-export function CreatePost({ onSuccess, className }: CreatePostProps) {
+export function CreatePost({ onSuccess }: CreatePostProps) {
   const { user } = useAuth()
-  const [content, setContent] = useState("")
-  const [postType, setPostType] = useState<PostType>("text")
-  const [visibility, setVisibility] = useState<Visibility>("public")
-  const [isExpanded, setIsExpanded] = useState(false)
+  const features = usePremiumFeatures()
+  const [postContent, setPostContent] = useState("")
+  const [postVisibility, setPostVisibility] = useState<Visibility>("public")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [media, setMedia] = useState<File[]>([])
-  const [poll, setPoll] = useState<any>(null)
-  const [location, setLocation] = useState<any>(null)
 
   if (!user) return null
 
-  const maxLength = user.premium_type === "free" ? 280 : user.premium_type === "gold" ? 500 : 1000
-
-  const canUploadMedia = ["gold", "diamond", "couple"].includes(user.premium_type)
-  const canCreatePoll = ["gold", "diamond", "couple"].includes(user.premium_type)
-  const canUploadVideo = ["diamond", "couple"].includes(user.premium_type)
-  const canAddLocation = ["gold", "diamond", "couple"].includes(user.premium_type)
-
-  const handleSubmit = async () => {
-    if (!content.trim() && media.length === 0 && !poll) return
+  const handlePublish = async () => {
+    if (!postContent.trim()) return
 
     setIsSubmitting(true)
 
     try {
-      // Create post logic here
       const postData = {
-        content: content.trim(),
-        visibility,
-        media,
-        poll,
-        location,
-        type: postType,
+        content: postContent.trim(),
+        visibility: postVisibility,
       }
 
-      // API call would go here
-      console.log("Creating post:", postData)
+      const response = await fetch('/api/v1/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao criar post')
+      }
 
       // Reset form
-      setContent("")
-      setMedia([])
-      setPoll(null)
-      setLocation(null)
-      setPostType("text")
-      setIsExpanded(false)
+      setPostContent("")
+      setPostVisibility("public")
 
-      onSuccess?.(postData)
+      onSuccess?.(result.data)
     } catch (error) {
       console.error("Error creating post:", error)
+      alert(error instanceof Error ? error.message : 'Erro ao criar post')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleFocus = () => {
-    setIsExpanded(true)
+  const getVisibilityIcon = () => {
+    switch (postVisibility) {
+      case "public":
+        return <Globe className="w-3 h-3" />
+      case "friends":
+        return <Users className="w-3 h-3" />
+      case "private":
+        return <Lock className="w-3 h-3" />
+    }
   }
 
-  const handleCancel = () => {
-    setContent("")
-    setMedia([])
-    setPoll(null)
-    setLocation(null)
-    setPostType("text")
-    setIsExpanded(false)
+  const getVisibilityLabel = () => {
+    switch (postVisibility) {
+      case "public":
+        return "Público"
+      case "friends":
+        return "Amigos"
+      case "private":
+        return "Privado"
+    }
   }
-
-  const PremiumFeatureTooltip = ({ feature }: { feature: string }) => (
-    <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-      {feature} disponível para usuários Gold+
-    </div>
-  )
 
   return (
-    <Card className={cn("border-0 shadow-sm", className)}>
-      <CardContent className="p-4">
-        <div className="flex space-x-3">
-          <Avatar className="h-10 w-10 ring-2 ring-purple-100">
-            <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
-            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white">
-              {user.display_name?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="flex-1 space-y-3">
-            {/* Text Input */}
-            <div className="relative">
-              <Textarea
-                placeholder={`O que está acontecendo, ${user.display_name?.split(" ")[0]}?`}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onFocus={handleFocus}
-                className={cn(
-                  "min-h-[60px] resize-none border-0 bg-transparent text-lg placeholder:text-gray-500 focus-visible:ring-0",
-                  isExpanded && "min-h-[120px]",
-                )}
-                maxLength={maxLength}
-              />
-
-              {/* Character Count */}
-              {isExpanded && (
-                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                  {content.length}/{maxLength}
-                </div>
-              )}
+    <div
+      className="mb-6 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 animate-slide-in-from-top"
+    >
+      <div className="flex gap-4">
+        <UserAvatar 
+          user={user}
+          size="lg" 
+          showPlanBadge={false}
+          className="flex-shrink-0"
+        />
+        <div className="flex-grow">
+          <Textarea
+            placeholder="O que está acontecendo? ✨"
+            value={postContent}
+            onChange={(e) => setPostContent(e.target.value)}
+            className="bg-transparent border-none text-lg p-0 focus-visible:ring-0 placeholder:text-gray-500 dark:placeholder:text-white/50 resize-none"
+            rows={3}
+          />
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex gap-1">
+              <PaywallTooltip feature="upload_images">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-300 rounded-full"
+                >
+                  <Camera className="w-5 h-5" />
+                </Button>
+              </PaywallTooltip>
+              <PaywallTooltip feature="upload_images" customTitle="Upload de Vídeo" customDescription="Compartilhe vídeos incríveis nos seus posts" requiredPlan="gold">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all duration-300 rounded-full"
+                >
+                  <Video className="w-5 h-5" />
+                </Button>
+              </PaywallTooltip>
+              <PaywallTooltip feature="upload_images" customTitle="Áudio" customDescription="Adicione áudios aos seus posts" requiredPlan="gold">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-500 hover:text-green-500 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 transition-all duration-300 rounded-full"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+              </PaywallTooltip>
+              <PaywallTooltip feature="polls">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-all duration-300 rounded-full"
+                >
+                  <BarChart2 className="w-5 h-5" />
+                </Button>
+              </PaywallTooltip>
             </div>
-
-            {/* Media Preview */}
-            <AnimatePresence>
-              {media.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <MediaUploader
-                    files={media}
-                    onChange={setMedia}
-                    maxFiles={user.premium_type === "free" ? 0 : 5}
-                    allowVideo={canUploadVideo}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Poll Preview */}
-            <AnimatePresence>
-              {poll && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <PollCreator poll={poll} onChange={setPoll} onRemove={() => setPoll(null)} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Location Preview */}
-            <AnimatePresence>
-              {location && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center space-x-2 text-sm text-purple-600 bg-purple-50 px-3 py-2 rounded-lg"
-                >
-                  <MapPin className="h-4 w-4" />
-                  <span>{location.name}</span>
+            <div className="flex items-center gap-3">
+              {/* Seletor de Visibilidade */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    onClick={() => setLocation(null)}
-                    className="h-auto p-0 text-gray-400 hover:text-gray-600"
+                    className="bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-full px-3 py-2 text-sm text-gray-700 dark:text-white/80 hover:bg-white/80 dark:hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
                   >
-                    <X className="h-3 w-3" />
+                    {getVisibilityIcon()}
+                    <span className="hidden sm:inline">{getVisibilityLabel()}</span>
+                    <ChevronDown className="w-3 h-3" />
                   </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Expanded Controls */}
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-2"
                 >
-                  {/* Visibility Selector */}
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">Visibilidade:</span>
-                    <Select value={visibility} onValueChange={(value: Visibility) => setVisibility(value)}>
-                      <SelectTrigger className="w-auto">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(visibilityOptions).map(([key, option]) => (
-                          <SelectItem key={key} value={key}>
-                            <div className="flex items-center space-x-2">
-                              <option.icon className="h-4 w-4" />
-                              <div>
-                                <div className="font-medium">{option.label}</div>
-                                <div className="text-xs text-gray-500">{option.description}</div>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {/* Media Button */}
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => (canUploadMedia ? setPostType("media") : null)}
-                          disabled={!canUploadMedia}
-                          className={cn(
-                            "text-purple-600 hover:text-purple-700 hover:bg-purple-50",
-                            !canUploadMedia && "opacity-50 cursor-not-allowed",
-                          )}
-                        >
-                          <ImageIcon className="h-4 w-4" />
-                        </Button>
-                        {!canUploadMedia && <PremiumFeatureTooltip feature="Upload de mídia" />}
-                      </div>
-
-                      {/* Video Button */}
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={!canUploadVideo}
-                          className={cn(
-                            "text-purple-600 hover:text-purple-700 hover:bg-purple-50",
-                            !canUploadVideo && "opacity-50 cursor-not-allowed",
-                          )}
-                        >
-                          <Video className="h-4 w-4" />
-                        </Button>
-                        {!canUploadVideo && <PremiumFeatureTooltip feature="Upload de vídeo" />}
-                      </div>
-
-                      {/* Poll Button */}
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => (canCreatePoll ? setPoll({ question: "", options: ["", ""] }) : null)}
-                          disabled={!canCreatePoll}
-                          className={cn(
-                            "text-purple-600 hover:text-purple-700 hover:bg-purple-50",
-                            !canCreatePoll && "opacity-50 cursor-not-allowed",
-                          )}
-                        >
-                          <BarChart3 className="h-4 w-4" />
-                        </Button>
-                        {!canCreatePoll && <PremiumFeatureTooltip feature="Enquetes" />}
-                      </div>
-
-                      {/* Location Button */}
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={!canAddLocation}
-                          className={cn(
-                            "text-purple-600 hover:text-purple-700 hover:bg-purple-50",
-                            !canAddLocation && "opacity-50 cursor-not-allowed",
-                          )}
-                        >
-                          <MapPin className="h-4 w-4" />
-                        </Button>
-                        {!canAddLocation && <PremiumFeatureTooltip feature="Localização" />}
-                      </div>
-
-                      {/* Emoji Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      >
-                        <Smile className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Submit Buttons */}
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSubmitting}>
-                        Cancelar
-                      </Button>
-
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={(!content.trim() && media.length === 0 && !poll) || isSubmitting}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                      >
-                        {isSubmitting ? "Publicando..." : "Publicar"}
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <DropdownMenuItem
+                    onClick={() => setPostVisibility("public")}
+                    className="flex items-center gap-2 rounded-xl"
+                  >
+                    <Globe className="w-4 h-4" />
+                    Público
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setPostVisibility("friends")}
+                    className="flex items-center gap-2 rounded-xl"
+                  >
+                    <Users className="w-4 h-4" />
+                    Amigos
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setPostVisibility("private")}
+                    className="flex items-center gap-2 rounded-xl"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Privado
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                onClick={handlePublish}
+                disabled={!postContent.trim() || isSubmitting}
+                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg"
+              >
+                {isSubmitting ? "Publicando..." : "Publicar"}
+              </Button>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

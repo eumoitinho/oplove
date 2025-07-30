@@ -1,0 +1,472 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { 
+  MapPin, 
+  Heart, 
+  Filter, 
+  X, 
+  Search,
+  Verified,
+  Diamond,
+  Star,
+  Users
+} from "lucide-react"
+import { UserAvatar } from "@/components/common/UserAvatar"
+import { useAuth } from "@/hooks/useAuth"
+import { exploreService } from "@/lib/services/explore-service"
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
+import type { UserProfile, ExploreFilters, Gender, AdultInterest } from "@/types/adult"
+
+// Opções de filtros
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: 'man', label: 'Homem' },
+  { value: 'woman', label: 'Mulher' },
+  { value: 'trans', label: 'Trans' },
+  { value: 'couple_mw', label: 'Casal H+M' },
+  { value: 'couple_mm', label: 'Casal H+H' },
+  { value: 'couple_ww', label: 'Casal M+M' }
+]
+
+const ADULT_INTERESTS: { value: AdultInterest; label: string; category: string }[] = [
+  // Orientações
+  { value: 'men', label: 'Homens', category: 'Orientação' },
+  { value: 'women', label: 'Mulheres', category: 'Orientação' },
+  { value: 'trans', label: 'Trans', category: 'Orientação' },
+  { value: 'couples', label: 'Casais', category: 'Orientação' },
+  
+  // Práticas
+  { value: 'swing', label: 'Swing', category: 'Prática' },
+  { value: 'menage', label: 'Ménage', category: 'Prática' },
+  { value: 'bdsm', label: 'BDSM', category: 'Prática' },
+  { value: 'fisting', label: 'Fisting', category: 'Prática' },
+  { value: 'anal', label: 'Anal', category: 'Prática' },
+  { value: 'oral', label: 'Oral', category: 'Prática' },
+  { value: 'voyeur', label: 'Voyeur', category: 'Prática' },
+  { value: 'exhibitionist', label: 'Exibicionismo', category: 'Prática' },
+  { value: 'dominance', label: 'Dominação', category: 'Prática' },
+  { value: 'submission', label: 'Submissão', category: 'Prática' },
+  { value: 'fetishism', label: 'Fetichismo', category: 'Prática' },
+  { value: 'roleplay', label: 'Roleplay', category: 'Prática' },
+  { value: 'tantric', label: 'Tântrico', category: 'Prática' },
+  { value: 'rough', label: 'Rough', category: 'Prática' },
+  { value: 'gentle', label: 'Suave', category: 'Prática' },
+  { value: 'outdoor', label: 'Ao ar livre', category: 'Prática' },
+  { value: 'public', label: 'Público', category: 'Prática' },
+  { value: 'group', label: 'Grupal', category: 'Prática' },
+  { value: 'threesome', label: 'Threesome', category: 'Prática' },
+  { value: 'orgy', label: 'Orgia', category: 'Prática' },
+  { value: 'cuckolding', label: 'Cuckold', category: 'Prática' },
+  { value: 'hotwife', label: 'Hotwife', category: 'Prática' },
+  { value: 'polyamory', label: 'Poliamor', category: 'Relacionamento' },
+  { value: 'casual', label: 'Casual', category: 'Relacionamento' },
+  { value: 'serious', label: 'Sério', category: 'Relacionamento' }
+]
+
+export function ExploreView() {
+  const { user } = useAuth()
+  const [showFilters, setShowFilters] = useState(false)
+  const [profiles, setProfiles] = useState<UserProfile[]>([])
+  
+  const [filters, setFilters] = useState<ExploreFilters>({
+    distance_km: 50,
+    age_range: { min: 18, max: 65 },
+    gender: [],
+    interests: [],
+    verification_required: false,
+    online_only: false,
+    has_photos: true,
+    premium_only: false,
+    relationship_type: 'both'
+  })
+
+  // Fetch function for infinite scroll
+  const fetchProfiles = useCallback(async (page: number) => {
+    if (!user) return { data: [], hasMore: false }
+    
+    try {
+      return await exploreService.searchProfiles(user.id, filters, page, 20)
+    } catch (error) {
+      return { data: [], hasMore: false }
+    }
+  }, [user, filters])
+
+  // Infinite scroll
+  const {
+    data: scrollProfiles,
+    loading,
+    hasMore,
+    containerRef,
+    refresh
+  } = useInfiniteScroll({
+    fetchFn: fetchProfiles,
+    limit: 20,
+    enabled: !!user,
+    dependencies: [filters]
+  })
+
+  // Update local state
+  useEffect(() => {
+    setProfiles(scrollProfiles)
+  }, [scrollProfiles])
+
+  const handleFilterChange = (key: keyof ExploreFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleGenderToggle = (gender: Gender) => {
+    setFilters(prev => ({
+      ...prev,
+      gender: prev.gender.includes(gender)
+        ? prev.gender.filter(g => g !== gender)
+        : [...prev.gender, gender]
+    }))
+  }
+
+  const handleInterestToggle = (interest: AdultInterest) => {
+    setFilters(prev => ({
+      ...prev,
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter(i => i !== interest)
+        : [...prev.interests, interest]
+    }))
+  }
+
+  const formatDistance = (distance: number) => {
+    if (distance < 1) return `${Math.round(distance * 1000)}m`
+    return `${distance.toFixed(1)}km`
+  }
+
+  if (!user) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Faça login para explorar perfis</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          Explorar Perfis
+        </h1>
+        <Button
+          onClick={() => setShowFilters(!showFilters)}
+          variant={showFilters ? "default" : "outline"}
+          className="flex items-center gap-2"
+        >
+          <Filter className="w-4 h-4" />
+          Filtros
+        </Button>
+      </div>
+
+      {/* Filters Panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6"
+          >
+            <div className="space-y-6">
+              {/* Distance */}
+              <div>
+                <label className="text-sm font-medium mb-3 block">
+                  Distância: {filters.distance_km}km
+                </label>
+                <Slider
+                  value={[filters.distance_km]}
+                  onValueChange={([value]) => handleFilterChange('distance_km', value)}
+                  max={200}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Age Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Idade mínima</label>
+                  <Input
+                    type="number"
+                    value={filters.age_range.min}
+                    onChange={(e) => handleFilterChange('age_range', { 
+                      ...filters.age_range, 
+                      min: parseInt(e.target.value) || 18 
+                    })}
+                    min={18}
+                    max={100}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Idade máxima</label>
+                  <Input
+                    type="number"
+                    value={filters.age_range.max}
+                    onChange={(e) => handleFilterChange('age_range', { 
+                      ...filters.age_range, 
+                      max: parseInt(e.target.value) || 65 
+                    })}
+                    min={18}
+                    max={100}
+                  />
+                </div>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="text-sm font-medium mb-3 block">Gênero</label>
+                <div className="flex flex-wrap gap-2">
+                  {GENDER_OPTIONS.map(option => (
+                    <Badge
+                      key={option.value}
+                      variant={filters.gender.includes(option.value) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => handleGenderToggle(option.value)}
+                    >
+                      {option.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Interests */}
+              <div>
+                <label className="text-sm font-medium mb-3 block">Interesses</label>
+                <div className="space-y-3">
+                  {['Orientação', 'Prática', 'Relacionamento'].map(category => (
+                    <div key={category}>
+                      <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        {category}
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {ADULT_INTERESTS
+                          .filter(interest => interest.category === category)
+                          .map(interest => (
+                            <Badge
+                              key={interest.value}
+                              variant={filters.interests.includes(interest.value) ? "default" : "outline"}
+                              className="cursor-pointer text-xs"
+                              onClick={() => handleInterestToggle(interest.value)}
+                            >
+                              {interest.label}
+                            </Badge>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Filters */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="verification"
+                    checked={filters.verification_required}
+                    onCheckedChange={(checked) => 
+                      handleFilterChange('verification_required', checked)
+                    }
+                  />
+                  <label htmlFor="verification" className="text-sm">
+                    Apenas verificados
+                  </label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="online"
+                    checked={filters.online_only}
+                    onCheckedChange={(checked) => 
+                      handleFilterChange('online_only', checked)
+                    }
+                  />
+                  <label htmlFor="online" className="text-sm">
+                    Apenas online
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="photos"
+                    checked={filters.has_photos}
+                    onCheckedChange={(checked) => 
+                      handleFilterChange('has_photos', checked)
+                    }
+                  />
+                  <label htmlFor="photos" className="text-sm">
+                    Com fotos
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="premium"
+                    checked={filters.premium_only}
+                    onCheckedChange={(checked) => 
+                      handleFilterChange('premium_only', checked)
+                    }
+                  />
+                  <label htmlFor="premium" className="text-sm">
+                    Apenas premium
+                  </label>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Results */}
+      <div className="space-y-4">
+        {loading && profiles.length === 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 animate-pulse">
+                <div className="w-full h-48 bg-gray-200 dark:bg-white/10 rounded-2xl mb-4" />
+                <div className="h-4 bg-gray-200 dark:bg-white/10 rounded mb-2" />
+                <div className="h-3 bg-gray-200 dark:bg-white/10 rounded w-2/3" />
+              </div>
+            ))}
+          </div>
+        ) : profiles.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Nenhum perfil encontrado com os filtros selecionados</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {profiles.map((profile) => (
+                <motion.div
+                  key={profile.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                >
+                  {/* Profile Image */}
+                  <div className="relative mb-4">
+                    <div className="w-full h-48 rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/5">
+                      {profile.photos?.[0] ? (
+                        <img
+                          src={profile.photos[0]}
+                          alt={profile.username}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <UserAvatar user={profile} size="xl" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Status indicators */}
+                    <div className="absolute top-3 right-3 flex gap-2">
+                      {profile.is_online && (
+                        <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                      )}
+                      {profile.is_verified && (
+                        <Verified className="w-5 h-5 text-blue-500 fill-blue-500" />
+                      )}
+                      {profile.premium_type !== 'free' && (
+                        <div className="p-1 bg-white/90 rounded-full">
+                          {profile.premium_type === 'diamond' ? (
+                            <Diamond className="w-3 h-3 text-cyan-500" />
+                          ) : (
+                            <Star className="w-3 h-3 text-yellow-500" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Distance */}
+                    <div className="absolute bottom-3 left-3">
+                      <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 text-white text-xs">
+                        <MapPin className="w-3 h-3" />
+                        {formatDistance((profile as any).distance || 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Info */}
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                        {profile.display_name || profile.username}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-white/60">
+                        {profile.age} anos • {profile.location?.city}
+                      </p>
+                    </div>
+
+                    {profile.bio && (
+                      <p className="text-sm text-gray-700 dark:text-white/80 line-clamp-2">
+                        {profile.bio}
+                      </p>
+                    )}
+
+                    {/* Interests */}
+                    {profile.interests?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {profile.interests.slice(0, 3).map((interest) => {
+                          const interestData = ADULT_INTERESTS.find(i => i.value === interest)
+                          return (
+                            <Badge
+                              key={interest}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {interestData?.label || interest}
+                            </Badge>
+                          )
+                        })}
+                        {profile.interests.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{profile.interests.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex justify-between items-center pt-2">
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        {profile.rating?.toFixed(1) || '0.0'}
+                        <span>({profile.review_count || 0})</span>
+                      </div>
+                      
+                      <Button size="sm" className="rounded-full">
+                        <Heart className="w-4 h-4 mr-1" />
+                        Curtir
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Load more */}
+            {hasMore && (
+              <div ref={containerRef} className="py-4 text-center">
+                {loading && (
+                  <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

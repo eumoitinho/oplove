@@ -73,9 +73,9 @@ export function useInfiniteScroll<T>({
   const [total, setTotal] = useState<number | undefined>()
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const observerRef = useRef<IntersectionObserver>()
-  const loadingRef = useRef(false)
-  const initialLoadRef = useRef(false)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const loadingRef = useRef<boolean>(false)
+  const initialLoadRef = useRef<boolean>(false)
 
   // Debounce scroll events to improve performance
   const debouncedThreshold = useDebounce(threshold, 100)
@@ -86,6 +86,12 @@ export function useInfiniteScroll<T>({
   const loadMore = useCallback(
     async (resetData = false) => {
       if (loadingRef.current || (!hasMore && !resetData)) return
+
+      // Validate fetchFn
+      if (typeof fetchFn !== 'function') {
+        setError('fetchFn must be a function')
+        return
+      }
 
       loadingRef.current = true
       setLoading(true)
@@ -102,7 +108,6 @@ export function useInfiniteScroll<T>({
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Erro ao carregar dados"
         setError(errorMessage)
-        console.error("Infinite scroll error:", err)
       } finally {
         setLoading(false)
         loadingRef.current = false

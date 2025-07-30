@@ -2,7 +2,48 @@
 
 import { useMemo } from "react"
 import { useAuth } from "./useAuth"
-import type { PremiumPlan, PremiumFeatures } from "@/types/common"
+import type { PremiumPlan } from "@/types/common"
+
+interface PremiumFeatures {
+  // Messaging
+  canSendMessages: boolean
+  canCreateGroups: boolean
+  canVideoCall: boolean
+  messagesPerDay: number
+  
+  // Media
+  canUploadImages: boolean
+  canUploadVideos: boolean
+  maxImagesPerPost: number
+  monthlyPhotoLimit: number
+  monthlyVideoLimit: number
+  
+  // Content
+  canCreatePolls: boolean
+  canAddLocation: boolean
+  canSchedulePosts: boolean
+  canCreateStories: boolean
+  canMonetizeContent: boolean
+  maxPostLength: number
+  
+  // Events & Communities
+  canCreateEvents: boolean
+  maxEventsPerMonth: number
+  canJoinCommunities: boolean
+  maxCommunities: number
+  
+  // Dating
+  canUseDating: boolean
+  dailyLikesLimit: number
+  dailySuperLikesLimit: number
+  canUseBoosts: boolean
+  canRewind: boolean
+  
+  // Other
+  adsFrequency: number // Show ad every N posts
+  hasAnalytics: boolean
+  hasPrioritySupport: boolean
+}
 
 /**
  * Premium features access control hook
@@ -12,291 +53,274 @@ import type { PremiumPlan, PremiumFeatures } from "@/types/common"
  *
  * @example
  * ```tsx
- * function ChatInput() {
- *   const { features, showPaywall, planType } = usePremiumFeatures()
+ * function CreatePost() {
+ *   const { canUploadImages, canUploadMorePhotos, getRequiredPlan } = usePremiumFeatures()
  *
- *   const handleSendMessage = () => {
- *     if (!features.canSendMessages) {
- *       showPaywall('messaging')
+ *   const handleImageUpload = () => {
+ *     if (!canUploadImages) {
+ *       showPaywall('upload_images')
  *       return
  *     }
- *     // Send message logic
+ *     if (!canUploadMorePhotos) {
+ *       showError('Monthly photo limit reached')
+ *       return
+ *     }
+ *     // Upload logic
  *   }
- *
- *   return (
- *     <div>
- *       <input disabled={!features.canSendMessages} />
- *       {planType === 'free' && (
- *         <p>Upgrade to Gold to send messages</p>
- *       )}
- *     </div>
- *   )
  * }
  * ```
  *
  * @returns Premium features state and controls
  */
+const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
+  free: {
+    // Messaging
+    canSendMessages: false, // Can only reply if premium user messages first
+    canCreateGroups: false,
+    canVideoCall: false,
+    messagesPerDay: 0,
+    
+    // Media
+    canUploadImages: false,
+    canUploadVideos: false,
+    maxImagesPerPost: 0,
+    monthlyPhotoLimit: 3,
+    monthlyVideoLimit: 0,
+    
+    // Content
+    canCreatePolls: false,
+    canAddLocation: false,
+    canSchedulePosts: false,
+    canCreateStories: false,
+    canMonetizeContent: false,
+    maxPostLength: 280,
+    
+    // Events & Communities
+    canCreateEvents: false,
+    maxEventsPerMonth: 0,
+    canJoinCommunities: false,
+    maxCommunities: 0,
+    
+    // Dating
+    canUseDating: true,
+    dailyLikesLimit: 10,
+    dailySuperLikesLimit: 0,
+    canUseBoosts: false,
+    canRewind: false,
+    
+    // Other
+    adsFrequency: 5, // Ad every 5 posts
+    hasAnalytics: false,
+    hasPrioritySupport: false,
+  },
+  
+  gold: {
+    // Messaging
+    canSendMessages: true,
+    canCreateGroups: false,
+    canVideoCall: false,
+    messagesPerDay: 10, // Unlimited if verified
+    
+    // Media
+    canUploadImages: true,
+    canUploadVideos: false,
+    maxImagesPerPost: 5,
+    monthlyPhotoLimit: 50,
+    monthlyVideoLimit: 0,
+    
+    // Content
+    canCreatePolls: true,
+    canAddLocation: true,
+    canSchedulePosts: false,
+    canCreateStories: false,
+    canMonetizeContent: false,
+    maxPostLength: 500,
+    
+    // Events & Communities
+    canCreateEvents: true,
+    maxEventsPerMonth: 3, // Unlimited if verified
+    canJoinCommunities: true,
+    maxCommunities: 5,
+    
+    // Dating
+    canUseDating: true,
+    dailyLikesLimit: 50,
+    dailySuperLikesLimit: 5,
+    canUseBoosts: false,
+    canRewind: false,
+    
+    // Other
+    adsFrequency: 10, // Ad every 10 posts
+    hasAnalytics: false,
+    hasPrioritySupport: false,
+  },
+  
+  diamond: {
+    // Messaging
+    canSendMessages: true,
+    canCreateGroups: true,
+    canVideoCall: true,
+    messagesPerDay: -1, // Unlimited
+    
+    // Media
+    canUploadImages: true,
+    canUploadVideos: true,
+    maxImagesPerPost: -1, // Unlimited
+    monthlyPhotoLimit: -1, // Unlimited
+    monthlyVideoLimit: -1, // Unlimited
+    
+    // Content
+    canCreatePolls: true,
+    canAddLocation: true,
+    canSchedulePosts: true,
+    canCreateStories: true,
+    canMonetizeContent: true,
+    maxPostLength: 1000,
+    
+    // Events & Communities
+    canCreateEvents: true,
+    maxEventsPerMonth: -1, // Unlimited
+    canJoinCommunities: true,
+    maxCommunities: -1, // Unlimited
+    
+    // Dating
+    canUseDating: true,
+    dailyLikesLimit: 200,
+    dailySuperLikesLimit: 20,
+    canUseBoosts: true,
+    canRewind: true,
+    
+    // Other
+    adsFrequency: 0, // No ads
+    hasAnalytics: true,
+    hasPrioritySupport: true,
+  },
+  
+  couple: {
+    // Same as Diamond but for 2 accounts
+    // Messaging
+    canSendMessages: true,
+    canCreateGroups: true,
+    canVideoCall: true,
+    messagesPerDay: -1, // Unlimited
+    
+    // Media
+    canUploadImages: true,
+    canUploadVideos: true,
+    maxImagesPerPost: -1, // Unlimited
+    monthlyPhotoLimit: -1, // Unlimited
+    monthlyVideoLimit: -1, // Unlimited
+    
+    // Content
+    canCreatePolls: true,
+    canAddLocation: true,
+    canSchedulePosts: true,
+    canCreateStories: true,
+    canMonetizeContent: true,
+    maxPostLength: 1000,
+    
+    // Events & Communities
+    canCreateEvents: true,
+    maxEventsPerMonth: -1, // Unlimited
+    canJoinCommunities: true,
+    maxCommunities: -1, // Unlimited
+    
+    // Dating
+    canUseDating: false, // Not available for couples
+    dailyLikesLimit: 0,
+    dailySuperLikesLimit: 0,
+    canUseBoosts: false,
+    canRewind: false,
+    
+    // Other
+    adsFrequency: 0, // No ads
+    hasAnalytics: true,
+    hasPrioritySupport: true,
+  },
+}
+
 export function usePremiumFeatures() {
   const { user } = useAuth()
-
-  /**
-   * Calculate available features based on plan and verification
-   */
-  const features = useMemo((): PremiumFeatures => {
-    if (!user) {
-      return {
-        // Unauthenticated users
-        canSendMessages: false,
-        canUploadMedia: false,
-        canCreateStories: false,
-        canMakeVoiceCalls: false,
-        canMakeVideoCalls: false,
-        canCreatePolls: false,
-        canAccessAnalytics: false,
-        canCreateEvents: false,
-        canJoinGroups: false,
-        canCreateGroups: false,
-        showAds: true,
-        maxPhotosPerPost: 0,
-        maxVideoLength: 0,
-        maxGroupMembers: 0,
-        dailyMessageLimit: 0,
-        storageLimit: 0,
+  
+  const features = useMemo(() => {
+    const plan = user?.premium_type || "free"
+    const baseFeatures = planFeatures[plan]
+    
+    // Apply verification bonuses
+    if (user?.is_verified) {
+      const verifiedFeatures = { ...baseFeatures }
+      
+      if (plan === "gold") {
+        verifiedFeatures.messagesPerDay = -1 // Unlimited messages
+        verifiedFeatures.maxEventsPerMonth = -1 // Unlimited events
+      }
+      
+      return verifiedFeatures
+    }
+    
+    return baseFeatures
+  }, [user?.premium_type, user?.is_verified])
+  
+  // Check if user has reached monthly limits
+  const canUploadMorePhotos = useMemo(() => {
+    if (!user) return false
+    if (features.monthlyPhotoLimit === -1) return true // Unlimited
+    return user.monthly_photo_count < features.monthlyPhotoLimit
+  }, [user, features.monthlyPhotoLimit])
+  
+  const canUploadMoreVideos = useMemo(() => {
+    if (!user) return false
+    if (features.monthlyVideoLimit === -1) return true // Unlimited
+    return user.monthly_video_count < features.monthlyVideoLimit
+  }, [user, features.monthlyVideoLimit])
+  
+  const canSendMoreMessages = useMemo(() => {
+    if (!user) return false
+    if (features.messagesPerDay === -1) return true // Unlimited
+    if (features.messagesPerDay === 0) return false // Free users can't initiate
+    return user.daily_message_count < features.messagesPerDay
+  }, [user, features.messagesPerDay])
+  
+  // Helper function to check if a feature requires upgrade
+  const requiresUpgrade = (feature: keyof PremiumFeatures) => {
+    return !features[feature] || 
+           (typeof features[feature] === "number" && features[feature] === 0)
+  }
+  
+  // Get minimum plan required for a feature
+  const getRequiredPlan = (feature: keyof PremiumFeatures): PremiumPlan | null => {
+    const plans: PremiumPlan[] = ["free", "gold", "diamond", "couple"]
+    
+    for (const plan of plans) {
+      const planFeature = planFeatures[plan][feature]
+      if (planFeature === true || 
+          (typeof planFeature === "number" && planFeature > 0)) {
+        return plan
       }
     }
-
-    const planType = user.premium_type as PremiumPlan
-    const isVerified = user.is_verified || false
-
-    switch (planType) {
-      case "free":
-        return {
-          canSendMessages: isVerified, // Free users need verification
-          canUploadMedia: isVerified,
-          canCreateStories: false,
-          canMakeVoiceCalls: false,
-          canMakeVideoCalls: false,
-          canCreatePolls: false,
-          canAccessAnalytics: false,
-          canCreateEvents: false,
-          canJoinGroups: true,
-          canCreateGroups: false,
-          showAds: true,
-          maxPhotosPerPost: isVerified ? 3 : 1,
-          maxVideoLength: isVerified ? 30 : 0, // 30 seconds
-          maxGroupMembers: 0,
-          dailyMessageLimit: isVerified ? 50 : 0,
-          storageLimit: 100, // 100MB
-        }
-
-      case "gold":
-        return {
-          canSendMessages: true,
-          canUploadMedia: true,
-          canCreateStories: false,
-          canMakeVoiceCalls: false,
-          canMakeVideoCalls: false,
-          canCreatePolls: true,
-          canAccessAnalytics: false,
-          canCreateEvents: true,
-          canJoinGroups: true,
-          canCreateGroups: false,
-          showAds: true, // Reduced frequency
-          maxPhotosPerPost: 10,
-          maxVideoLength: 300, // 5 minutes
-          maxGroupMembers: 0,
-          dailyMessageLimit: isVerified ? -1 : 200, // Unlimited if verified
-          storageLimit: 1000, // 1GB
-        }
-
-      case "diamond":
-        return {
-          canSendMessages: true,
-          canUploadMedia: true,
-          canCreateStories: true,
-          canMakeVoiceCalls: true,
-          canMakeVideoCalls: true,
-          canCreatePolls: true,
-          canAccessAnalytics: true,
-          canCreateEvents: true,
-          canJoinGroups: true,
-          canCreateGroups: true,
-          showAds: false,
-          maxPhotosPerPost: 20,
-          maxVideoLength: 1800, // 30 minutes
-          maxGroupMembers: 50,
-          dailyMessageLimit: -1, // Unlimited
-          storageLimit: 10000, // 10GB
-        }
-
-      case "couple":
-        return {
-          canSendMessages: true,
-          canUploadMedia: true,
-          canCreateStories: true,
-          canMakeVoiceCalls: true,
-          canMakeVideoCalls: true,
-          canCreatePolls: true,
-          canAccessAnalytics: true,
-          canCreateEvents: true,
-          canJoinGroups: true,
-          canCreateGroups: true,
-          showAds: false,
-          maxPhotosPerPost: 30,
-          maxVideoLength: 3600, // 1 hour
-          maxGroupMembers: 100,
-          dailyMessageLimit: -1, // Unlimited
-          storageLimit: 20000, // 20GB
-        }
-
-      default:
-        return {
-          canSendMessages: false,
-          canUploadMedia: false,
-          canCreateStories: false,
-          canMakeVoiceCalls: false,
-          canMakeVideoCalls: false,
-          canCreatePolls: false,
-          canAccessAnalytics: false,
-          canCreateEvents: false,
-          canJoinGroups: false,
-          canCreateGroups: false,
-          showAds: true,
-          maxPhotosPerPost: 0,
-          maxVideoLength: 0,
-          maxGroupMembers: 0,
-          dailyMessageLimit: 0,
-          storageLimit: 0,
-        }
-    }
-  }, [user])
-
-  /**
-   * Get upgrade suggestions based on attempted action
-   */
-  const getUpgradeSuggestion = (feature: keyof PremiumFeatures) => {
-    if (!user) return null
-
-    const planType = user.premium_type as PremiumPlan
-    const isVerified = user.is_verified
-
-    // Verification suggestions for free users
-    if (planType === "free" && !isVerified) {
-      const verificationFeatures = ["canSendMessages", "canUploadMedia"]
-
-      if (verificationFeatures.includes(feature)) {
-        return {
-          type: "verification" as const,
-          title: "Verificação Necessária",
-          description: "Verifique sua identidade para acessar este recurso",
-          action: "Verificar Agora",
-          route: "/verification",
-        }
-      }
-    }
-
-    // Plan upgrade suggestions
-    const upgradePaths = {
-      free: {
-        target: "gold" as const,
-        title: "Upgrade para Gold",
-        description: "Desbloqueie mensagens ilimitadas e mais recursos",
-        price: "R$ 19,90/mês",
-      },
-      gold: {
-        target: "diamond" as const,
-        title: "Upgrade para Diamond",
-        description: "Stories, chamadas de vídeo e sem anúncios",
-        price: "R$ 39,90/mês",
-      },
-    }
-
-    const currentUpgrade = upgradePaths[planType as keyof typeof upgradePaths]
-
-    if (currentUpgrade) {
-      return {
-        type: "upgrade" as const,
-        ...currentUpgrade,
-        action: "Fazer Upgrade",
-        route: "/premium",
-      }
-    }
-
+    
     return null
   }
-
-  /**
-   * Check if user can perform specific action
-   */
-  const canPerform = (action: string): boolean => {
-    const actionMap: Record<string, keyof PremiumFeatures> = {
-      send_message: "canSendMessages",
-      upload_photo: "canUploadMedia",
-      upload_video: "canUploadMedia",
-      create_story: "canCreateStories",
-      voice_call: "canMakeVoiceCalls",
-      video_call: "canMakeVideoCalls",
-      create_poll: "canCreatePolls",
-      view_analytics: "canAccessAnalytics",
-      create_event: "canCreateEvents",
-      create_group: "canCreateGroups",
-    }
-
-    const featureKey = actionMap[action]
-    return featureKey ? (features[featureKey] as boolean) : false
-  }
-
-  /**
-   * Get plan display information
-   */
-  const planInfo = useMemo(() => {
-    if (!user) return null
-
-    const planType = user.premium_type as PremiumPlan
-    const planConfig = {
-      free: {
-        name: "Gratuito",
-        color: "gray",
-        gradient: "from-gray-500 to-gray-600",
-        icon: "🆓",
-      },
-      gold: {
-        name: "Gold",
-        color: "yellow",
-        gradient: "from-yellow-400 to-yellow-600",
-        icon: "⭐",
-      },
-      diamond: {
-        name: "Diamond",
-        color: "blue",
-        gradient: "from-blue-400 to-purple-600",
-        icon: "💎",
-      },
-      couple: {
-        name: "Couple",
-        color: "pink",
-        gradient: "from-pink-400 to-red-500",
-        icon: "💕",
-      },
-    }
-
-    return {
-      ...planConfig[planType],
-      isVerified: user.is_verified,
-      expiresAt: user.premium_subscription?.expires_at,
-    }
-  }, [user])
-
+  
   return {
-    // State
-    user,
-    features,
-    planType: (user?.premium_type as PremiumPlan) || "free",
-    planInfo,
+    ...features,
+    
+    // Computed limits
+    canUploadMorePhotos,
+    canUploadMoreVideos,
+    canSendMoreMessages,
+    
+    // Helper methods
+    requiresUpgrade,
+    getRequiredPlan,
+    
+    // User info
+    userPlan: user?.premium_type || "free",
     isVerified: user?.is_verified || false,
-
-    // Methods
-    canPerform,
-    getUpgradeSuggestion,
+    
+    // Usage stats
+    photosUsed: user?.monthly_photo_count || 0,
+    videosUsed: user?.monthly_video_count || 0,
+    messagesUsedToday: user?.daily_message_count || 0,
   }
 }
