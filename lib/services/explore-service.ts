@@ -14,103 +14,49 @@ class ExploreService {
     limit: number = 20
   ) {
     try {
-      const offset = (page - 1) * limit
+      // Build query params
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        distance_km: filters.distance_km.toString(),
+        age_min: filters.age_range.min.toString(),
+        age_max: filters.age_range.max.toString(),
+        verification_required: filters.verification_required.toString(),
+        online_only: filters.online_only.toString(),
+        has_photos: filters.has_photos.toString(),
+        premium_only: filters.premium_only.toString(),
+        relationship_type: filters.relationship_type
+      })
 
-      // Buscar localização do usuário atual
-      const { data: currentUser } = await this.supabase
-        .from('users')
-        .select('location')
-        .eq('id', userId)
-        .single()
-
-      if (!currentUser?.location) {
-        throw new Error('User location not found')
-      }
-
-      // Query com filtros
-      let query = this.supabase
-        .from('users')
-        .select(`
-          id,
-          username,
-          name,
-          birth_date,
-          gender,
-          location,
-          avatar_url,
-          bio,
-          is_verified,
-          is_online,
-          last_seen,
-          premium_type,
-          created_at
-        `)
-        .neq('id', userId) // Excluir o próprio usuário
-
-      // Filtro de idade - calculado baseado em birth_date
-      // Por enquanto, vamos comentar até implementar a lógica correta
-      // if (filters.age_range.min > 0) {
-      //   query = query.gte('age', filters.age_range.min)
-      // }
-      // if (filters.age_range.max > 0) {
-      //   query = query.lte('age', filters.age_range.max)
-      // }
-
-      // Filtro de gênero
+      // Add array params
       if (filters.gender.length > 0) {
-        query = query.in('gender', filters.gender)
+        params.set('gender', filters.gender.join(','))
+      }
+      if (filters.interests.length > 0) {
+        params.set('interests', filters.interests.join(','))
       }
 
-      // Filtro de verificação
-      if (filters.verification_required) {
-        query = query.eq('is_verified', true)
+      // Call API endpoint
+      const response = await fetch(`/api/v1/explore/users?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to search profiles')
       }
-
-      // Filtro de usuários ativos
-      if (filters.online_only) {
-        query = query.eq('is_active', true)
-      }
-
-      // Filtro de premium
-      if (filters.premium_only) {
-        query = query.in('premium_type', ['gold', 'diamond', 'couple'])
-      }
-
-      // Filtro de fotos - verifica se tem avatar
-      if (filters.has_photos) {
-        query = query.not('avatar_url', 'is', null)
-      }
-
-      // Adicionar filtro de usuários ativos
-      query = query.eq('is_active', true)
-
-      // Ordenação por atividade recente
-      const { data: profiles, error } = await query
-        .order('last_active_at', { ascending: false })
-        .range(offset, offset + limit - 1)
-
-      if (error) throw error
-
-      // Calcular distâncias e filtrar
-      const profilesWithDistance = profiles
-        ?.map(profile => ({
-          ...profile,
-          distance: this.calculateDistance(
-            currentUser.location.latitude,
-            currentUser.location.longitude,
-            profile.location?.latitude || 0,
-            profile.location?.longitude || 0
-          )
-        }))
-        .filter(profile => profile.distance <= filters.distance_km)
-        .sort((a, b) => a.distance - b.distance) || []
 
       return {
-        data: profilesWithDistance,
-        hasMore: profilesWithDistance.length === limit,
-        total: undefined
+        data: result.data || [],
+        hasMore: result.hasMore || false,
+        total: result.total
       }
     } catch (error) {
+      console.error('Search profiles error:', error)
       throw error
     }
   }

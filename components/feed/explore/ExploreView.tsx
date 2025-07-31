@@ -116,6 +116,14 @@ export function ExploreView() {
   const fetchProfiles = useCallback(async (page: number) => {
     if (!user) return { data: [], hasMore: false }
     
+    console.log('🔍 ExploreView - Fetching profiles:', {
+      userId: user.id,
+      filters,
+      page,
+      dailyViewCount,
+      userPlan: features.userPlan
+    })
+    
     // Check explore limits for free users
     if (features.userPlan === "free" && dailyViewCount >= 20) {
       showToast({
@@ -130,6 +138,13 @@ export function ExploreView() {
     try {
       const result = await exploreService.searchProfiles(user.id, filters, page, 20)
       
+      console.log('✅ ExploreView - Search result:', {
+        success: !!result,
+        dataLength: result.data?.length || 0,
+        hasMore: result.hasMore,
+        firstProfile: result.data?.[0]
+      })
+      
       // Update view count for free users
       if (features.userPlan === "free" && result.data.length > 0) {
         const newCount = dailyViewCount + result.data.length
@@ -140,6 +155,12 @@ export function ExploreView() {
       
       return result
     } catch (error) {
+      console.error('❌ ExploreView - Error fetching profiles:', error)
+      showToast({
+        title: "Erro ao buscar perfis",
+        description: "Ocorreu um erro ao buscar perfis. Tente novamente.",
+        type: "error"
+      })
       return { data: [], hasMore: false }
     }
   }, [user, filters, features.userPlan, dailyViewCount, showToast])
