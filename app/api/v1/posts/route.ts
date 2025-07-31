@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase/server"
+import { withAuth } from "@/lib/auth/server"
+import { CONTENT_LIMITS, FILE_LIMITS } from "@/utils/constants"
 import { nanoid } from "nanoid"
 
 const createPostSchema = z.object({
