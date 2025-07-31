@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from "@/app/lib/supabase-browser" 
 import type { 
   Community, 
   CommunityMember, 
@@ -511,7 +511,7 @@ export class CommunityService {
         .order('joined_at', { ascending: false })
 
       if (error) throw error
-      return data?.map(item => item.community).filter(Boolean) as Community[] || []
+      return (data?.flatMap(item => item.community ? [item.community as Community] : []) as Community[]) || []
     } catch (error) {
       console.error('Error fetching user communities:', error)
       return []

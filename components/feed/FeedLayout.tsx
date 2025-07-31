@@ -5,7 +5,7 @@ import { Header } from "./Header"
 import { LeftSidebar } from "./LeftSidebar"
 import { RightSidebar } from "./RightSidebar"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Home, ArrowUp } from "lucide-react"
+import { Menu, X, Home } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 
@@ -15,8 +15,8 @@ interface FeedLayoutProps {
 
 export function FeedLayout({ children }: FeedLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [showScrollToTop, setShowScrollToTop] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
+  const [currentView, setCurrentView] = useState<'timeline' | 'other'>('timeline')
   const { user } = useAuth()
 
   // Check system preference on initial load
@@ -30,14 +30,11 @@ export function FeedLayout({ children }: FeedLayoutProps) {
     }
   }, [])
 
-  // Handle scroll to show/hide scroll to top button
+  // Track current view based on URL or other conditions
   useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollToTop(window.scrollY > 500)
-    }
-
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    // This could be enhanced to detect actual view based on routing
+    // For now, we'll assume timeline is the default
+    setCurrentView('timeline')
   }, [])
 
   // Close mobile menu on route change
@@ -52,6 +49,30 @@ export function FeedLayout({ children }: FeedLayoutProps) {
 
   const handleScrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const handleFabClick = () => {
+    if (isMobileMenuOpen) {
+      // Close sidebar
+      setIsMobileMenuOpen(false)
+    } else if (currentView === 'timeline') {
+      // Open sidebar
+      setIsMobileMenuOpen(true)
+    } else {
+      // Return to timeline
+      setCurrentView('timeline')
+      // Could also trigger navigation here
+    }
+  }
+
+  const getFabIcon = () => {
+    if (isMobileMenuOpen) {
+      return <X className="h-6 w-6" />
+    } else if (currentView === 'timeline') {
+      return <Menu className="h-6 w-6" />
+    } else {
+      return <Home className="h-6 w-6" />
+    }
   }
 
   return (
@@ -105,44 +126,29 @@ export function FeedLayout({ children }: FeedLayoutProps) {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-30">
-        <div className="flex items-center justify-around py-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="text-gray-600 dark:text-gray-400"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleScrollToTop}
-            className="text-gray-600 dark:text-gray-400"
-          >
-            <Home className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Scroll to Top Button - Desktop only */}
-      {showScrollToTop && (
-        <Button
-          onClick={handleScrollToTop}
-          size="icon"
-          className={cn(
-            "fixed bottom-6 right-6 z-40",
-            "bg-pink-600 hover:bg-pink-700 text-white",
-            "shadow-lg hover:shadow-xl",
-            "transition-all duration-300",
-            "hidden md:flex"
-          )}
-        >
-          <ArrowUp className="h-5 w-5" />
-        </Button>
-      )}
+      {/* Polymorphic Floating Action Button */}
+      <Button
+        onClick={handleFabClick}
+        size="icon"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 md:hidden",
+          "w-14 h-14 rounded-full",
+          "bg-gradient-to-r from-purple-600 to-pink-600",
+          "hover:from-purple-700 hover:to-pink-700",
+          "text-white shadow-lg hover:shadow-xl",
+          "transition-all duration-300",
+          "transform hover:scale-110 active:scale-95"
+        )}
+        aria-label={
+          isMobileMenuOpen 
+            ? "Fechar menu" 
+            : currentView === 'timeline' 
+              ? "Abrir menu" 
+              : "Voltar ao timeline"
+        }
+      >
+        {getFabIcon()}
+      </Button>
     </div>
   )
 }

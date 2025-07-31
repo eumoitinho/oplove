@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UserAvatar } from "@/components/common/UserAvatar"
 import { useAuth } from "@/hooks/useAuth"
-import { Search, Sun, Moon, Gem, Sparkles } from "lucide-react"
+import { Search, Sun, Moon, Gem, Sparkles, Edit3 } from "lucide-react"
 
 interface HeaderProps {
   isDarkMode: boolean
@@ -25,6 +25,9 @@ export function Header({ isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileM
     const postCreationArea = document.getElementById("post-creation-area")
     if (postCreationArea) {
       postCreationArea.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else {
+      // If no post creation area found, scroll to top
+      window.scrollTo({ top: 0, behavior: "smooth" })
     }
   }
 
@@ -48,18 +51,17 @@ export function Header({ isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileM
       <div className="max-w-screen-xl mx-auto px-2 xs:px-4 w-full">
         <div className="flex items-center justify-between gap-2 xs:gap-4">
           {/* Mobile: Create Post Button | Desktop: Empty div for spacing */}
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
               className="rounded-full text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-300"
-              aria-label="Criar novo post"
+              aria-label="Criar novo post ou voltar ao topo"
               onClick={handleCreatePostClick}
             >
-              <Sparkles className="w-5 h-5" />
+              <Edit3 className="w-5 h-5" />
             </Button>
           </div>
-          <div className="hidden lg:block w-10 h-10" /> {/* Placeholder for desktop alignment */}
           {/* Logo (Centralizado e alinhado com o início da sidebar) */}
           <div className="flex-1 flex justify-start lg:justify-start pl-2">
             <h1 className="flex items-center text-2xl sm:text-3xl font-bold leading-none tracking-tighter group cursor-default">
