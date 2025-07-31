@@ -14,6 +14,7 @@ import {
   Zap
 } from "lucide-react"
 import { notification } from "@/lib/services/notification-service"
+import { CameraDiagnostics } from "./CameraDiagnostics"
 
 interface FaceScanCaptureProps {
   onComplete: (data: any) => void
@@ -40,6 +41,8 @@ export function FaceScanCapture({ onComplete }: FaceScanCaptureProps) {
   const [faceScanData, setFaceScanData] = useState<FaceScanData | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [faceDetector, setFaceDetector] = useState<any>(null)
+  const [showDiagnostics, setShowDiagnostics] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
 
   // Instructions for 3D face scan
   const instructions = [
@@ -254,6 +257,10 @@ export function FaceScanCapture({ onComplete }: FaceScanCaptureProps) {
       } else {
         notification.error(`🚨 Erro inesperado ao acessar a câmera (FaceScan):\n\n${error.message || 'Erro desconhecido'}\n\nTente recarregar a página ou usar outro navegador.`)
       }
+      
+      // Set error state to show diagnostics
+      setCameraError(error.message || 'Erro desconhecido')
+      setShowDiagnostics(true)
     }
   }
 
@@ -428,6 +435,8 @@ export function FaceScanCapture({ onComplete }: FaceScanCaptureProps) {
     setCaptureProgress(0)
     setCurrentInstruction("")
     setFaceScanData(null)
+    setCameraError(null)
+    setShowDiagnostics(false)
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
       setStream(null)
@@ -451,7 +460,15 @@ export function FaceScanCapture({ onComplete }: FaceScanCaptureProps) {
         </p>
       </div>
 
-      {!isCapturing && !faceScanData && (
+      {showDiagnostics ? (
+        <CameraDiagnostics
+          onResolved={() => {
+            setShowDiagnostics(false)
+            setCameraError(null)
+            startCapture()
+          }}
+        />
+      ) : !isCapturing && !faceScanData && (
         <div className="space-y-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
@@ -466,10 +483,21 @@ export function FaceScanCapture({ onComplete }: FaceScanCaptureProps) {
             </ul>
           </div>
           
-          <Button onClick={startCapture} className="w-full" size="lg">
-            <Camera className="w-5 h-5 mr-2" />
-            Iniciar FaceScan 3D
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={startCapture} className="flex-1" size="lg">
+              <Camera className="w-5 h-5 mr-2" />
+              Iniciar FaceScan 3D
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowDiagnostics(true)}
+              size="lg"
+            >
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Problemas?
+            </Button>
+          </div>
         </div>
       )}
 

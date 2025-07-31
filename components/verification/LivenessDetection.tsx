@@ -14,6 +14,7 @@ import {
   Smile
 } from "lucide-react"
 import { notification } from "@/lib/services/notification-service"
+import { CameraDiagnostics } from "./CameraDiagnostics"
 
 interface LivenessDetectionProps {
   onComplete: (data: { selfiePhoto: File, livenessData: any }) => void
@@ -37,6 +38,8 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null)
   const [detectionInterval, setDetectionInterval] = useState<NodeJS.Timeout | null>(null)
+  const [showDiagnostics, setShowDiagnostics] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
 
   const initializeChallenges = (): LivenessChallenge[] => [
     {
@@ -232,6 +235,10 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
       } else {
         notification.error(`🚨 Erro inesperado ao acessar a câmera:\n\n${error.message || 'Erro desconhecido'}\n\nTente recarregar a página ou usar outro navegador.`)
       }
+      
+      // Set error state to show diagnostics
+      setCameraError(error.message || 'Erro desconhecido')
+      setShowDiagnostics(true)
     }
   }
 
@@ -407,6 +414,8 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
     setCurrentChallenge(0)
     setLivenessScore(0)
     setCapturedPhoto(null)
+    setCameraError(null)
+    setShowDiagnostics(false)
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
       setStream(null)
@@ -436,7 +445,15 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
         </p>
       </div>
 
-      {!isCapturing && !capturedPhoto && (
+      {showDiagnostics ? (
+        <CameraDiagnostics
+          onResolved={() => {
+            setShowDiagnostics(false)
+            setCameraError(null)
+            startCapture()
+          }}
+        />
+      ) : !isCapturing && !capturedPhoto && (
         <div className="space-y-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
@@ -465,10 +482,21 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
             </div>
           </div>
           
-          <Button onClick={startCapture} className="w-full" size="lg">
-            <Camera className="w-5 h-5 mr-2" />
-            Iniciar Detecção de Vida
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={startCapture} className="flex-1" size="lg">
+              <Camera className="w-5 h-5 mr-2" />
+              Iniciar Detecção de Vida
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowDiagnostics(true)}
+              size="lg"
+            >
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Problemas?
+            </Button>
+          </div>
         </div>
       )}
 
