@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
     const following = searchParams.get("following") === "true"
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
 // POST /api/v1/posts - Create a new post
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
     
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
