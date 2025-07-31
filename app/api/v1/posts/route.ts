@@ -3,7 +3,7 @@ import { z } from "zod"
 import { createServerClient } from "@/lib/supabase/server"
 import { withAuth } from "@/lib/auth/server"
 import { CONTENT_LIMITS, FILE_LIMITS } from "@/utils/constants"
-import { nanoid } from "nanoid"
+import { randomUUID } from "crypto"
 
 const createPostSchema = z.object({
   content: z.string().min(1).max(5000),
@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
     // Upload images/videos
     for (const file of mediaFiles) {
       const fileExt = file.name.split(".").pop()
-      const fileName = `${user.id}/${post.id}/${nanoid()}.${fileExt}`
+      const fileName = `${user.id}/${post.id}/${randomUUID()}.${fileExt}`
       const isVideo = file.type.startsWith("video/")
       
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -442,7 +442,7 @@ export async function POST(request: NextRequest) {
     // Upload audio
     if (audioFile) {
       const fileExt = audioFile.name.split(".").pop()
-      const fileName = `${user.id}/${post.id}/audio_${nanoid()}.${fileExt}`
+      const fileName = `${user.id}/${post.id}/audio_${randomUUID()}.${fileExt}`
       const audioDuration = formData.get("audio_duration") as string
       
       const { data: uploadData, error: uploadError } = await supabase.storage
