@@ -243,18 +243,153 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   canSendMessage: (conversationId: string): MessagePermissions => {
-    // This would check user permissions based on plan and verification
-    // Implementation depends on your business logic
+    const state = get()
+    const conversation = state.conversations.find(c => c.id === conversationId)
+    
+    // Get current user from auth store
+    const currentUser = (window as any)?.authStore?.getState()?.user
+    if (!currentUser) {
+      return {
+        canSend: false,
+        reason: 'Usuário não autenticado'
+      }
+    }
+
+    /**
+     * Business Rules for Messaging (v0.3.2):
+     * 1. Free users CANNOT initiate conversations
+     * 2. Free users CAN reply if a premium user messages them first
+     * 3. Gold users have daily limits (200/day unverified, unlimited if verified)
+     * 4. Diamond/Couple users have unlimited messaging
+     * 5. All users must respect conversation access rules
+     */
+
+    // Check if user is banned or restricted
+    if (currentUser.is_banned) {
+      return {
+        canSend: false,
+        reason: 'Conta suspensa'
+      }
+    }
+
+    // Handle free users
+    if (currentUser.premium_type === 'free') {
+      if (!conversation) {
+        return {
+          canSend: false,
+          reason: 'Usuários gratuitos não podem iniciar conversas'
+        }
+      }
+
+      // Free users can reply if conversation was initiated by a premium user
+      const canReply = conversation.initiated_by_premium && 
+                      conversation.initiated_by !== currentUser.id
+      
+      if (!canReply) {
+        return {
+          canSend: false,
+          reason: 'Upgrade para Gold para enviar mensagens'
+        }
+      }
+
+      return { canSend: true, reason: null }
+    }
+
+    // Handle Gold users
+    if (currentUser.premium_type === 'gold') {
+      // Verified Gold users have unlimited messages
+      if (currentUser.is_verified) {
+        return { canSend: true, reason: null }
+      }
+
+      // Unverified Gold users have daily limits
+      const dailyLimit = 200
+      const currentCount = currentUser.daily_message_count || 0
+      
+      if (currentCount >= dailyLimit) {
+        return {
+          canSend: false,
+          reason: `Limite diário atingido (${dailyLimit} mensagens). Verifique sua conta para mensagens ilimitadas.`
+        }
+      }
+
+      return { canSend: true, reason: null }
+    }
+
+    // Diamond and Couple users have unlimited messaging
+    if (currentUser.premium_type === 'diamond' || currentUser.premium_type === 'couple') {
+      return { canSend: true, reason: null }
+    }
+
+    // Fallback for unknown plan types
     return {
-      canSend: true,
-      reason: null,
+      canSend: false,
+      reason: 'Plano não reconhecido'
     }
   },
 
   getMessageLimit: () => {
-    // Return message limits based on user plan
+    // Get current user from auth store
+    const currentUser = (window as any)?.authStore?.getState()?.user
+    if (!currentUser) {
+      return {
+        hasLimit: true,
+        remaining: 0,
+        total: 0,
+      }
+    }
+
+    /**
+     * Message Limits by Plan:
+     * - Free: 0 messages (can only reply)
+     * - Gold Unverified: 200/day
+     * - Gold Verified: Unlimited
+     * - Diamond/Couple: Unlimited
+     */
+
+    // Free users cannot send messages (only reply)
+    if (currentUser.premium_type === 'free') {
+      return {
+        hasLimit: true,
+        remaining: 0,
+        total: 0,
+      }
+    }
+
+    // Gold users
+    if (currentUser.premium_type === 'gold') {
+      if (currentUser.is_verified) {
+        return {
+          hasLimit: false,
+          remaining: Infinity,
+          total: Infinity,
+        }
+      }
+
+      // Unverified Gold users have daily limits
+      const dailyLimit = 200
+      const currentCount = currentUser.daily_message_count || 0
+      const remaining = Math.max(0, dailyLimit - currentCount)
+
+      return {
+        hasLimit: true,
+        remaining,
+        total: dailyLimit,
+      }
+    }
+
+    // Diamond and Couple users have unlimited
+    if (currentUser.premium_type === 'diamond' || currentUser.premium_type === 'couple') {
+      return {
+        hasLimit: false,
+        remaining: Infinity,
+        total: Infinity,
+      }
+    }
+
+    // Fallback
     return {
-      hasLimit: false,
+      hasLimit: true,
       remaining: 0,
       total: 0,
     }
