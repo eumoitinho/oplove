@@ -20,7 +20,7 @@ export async function POST(
     // Verificar se o post existe
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id, user_id, is_public')
+      .select('id, user_id, visibility')
       .eq('id', postId)
       .single()
 

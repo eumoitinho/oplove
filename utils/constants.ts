@@ -24,6 +24,7 @@ export const APP_CONFIG = {
 
 /**
  * Premium plan configurations
+ * @deprecated Use PLAN_PRICING from @/lib/config/pricing.config instead
  */
 export const PREMIUM_PLANS = {
   free: {
@@ -36,12 +37,12 @@ export const PREMIUM_PLANS = {
   },
   gold: {
     name: "Gold",
-    price: 1990, // in cents
+    price: 2500, // R$ 25,00 in cents
     color: "yellow",
     gradient: "from-yellow-400 to-yellow-600",
     icon: "⭐",
     features: [
-      "Mensagens ilimitadas (com verificação)",
+      "Mensagens limitadas (ilimitadas se verificado)",
       "Upload de vídeos",
       "Criar enquetes",
       "Criar eventos",
@@ -50,7 +51,7 @@ export const PREMIUM_PLANS = {
   },
   diamond: {
     name: "Diamond",
-    price: 3990, // in cents
+    price: 4500, // R$ 45,00 in cents
     color: "blue",
     gradient: "from-blue-400 to-purple-600",
     icon: "💎",
@@ -64,14 +65,14 @@ export const PREMIUM_PLANS = {
     ],
   },
   couple: {
-    name: "Couple",
-    price: 5990, // in cents
+    name: "Dupla Hot",
+    price: 6990, // R$ 69,90 in cents
     color: "pink",
     gradient: "from-pink-400 to-red-500",
     icon: "💕",
     features: [
       "Todos os recursos Diamond",
-      "Perfil de casal",
+      "Perfil de casal sincronizado",
       "Armazenamento extra",
       "Recursos exclusivos para casais",
       "Suporte prioritário",

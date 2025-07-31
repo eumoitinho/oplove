@@ -535,13 +535,18 @@ export class PaymentService {
    * Get plan pricing
    */
   private getPlanPrice(planType: PlanType, billingCycle: "monthly" | "yearly"): number {
-    const prices = {
-      gold: { monthly: 19.9, yearly: 199.9 },
-      diamond: { monthly: 39.9, yearly: 399.9 },
-      couple: { monthly: 59.9, yearly: 599.9 },
+    // Import the centralized pricing configuration
+    const { getPlanPrice } = require("@/lib/config/pricing.config")
+    
+    // Map billingCycle to the correct period name
+    const period = billingCycle === "monthly" ? "monthly" : "annual"
+    
+    try {
+      return getPlanPrice(planType, period)
+    } catch (error) {
+      console.error(`Error getting plan price for ${planType} ${period}:`, error)
+      return 0
     }
-
-    return prices[planType]?.[billingCycle] || 0
   }
 
   /**

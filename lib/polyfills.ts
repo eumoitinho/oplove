@@ -1,26 +1,37 @@
 // Browser Polyfills and Compatibility Fixes
 
+// NOTE: Some polyfill imports are temporarily disabled due to installation issues
+// The following packages need to be installed when the build environment is fixed:
+// - smoothscroll-polyfill
+// - intersection-observer  
+// - @juggle/resize-observer
+// - abortcontroller-polyfill
+// These polyfills provide compatibility for older browsers but are not critical for modern browsers
+
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined'
 
 // 1. Smooth Scroll Polyfill for Safari and older browsers
-if (isBrowser && !('scrollBehavior' in document.documentElement.style)) {
-  import('smoothscroll-polyfill').then(module => {
-    module.polyfill()
-  })
-}
+// Temporarily disabled due to installation issues
+// if (isBrowser && !('scrollBehavior' in document.documentElement.style)) {
+//   import('smoothscroll-polyfill').then(module => {
+//     module.polyfill()
+//   })
+// }
 
 // 2. IntersectionObserver Polyfill for older browsers
-if (isBrowser && !window.IntersectionObserver) {
-  import('intersection-observer')
-}
+// Temporarily disabled due to installation issues
+// if (isBrowser && !window.IntersectionObserver) {
+//   import('intersection-observer')
+// }
 
 // 3. ResizeObserver Polyfill
-if (isBrowser && !window.ResizeObserver) {
-  import('@juggle/resize-observer').then(module => {
-    window.ResizeObserver = module.ResizeObserver
-  })
-}
+// Temporarily disabled due to installation issues
+// if (isBrowser && !window.ResizeObserver) {
+//   import('@juggle/resize-observer').then(module => {
+//     window.ResizeObserver = module.ResizeObserver
+//   })
+// }
 
 // 4. Object.fromEntries polyfill for older browsers
 if (!Object.fromEntries) {
@@ -97,9 +108,10 @@ if (isBrowser && typeof window.CustomEvent !== 'function') {
 }
 
 // 10. Fetch AbortController polyfill
-if (isBrowser && !window.AbortController) {
-  import('abortcontroller-polyfill/dist/polyfill-patch-fetch')
-}
+// Temporarily disabled due to installation issues
+// if (isBrowser && !window.AbortController) {
+//   import('abortcontroller-polyfill/dist/polyfill-patch-fetch')
+// }
 
 // Browser-specific fixes
 export const browserFixes = {

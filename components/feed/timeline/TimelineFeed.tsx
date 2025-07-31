@@ -25,6 +25,7 @@ import { MessagesView } from "../messages/MessagesView"
 import { NotificationsView } from "../notifications/NotificationsView"
 import { EventsView } from "../events/EventsView"
 import { CommunitiesView } from "../communities/CommunitiesView"
+import { AdultCommunitiesView } from "../communities/AdultCommunitiesView"
 import { OpenDates } from "../../dating/OpenDates"
 import { VerificationForm } from "../../verification/VerificationForm"
 
@@ -324,7 +325,7 @@ export function TimelineFeed({
       case "events":
         return <EventsView />
       case "communities":
-        return <CommunitiesView />
+        return <AdultCommunitiesView />
       case "open-dates":
         return <OpenDates />
       case "saved-items":

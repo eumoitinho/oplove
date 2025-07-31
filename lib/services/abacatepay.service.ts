@@ -166,7 +166,7 @@ class AbacatePayService {
   }
 
   /**
-   * Verify webhook signature
+   * Verify webhook signature using constant-time comparison
    */
   verifyWebhookSignature(payload: string, signature: string): boolean {
     try {
@@ -177,7 +177,15 @@ class AbacatePayService {
         .update(payload)
         .digest("hex")
 
-      return signature === expectedSignature
+      // Use constant-time comparison to prevent timing attacks
+      if (signature.length !== expectedSignature.length) {
+        return false
+      }
+
+      return crypto.timingSafeEqual(
+        Buffer.from(signature, 'hex'),
+        Buffer.from(expectedSignature, 'hex')
+      )
     } catch (error) {
       console.error("AbacatePay webhook signature verification error:", error)
       return false

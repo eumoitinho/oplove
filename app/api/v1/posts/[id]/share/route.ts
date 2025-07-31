@@ -20,7 +20,7 @@ export async function POST(
     // Verificar se o post existe e está público
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id, user_id, is_public, content')
+      .select('id, user_id, visibility, content')
       .eq('id', postId)
       .single()
 
@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
     }
 
-    if (!post.is_public) {
+    if (post.visibility !== 'public') {
       return NextResponse.json({ error: 'Post não pode ser compartilhado' }, { status: 403 })
     }
 

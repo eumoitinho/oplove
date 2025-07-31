@@ -2,9 +2,34 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { getAbacatePayService } from "@/lib/services/abacatepay.service"
 import { headers } from "next/headers"
+import rateLimiter, { RATE_LIMIT_CONFIGS, getClientIP } from "@/lib/utils/rate-limit"
 
 // POST /api/v1/payments/webhook/abacatepay - Handle AbacatePay webhooks
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const clientIP = getClientIP(request)
+  const rateLimitResult = await rateLimiter.checkRateLimit(clientIP, RATE_LIMIT_CONFIGS.webhook)
+  
+  if (!rateLimitResult.allowed) {
+    console.warn(`Rate limit exceeded for AbacatePay webhook from IP: ${clientIP}`)
+    return NextResponse.json(
+      { 
+        error: "Too many requests", 
+        retryAfter: rateLimitResult.retryAfter,
+        success: false 
+      },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          'Retry-After': rateLimitResult.retryAfter?.toString() || '60',
+        }
+      }
+    )
+  }
+
   try {
     const body = await request.text()
     const headersList = headers()

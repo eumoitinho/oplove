@@ -26,6 +26,8 @@ type MainContentType =
   | "support"
   | "stats"
   | "open-dates"
+  | "communities"
+  | "events"
 
 export default function FeedPage() {
   const { user } = useAuth()

@@ -14,27 +14,7 @@ const createSubscriptionSchema = z.object({
   coupon_code: z.string().optional(),
 })
 
-// Preços dos planos em centavos
-const PLAN_PRICES = {
-  gold: {
-    monthly: 2500, // R$ 25,00
-    quarterly: 6750, // R$ 67,50 (10% desconto)
-    semiannual: 12750, // R$ 127,50 (15% desconto)
-    annual: 24000, // R$ 240,00 (20% desconto)
-  },
-  diamond: {
-    monthly: 4500, // R$ 45,00
-    quarterly: 12150, // R$ 121,50 (10% desconto)
-    semiannual: 22950, // R$ 229,50 (15% desconto)
-    annual: 43200, // R$ 432,00 (20% desconto)
-  },
-  couple: {
-    monthly: 6990, // R$ 69,90
-    quarterly: 18873, // R$ 188,73 (10% desconto)
-    semiannual: 35649, // R$ 356,49 (15% desconto)
-    annual: 67104, // R$ 671,04 (20% desconto)
-  },
-}
+import { getPlanPriceInCents, BILLING_DISCOUNTS } from "@/lib/config/pricing.config"
 
 // POST /api/v1/payments/create-subscription
 export async function POST(request: NextRequest) {
@@ -115,22 +95,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Calculate price
-    let amount = PLAN_PRICES[plan_type][billing_period]
-    let discountPercentage = 0
-
-    // Apply discount based on billing period
-    switch (billing_period) {
-      case "quarterly":
-        discountPercentage = 10
-        break
-      case "semiannual":
-        discountPercentage = 15
-        break
-      case "annual":
-        discountPercentage = 20
-        break
-    }
+    // Calculate price using centralized configuration
+    const amount = getPlanPriceInCents(plan_type, billing_period)
+    const discountPercentage = BILLING_DISCOUNTS[billing_period]
 
     // Apply coupon if provided
     let stripeCouponId: string | undefined

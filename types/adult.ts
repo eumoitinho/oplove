@@ -105,7 +105,7 @@ export interface LocationData {
   state: string
   country: string
   address?: string
-  is_public: boolean
+  visibility: 'public' | 'private' | 'friends'
 }
 
 export interface AdultEvent {

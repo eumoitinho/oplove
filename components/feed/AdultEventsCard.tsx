@@ -24,7 +24,7 @@ const MOCK_ADULT_EVENTS: AdultEvent[] = [
       city: "São Paulo",
       state: "SP",
       country: "BR",
-      is_public: true
+      visibility: 'public' as const
     },
     date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     duration_hours: 6,
@@ -58,7 +58,7 @@ const MOCK_ADULT_EVENTS: AdultEvent[] = [
       city: "Rio de Janeiro",
       state: "RJ",
       country: "BR",
-      is_public: true
+      visibility: 'public' as const
     },
     date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
     duration_hours: 4,
@@ -92,7 +92,7 @@ const MOCK_ADULT_EVENTS: AdultEvent[] = [
       city: "Curitiba",
       state: "PR",
       country: "BR",
-      is_public: false
+      visibility: 'private' as const
     },
     date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     duration_hours: 3,

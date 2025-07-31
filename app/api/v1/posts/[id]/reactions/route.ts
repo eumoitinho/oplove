@@ -32,7 +32,7 @@ export async function POST(
     // Verificar se o post existe e está acessível
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id, user_id, is_public')
+      .select('id, user_id, visibility')
       .eq('id', postId)
       .single()
 
@@ -40,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
     }
 
-    if (!post.is_public && post.user_id !== user.id) {
+    if (post.visibility !== 'public' && post.user_id !== user.id) {
       return NextResponse.json({ error: 'Post não acessível' }, { status: 403 })
     }
 
@@ -194,7 +194,7 @@ export async function GET(
     // Verificar se o post existe e está acessível
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('id, user_id, is_public')
+      .select('id, user_id, visibility')
       .eq('id', postId)
       .single()
 
@@ -202,7 +202,7 @@ export async function GET(
       return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 })
     }
 
-    if (!post.is_public && (!user || post.user_id !== user.id)) {
+    if (post.visibility !== 'public' && (!user || post.user_id !== user.id)) {
       return NextResponse.json({ error: 'Post não acessível' }, { status: 403 })
     }
 

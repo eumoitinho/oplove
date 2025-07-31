@@ -181,7 +181,10 @@ export class PostsService {
           couple: 10,
         }
 
-        const limit = mediaLimits[userProfile?.premium_type || "free"]
+        // Corrigindo o erro de tipagem ao acessar o índice do objeto
+        type PremiumType = "free" | "gold" | "diamond" | "couple";
+        const premiumType: PremiumType = userProfile?.premium_type as PremiumType || "free";
+        const limit = mediaLimits[premiumType];
         if (postData.media.length > limit) {
           return {
             data: null,
@@ -596,7 +599,8 @@ export class PostsService {
         likes: likesResult.count || 0,
         comments: commentsResult.count || 0,
         shares: sharesResult.count || 0,
-        views: 0, // TODO: Implement view tracking
+        views: 0,
+        saves: 0
       }
 
       return {

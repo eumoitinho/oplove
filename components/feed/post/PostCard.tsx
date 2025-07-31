@@ -13,6 +13,7 @@ import { usePostInteractions } from "@/hooks/usePostInteractions"
 import { CommentsModal } from "@/components/feed/comments/CommentsModal"
 import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
 import { PostPoll } from "./PostPoll"
+import { useRestrictionModal } from "@/components/common/RestrictionModal"
 
 interface PostCardProps {
   post: Post
@@ -24,6 +25,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   const [post] = useState(initialPost)
   const [isLikeAnimating, setIsLikeAnimating] = useState(false)
   const [showComments, setShowComments] = useState(false)
+  const { showRestriction } = useRestrictionModal()
   
   const {
     isLiked,
@@ -49,6 +51,16 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
 
   const handleLike = () => {
     if (isLoading) return
+    
+    // Check if user is logged in
+    if (!user) {
+      showRestriction('premium_required', {
+        feature: 'curtir posts',
+        requiredPlan: 'free'
+      })
+      return
+    }
+    
     setIsLikeAnimating(true)
     setTimeout(() => setIsLikeAnimating(false), 600)
     onLike()
@@ -65,6 +77,15 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   }
   
   const handleCommentClick = () => {
+    // Check if user is logged in
+    if (!user) {
+      showRestriction('premium_required', {
+        feature: 'comentar',
+        requiredPlan: 'free'
+      })
+      return
+    }
+    
     if (onCommentClick) {
       onCommentClick(post.id)
     } else {

@@ -13,6 +13,7 @@ import { VoiceRecorder } from "./VoiceRecorder"
 import { MediaUploader } from "../create/MediaUploader"
 import EmojiPicker from "emoji-picker-react"
 import type { Conversation } from "@/types/chat"
+import { useRestrictionModal } from "@/components/common/RestrictionModal"
 
 interface MessageInputProps {
   conversation: Conversation
@@ -22,6 +23,7 @@ interface MessageInputProps {
 export function MessageInput({ conversation, disabled = false }: MessageInputProps) {
   const { user } = useAuthStore()
   const { sendMessage, updateTypingStatus, canSendMessage, getMessageLimit } = useChatStore()
+  const { showRestriction } = useRestrictionModal()
 
   const [message, setMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
@@ -68,7 +70,27 @@ export function MessageInput({ conversation, disabled = false }: MessageInputPro
   }
 
   const handleSendMessage = async () => {
-    if ((!message.trim() && attachments.length === 0) || isSending || !messagePermissions.canSend) {
+    if ((!message.trim() && attachments.length === 0) || isSending) {
+      return
+    }
+    
+    // Check permissions with detailed feedback
+    if (!messagePermissions.canSend) {
+      // Show appropriate restriction modal
+      if (user?.premium_type === 'free' && !conversation.initiated_by_premium) {
+        showRestriction('premium_required', {
+          feature: 'enviar mensagens',
+          requiredPlan: 'gold'
+        })
+      } else if (!user?.is_verified && messagePermissions.reason?.includes('verificação')) {
+        showRestriction('verification_required')
+      } else if (messagePermissions.reason?.includes('limite')) {
+        showRestriction('daily_limit', {
+          feature: 'mensagens',
+          limit: getMessageLimit().limit,
+          resetTime: new Date().setHours(24, 0, 0, 0)
+        })
+      }
       return
     }
 
@@ -206,8 +228,16 @@ export function MessageInput({ conversation, disabled = false }: MessageInputPro
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowMediaUploader(true)}
-              disabled={!canUseFeature("media")}
+              onClick={() => {
+                if (!canUseFeature("media")) {
+                  showRestriction('premium_required', {
+                    feature: 'enviar fotos e vídeos',
+                    requiredPlan: 'gold'
+                  })
+                  return
+                }
+                setShowMediaUploader(true)
+              }}
               className="h-10 w-10 p-0 text-gray-500 hover:text-purple-600"
             >
               <Paperclip className="h-5 w-5" />
@@ -242,7 +272,16 @@ export function MessageInput({ conversation, disabled = false }: MessageInputPro
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowVoiceRecorder(true)}
+              onClick={() => {
+                if (!canUseFeature("voice")) {
+                  showRestriction('premium_required', {
+                    feature: 'mensagens de voz',
+                    requiredPlan: 'gold'
+                  })
+                  return
+                }
+                setShowVoiceRecorder(true)
+              }}
               className="h-10 w-10 p-0 text-gray-500 hover:text-purple-600"
             >
               <Mic className="h-5 w-5" />

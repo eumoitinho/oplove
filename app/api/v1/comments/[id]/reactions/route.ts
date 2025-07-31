@@ -35,7 +35,7 @@ export async function POST(
       .select(`
         id, 
         user_id,
-        post:posts(id, user_id, is_public)
+        post:posts(id, user_id, visibility)
       `)
       .eq('id', commentId)
       .single()
@@ -45,7 +45,7 @@ export async function POST(
     }
 
     // Verificar acesso ao post
-    if (!comment.post.is_public && comment.post.user_id !== user.id) {
+    if (comment.post.visibility !== 'public' && comment.post.user_id !== user.id) {
       return NextResponse.json({ error: 'Comentário não acessível' }, { status: 403 })
     }
 
@@ -194,7 +194,7 @@ export async function GET(
       .select(`
         id, 
         user_id,
-        post:posts(id, user_id, is_public)
+        post:posts(id, user_id, visibility)
       `)
       .eq('id', commentId)
       .single()
@@ -204,7 +204,7 @@ export async function GET(
     }
 
     // Verificar acesso
-    if (!comment.post.is_public && (!user || comment.post.user_id !== user.id)) {
+    if (comment.post.visibility !== 'public' && (!user || comment.post.user_id !== user.id)) {
       return NextResponse.json({ error: 'Comentário não acessível' }, { status: 403 })
     }
 
