@@ -62,6 +62,12 @@ export function MediaUploader({
 
       // Add accepted files
       const newFiles = [...files, ...acceptedFiles]
+      console.log("[MEDIA UPLOADER] Adding files:", { 
+        current: files.length, 
+        adding: acceptedFiles.length, 
+        total: newFiles.length,
+        fileNames: acceptedFiles.map(f => f.name)
+      })
       onChange(newFiles)
 
       // Simulate upload progress
@@ -98,6 +104,7 @@ export function MediaUploader({
 
   const removeFile = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index)
+    console.log("[MEDIA UPLOADER] Removing file at index:", index, "New count:", newFiles.length)
     onChange(newFiles)
   }
 

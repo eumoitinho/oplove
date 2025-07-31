@@ -87,7 +87,7 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
     maxGroupMembers: CONTENT_LIMITS.free.maxGroupMembers,
     
     // Media
-    canUploadImages: true, // Can upload 1 photo per post
+    canUploadImages: false, // Only verified free users can upload 1 image
     canUploadVideos: false,
     maxImagesPerPost: CONTENT_LIMITS.free.maxPhotosPerPost,
     maxVideoLength: CONTENT_LIMITS.free.maxVideoLength,
@@ -273,6 +273,7 @@ export function usePremiumFeatures() {
       
       if (plan === "free") {
         verifiedFeatures.canPostStories = true // Free verified can post stories
+        verifiedFeatures.canUploadImages = true // Free verified can upload 1 image
       } else if (plan === "gold") {
         verifiedFeatures.messagesPerDay = -1 // Unlimited messages
         verifiedFeatures.maxEventsPerMonth = -1 // Unlimited events

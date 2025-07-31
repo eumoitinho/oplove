@@ -189,6 +189,15 @@ export async function POST(request: NextRequest) {
     const content = formData.get("content") as string
     const visibility = formData.get("visibility") as string || "public"
     
+    console.log("[POST CREATE] User:", {
+      id: user.id,
+      email: user.email,
+      plan: profile.premium_type,
+      verified: profile.is_verified
+    })
+    console.log("[POST CREATE] Content length:", content?.length || 0)
+    console.log("[POST CREATE] FormData keys:", Array.from(formData.keys()))
+    
     // Validate content
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
@@ -234,29 +243,76 @@ export async function POST(request: NextRequest) {
     for (const [key, value] of formData.entries()) {
       if (key.startsWith("media_") && value instanceof File) {
         mediaFiles.push(value)
+        console.log("[POST CREATE] Media file:", { name: value.name, type: value.type, size: value.size })
       } else if (key === "audio" && value instanceof File) {
         audioFile = value
+        console.log("[POST CREATE] Audio file:", { name: value.name, type: value.type, size: value.size })
       }
     }
+    
+    console.log("[POST CREATE] Media files count:", mediaFiles.length)
+    console.log("[POST CREATE] Has audio file:", !!audioFile)
 
-    // Check media upload permissions
+    // Check media upload permissions for free users
     const isPremium = profile.premium_type !== "free"
     
-    if (!isPremium && (mediaFiles.length > 0 || audioFile)) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: "PLAN_REQUIRED",
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0",
-            required_plan: "gold",
-            feature: "media_upload"
-          }
-        },
-        { status: 403 }
-      )
+    // Free users can upload 1 image if verified, but no videos or audio
+    if (profile.premium_type === "free") {
+      // Check if user is verified for free uploads
+      if (!profile.is_verified && (mediaFiles.length > 0 || audioFile)) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: "VERIFICATION_REQUIRED",
+            data: null,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              version: "1.0",
+              required_verification: true,
+              feature: "media_upload"
+            }
+          },
+          { status: 403 }
+        )
+      }
+
+      // Free users can only upload 1 image, no videos or audio
+      if (mediaFiles.length > 1) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: "LIMIT_EXCEEDED",
+            data: null,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              version: "1.0",
+              limit_type: "media_per_post",
+              current: mediaFiles.length,
+              limit: 1
+            }
+          },
+          { status: 403 }
+        )
+      }
+
+      // Free users cannot upload videos or audio
+      const hasVideo = mediaFiles.some(f => f.type.startsWith("video/"))
+      if (hasVideo || audioFile) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: "PLAN_REQUIRED",
+            data: null,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              version: "1.0",
+              required_plan: "gold",
+              feature: hasVideo ? "video_upload" : "audio_upload"
+            }
+          },
+          { status: 403 }
+        )
+      }
     }
 
     // Check media count limits

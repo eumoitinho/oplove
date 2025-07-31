@@ -68,7 +68,17 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
   }
 
   const handlePublish = async () => {
-    if (!postContent.trim() && mediaFiles.length === 0 && !audioFile) return
+    console.log("[CREATE POST] Attempting to publish:", { 
+      contentLength: postContent.trim().length,
+      mediaFiles: mediaFiles.length,
+      audioFile: !!audioFile,
+      fileNames: mediaFiles.map(f => f.name)
+    })
+    
+    if (!postContent.trim() && mediaFiles.length === 0 && !audioFile) {
+      console.log("[CREATE POST] Nothing to publish - no content, media, or audio")
+      return
+    }
 
     setIsSubmitting(true)
 
@@ -96,7 +106,16 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao criar post')
+        // Handle specific error types
+        const errorMsg = result.error === "VERIFICATION_REQUIRED" 
+          ? "Você precisa verificar sua conta para fazer upload de imagens. Vá em Configurações > Verificação."
+          : result.error === "PLAN_REQUIRED"
+          ? "Este recurso requer um plano premium. Atualize seu plano para continuar."
+          : result.error === "LIMIT_EXCEEDED"
+          ? `Limite excedido: ${result.metadata?.limit_type === "media_per_post" ? `Máximo ${result.metadata.limit} arquivo(s) por post` : result.error}`
+          : result.error || 'Erro ao criar post'
+        
+        throw new Error(errorMsg)
       }
 
       // Reset form
@@ -369,12 +388,15 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
               Cancelar
             </Button>
             <Button
-              onClick={() => setShowMediaUploader(false)}
+              onClick={() => {
+                console.log("[CREATE POST] Concluding media upload with files:", mediaFiles.length)
+                setShowMediaUploader(false)
+              }}
               size="sm"
               className="bg-purple-600 hover:bg-purple-700 text-white"
               disabled={mediaFiles.length === 0}
             >
-              Concluir
+              Concluir ({mediaFiles.length})
             </Button>
           </div>
         </div>
