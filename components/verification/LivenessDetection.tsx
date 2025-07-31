@@ -84,57 +84,153 @@ export function LivenessDetection({ onComplete }: LivenessDetectionProps) {
 
   const startCapture = async () => {
     try {
-      // Check if browser supports getUserMedia
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        notification.error("Seu navegador não suporta acesso à câmera. Por favor, use um navegador moderno.")
+      console.log('🎥 Iniciando captura de câmera para verificação...')
+      
+      // Detailed browser compatibility checks
+      console.log('📊 Verificações de compatibilidade:')
+      console.log('- navigator.mediaDevices:', !!navigator.mediaDevices)
+      console.log('- getUserMedia:', !!navigator.mediaDevices?.getUserMedia)
+      console.log('- isSecureContext:', window.isSecureContext) 
+      console.log('- User Agent:', navigator.userAgent)
+      console.log('- Protocol:', window.location.protocol)
+      
+      if (!navigator.mediaDevices) {
+        console.error('❌ navigator.mediaDevices não está disponível')
+        notification.error("Seu navegador não suporta recursos de mídia. Por favor, use um navegador moderno como Chrome, Firefox, Safari ou Edge.")
+        return
+      }
+      
+      if (!navigator.mediaDevices.getUserMedia) {
+        console.error('❌ getUserMedia não está disponível')
+        notification.error("Seu navegador não suporta acesso à câmera. Por favor, atualize seu navegador para a versão mais recente.")
         return
       }
 
-      // Check if we're in a secure context (HTTPS)
-      if (!window.isSecureContext) {
-        notification.error("A câmera só pode ser acessada em conexões seguras (HTTPS).")
+      // Check if we're in a secure context (HTTPS or localhost)
+      if (!window.isSecureContext && !window.location.hostname.includes('localhost')) {
+        console.error('❌ Contexto não seguro:', window.location.protocol)
+        notification.error("A câmera só pode ser acessada em conexões seguras (HTTPS) ou localhost. Verifique se você está acessando o site com HTTPS.")
         return
       }
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      // Check for available video devices first
+      console.log('🔍 Verificando dispositivos de vídeo disponíveis...')
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const videoDevices = devices.filter(device => device.kind === 'videoinput')
+        console.log('📹 Dispositivos de vídeo encontrados:', videoDevices.length)
+        console.log('📹 Dispositivos:', videoDevices.map(d => ({ label: d.label, deviceId: d.deviceId })))
+        
+        if (videoDevices.length === 0) {
+          console.error('❌ Nenhum dispositivo de vídeo encontrado')
+          notification.error("Nenhuma câmera foi encontrada no seu dispositivo. Verifique se há uma câmera conectada e funcionando.")
+          return
+        }
+      } catch (enumError) {
+        console.warn('⚠️ Não foi possível enumerar dispositivos:', enumError)
+        // Continue anyway, some browsers don't allow enumeration without permission
+      }
+
+      console.log('🚀 Solicitando acesso à câmera...')
+      const constraints = {
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
           facingMode: 'user'
         },
         audio: false
-      })
+      }
+      console.log('📐 Constraints:', constraints)
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log('✅ Stream obtido com sucesso:', mediaStream)
+      console.log('📺 Video tracks:', mediaStream.getVideoTracks().map(t => ({
+        id: t.id,
+        label: t.label,
+        enabled: t.enabled,
+        readyState: t.readyState,
+        settings: t.getSettings()
+      })))
 
       setStream(mediaStream)
       if (videoRef.current) {
+        console.log('🎬 Configurando elemento de vídeo...')
         videoRef.current.srcObject = mediaStream
+        
         // Wait for video to be ready
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           if (videoRef.current) {
-            videoRef.current.onloadedmetadata = () => resolve(true)
+            videoRef.current.onloadedmetadata = () => {
+              console.log('✅ Metadata do vídeo carregada')
+              console.log('📐 Dimensões do vídeo:', {
+                videoWidth: videoRef.current?.videoWidth,
+                videoHeight: videoRef.current?.videoHeight
+              })
+              resolve(true)
+            }
+            videoRef.current.onerror = (e) => {
+              console.error('❌ Erro no elemento de vídeo:', e)
+              reject(new Error('Erro ao carregar vídeo'))
+            }
+            
+            // Timeout para evitar espera infinita
+            setTimeout(() => {
+              console.error('⏰ Timeout ao aguardar metadata')
+              reject(new Error('Timeout ao carregar vídeo'))
+            }, 10000)
           }
         })
+        
+        console.log('▶️ Iniciando reprodução do vídeo...')
         await videoRef.current.play()
+        console.log('✅ Vídeo reproduzindo')
       }
 
       setIsCapturing(true)
+      console.log('🎯 Iniciando detecção de vida...')
       startLivenessDetection()
     } catch (error: any) {
-      console.error("Camera access error:", error)
+      console.error("❌ Erro ao acessar câmera:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        constraint: error.constraint
+      })
       
       // Provide specific error messages based on the error type
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        notification.error("Permissão para acessar a câmera foi negada. Por favor, permita o acesso à câmera nas configurações do navegador.")
+        notification.error("🚫 Permissão para acessar a câmera foi negada. Para resolver:\n\n• Clique no ícone de câmera na barra de endereços\n• Selecione 'Permitir'\n• Ou vá em Configurações > Privacidade > Câmera\n• Recarregue a página após permitir")
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        notification.error("Nenhuma câmera foi encontrada no seu dispositivo.")
+        notification.error("📹 Nenhuma câmera foi encontrada. Verifique se:\n\n• Há uma câmera conectada ao dispositivo\n• A câmera não está sendo usada por outro app\n• Os drivers da câmera estão atualizados\n• Reinicie o navegador se necessário")
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        notification.error("A câmera está sendo usada por outro aplicativo. Feche outros aplicativos e tente novamente.")
+        notification.error("🔒 A câmera está sendo usada por outro aplicativo. Para resolver:\n\n• Feche outros navegadores ou abas com acesso à câmera\n• Feche aplicativos como Zoom, Teams, Skype\n• Reinicie o navegador\n• Tente novamente")
       } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
-        notification.error("Sua câmera não suporta as configurações solicitadas.")
+        console.log('⚠️ Tentando com configurações mais flexíveis...')
+        // Try with more flexible constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: false
+          })
+          setStream(fallbackStream)
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream
+            await videoRef.current.play()
+          }
+          setIsCapturing(true)
+          startLivenessDetection()
+          console.log('✅ Câmera funcionando com configurações básicas')
+          return
+        } catch (fallbackError) {
+          console.error('❌ Falha mesmo com configurações básicas:', fallbackError)
+          notification.error("⚙️ Sua câmera não suporta as configurações necessárias. Tente usar um dispositivo diferente ou uma câmera externa.")
+        }
       } else if (error.name === 'TypeError') {
-        notification.error("Erro de configuração. Por favor, recarregue a página e tente novamente.")
+        notification.error("🔧 Erro de configuração detectado. Para resolver:\n\n• Recarregue a página (F5 ou Ctrl+R)\n• Limpe o cache do navegador\n• Tente em uma aba anônima/privada\n• Verifique se o JavaScript está habilitado")
+      } else if (error.name === 'AbortError') {
+        notification.error("⏹️ Operação cancelada. Tente novamente.")
       } else {
-        notification.error(`Erro ao acessar a câmera: ${error.message || 'Erro desconhecido'}`)
+        notification.error(`🚨 Erro inesperado ao acessar a câmera:\n\n${error.message || 'Erro desconhecido'}\n\nTente recarregar a página ou usar outro navegador.`)
       }
     }
   }
