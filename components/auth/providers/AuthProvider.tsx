@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { createClient } from "@/app/lib/supabase-browser"
 import type { User } from "@/types/common"
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const supabase = createClient()
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Error refreshing user:", error)
       clearUser()
     }
-  }
+  }, [supabase, setUser, setSession, clearUser])
 
   // Initialize auth on mount
   useEffect(() => {
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setUser, clearUser, setSession, refreshUser])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -176,16 +176,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase, setUser, setSession, setLoading])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut()
       return { success: true, error: null }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
-  }
+  }, [supabase])
 
   const value: AuthContextType = {
     user,

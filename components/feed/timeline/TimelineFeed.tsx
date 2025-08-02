@@ -78,6 +78,9 @@ export function TimelineFeed({
   const effectiveUserId = userId || user?.id
   const feedState = useFeedState(effectiveUserId, { cacheTimeMs: 5 * 60 * 1000 }) // 5 minutes cache
   
+  // Extract functions to avoid including the entire feedState object as dependency
+  const { loadState, updateState, isCacheValid, clearState } = feedState
+  
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [newPostsCount, setNewPostsCount] = useState(0)
@@ -103,15 +106,15 @@ export function TimelineFeed({
     // This ensures users with valid tokens get their content
     if (!isAuthenticated) {
       setIsLoading(false)
-      feedState.updateState(activeTab, { initialized: true, posts: [], hasMore: false })
+      updateState(activeTab, { initialized: true, posts: [], hasMore: false })
       return
     }
 
     // Load state for the current tab
-    const currentState = feedState.loadState(activeTab)
+    const currentState = loadState(activeTab)
     
     // Check if we have valid cached data for this tab
-    if (currentState.initialized && currentState.posts.length > 0 && feedState.isCacheValid(activeTab)) {
+    if (currentState.initialized && currentState.posts.length > 0 && isCacheValid(activeTab)) {
       console.log('[TimelineFeed] Using cached data for tab:', activeTab)
       setIsLoading(false)
       return
@@ -151,7 +154,7 @@ export function TimelineFeed({
           
           console.log('[TimelineFeed] Loaded posts:', newPosts.length)
           
-          feedState.updateState(activeTab, {
+          updateState(activeTab, {
             posts: newPosts,
             page: 1,
             hasMore: newHasMore,
@@ -161,7 +164,7 @@ export function TimelineFeed({
       } catch (error) {
         console.error('[TimelineFeed] Error fetching posts:', error)
         if (!cancelled) {
-          feedState.updateState(activeTab, {
+          updateState(activeTab, {
             posts: [],
             hasMore: false,
             initialized: true
@@ -179,7 +182,7 @@ export function TimelineFeed({
     return () => {
       cancelled = true
     }
-  }, [isAuthenticated, effectiveUserId, activeTab, currentMainContent, feedState])
+  }, [isAuthenticated, effectiveUserId, activeTab, currentMainContent, loadState, updateState, isCacheValid])
 
   // Load more when in view
   useEffect(() => {
@@ -492,8 +495,8 @@ export function TimelineFeed({
               )}
             >
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              <span className="hidden xs:inline">Para você</span>
-              <span className="xs:hidden">Você</span>
+              <span className="hidden sm:inline">Para você</span>
+              <span className="sm:hidden">Você</span>
             </Button>
             <Button
               onClick={() => {

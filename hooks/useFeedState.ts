@@ -132,8 +132,9 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     }))
   }), [])
 
-  // Memoize the return object to prevent recreation on every render
-  return useMemo(() => ({
+  // Return object without memoization to avoid circular dependency
+  // The functions are already memoized with useCallback
+  return {
     // Current state
     currentState,
     
@@ -147,14 +148,5 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     // Utility functions
     isCacheValid: isCacheValidMemo,
     getCacheInfo: getCacheInfoMemo
-  }), [
-    currentState,
-    getState,
-    updateState,
-    loadState,
-    clearState,
-    clearAllStates,
-    isCacheValidMemo,
-    getCacheInfoMemo
-  ])
+  }
 }

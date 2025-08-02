@@ -104,7 +104,7 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-slate-950 dark:via-gray-900 dark:to-slate-950 text-gray-900 dark:text-white transition-colors duration-500">
       {/* Fixed Artistic Background */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0" style={{ zIndex: 1 }}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.15),rgba(0,0,0,0))]" />
         <div className="absolute top-[10%] left-[5%] w-32 md:w-64 h-32 md:h-64 rounded-full bg-gradient-to-r from-purple-500/5 to-pink-500/5 dark:from-purple-500/10 dark:to-pink-500/10 blur-3xl subtle-breathe" />
         <div
@@ -127,18 +127,18 @@ export default function FeedPage() {
 
       {/* Stories Carousel - Full width - Only show when user is authenticated */}
       {user && (
-        <div className="relative z-10 pt-20">
+        <div className="relative pt-20" style={{ zIndex: 30 }}>
           <StoriesCarousel />
         </div>
       )}
 
       {/* Main Content Layout */}
-      <main className={`relative z-10 pb-20 lg:pb-4 ${user ? '' : 'pt-20'}`}>
+      <main className={`relative pb-20 lg:pb-4 ${user ? '' : 'pt-20'}`} style={{ zIndex: 20 }}>
         <div className="w-full layout-container px-4">
-          <div className="flex gap-6 max-w-screen-2xl mx-auto">
+          <div className="flex gap-6 max-w-screen-2xl mx-auto items-start">
             {/* Left Sidebar (Desktop) */}
             {!isMobileMenuOpen && (
-              <div className="hidden lg:block sidebar-fixed-width" style={{width: '280px'}}>
+              <div className="hidden lg:block w-[280px] flex-shrink-0">
                 <LeftSidebar 
                   onViewChange={handleViewChange} 
                   currentView={currentMainContent} 
@@ -146,20 +146,21 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* Main Content Area with side margins */}
-            <div className="flex-1 min-w-0 lg:max-w-none xl:max-w-[calc(100%-600px)] lg:px-4 xl:px-6 relative">
-              <TimelineFeed
-                currentMainContent={currentMainContent}
-                onViewChange={handleTimelineViewChange}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-              
+            {/* Main Content Area */}
+            <div className="flex-1 min-w-0 lg:px-4 xl:px-6">
+              <div className="max-w-2xl mx-auto lg:max-w-none">
+                <TimelineFeed
+                  currentMainContent={currentMainContent}
+                  onViewChange={handleTimelineViewChange}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                />
+              </div>
             </div>
 
             {/* Right Sidebar (Desktop) - Hidden on messages view and mobile menu */}
             {currentMainContent !== "messages" && !isMobileMenuOpen && (
-              <div className="hidden xl:block sidebar-fixed-width" style={{width: '320px'}}>
+              <div className="hidden xl:block w-[320px] flex-shrink-0">
                 <RightSidebar onViewChange={handleViewChange} currentView={currentMainContent} />
               </div>
             )}
@@ -181,7 +182,7 @@ export default function FeedPage() {
 
 
       {/* Bottom Navigation Bar (Mobile Only) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 z-50">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 bottom-navigation" style={{ zIndex: 50 }}>
         <div className="flex items-center justify-around px-4 py-3">
           {/* Menu/Home Button */}
           <Button

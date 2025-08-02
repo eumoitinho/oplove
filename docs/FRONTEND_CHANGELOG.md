@@ -64,6 +64,20 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Previne** recriação de funções a cada render
 - **Melhora** performance ao evitar re-renders desnecessários
 
+### 🐛 Correções Críticas de Performance (2025-08-02)
+
+#### Hook useFeedState
+- **CORRIGIDO** Loop infinito causado por `useMemo` com `currentState` nas dependências
+- **Removido** `useMemo` do objeto retornado para evitar dependência circular
+- **Mantido** `useCallback` para todas as funções internas
+- **Resultado**: Elimina erro "Maximum update depth exceeded" relacionado ao feed
+
+#### AuthProvider Component
+- **CORRIGIDO** Recriação constante de funções causando re-renders infinitos
+- **Adicionado** `useCallback` para `refreshUser`, `signIn`, e `signOut`
+- **Previne** re-execução desnecessária de useEffects que dependem dessas funções
+- **Resultado**: Estabiliza o contexto de autenticação e elimina loops
+
 ### 🎨 UI/UX Melhorias
 
 #### Media Viewer
