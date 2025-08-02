@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
+import { useFeedState } from "@/hooks/useFeedState"
 import { cn } from "@/lib/utils"
 import { feedAlgorithmService } from "@/lib/services/feed-algorithm-service"
 import { ExploreView } from "../explore/ExploreView"
@@ -72,14 +73,17 @@ export function TimelineFeed({
   const { user } = useAuth()
   const features = usePremiumFeatures()
   const router = useRouter()
-  const [posts, setPosts] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  
+  // Use new feed state management hook
+  const feedState = useFeedState(user?.id, { cacheTimeMs: 5 * 60 * 1000 }) // 5 minutes cache
+  
+  const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [newPostsCount, setNewPostsCount] = useState(0)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const [initialized, setInitialized] = useState(false)
   const [isChangingTab, setIsChangingTab] = useState(false)
+  
+  // Get current state from feed state manager
+  const { posts, page, hasMore, initialized } = feedState.currentState
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -87,23 +91,35 @@ export function TimelineFeed({
   })
 
 
-  // Load initial posts - simplified to avoid loops
+  // Load or restore state when tab or content changes
   useEffect(() => {
-    if (!user || currentMainContent !== "timeline") {
+    if (currentMainContent !== "timeline") {
       setIsLoading(false)
-      setInitialized(true) // Set initialized even when no user
       return
     }
 
+    if (!user) {
+      setIsLoading(false)
+      feedState.updateState(activeTab, { initialized: true, posts: [], hasMore: false })
+      return
+    }
+
+    // Check if we have valid cached data for this tab
+    if (feedState.isCacheValid(activeTab)) {
+      const cachedState = feedState.loadState(activeTab)
+      if (cachedState.initialized && cachedState.posts.length > 0) {
+        setIsLoading(false)
+        return
+      }
+    }
+
+    // Load fresh data if no valid cache
     let cancelled = false
 
     const loadPosts = async () => {
       if (cancelled) return
       
       setIsLoading(true)
-      setPosts([])
-      setPage(1)
-      setHasMore(true)
       
       try {
         let result
@@ -123,19 +139,24 @@ export function TimelineFeed({
         }
 
         if (!cancelled && result) {
-          // Ensure we have valid data
-          const posts = Array.isArray(result.data) ? result.data : []
-          setPosts(posts)
-          setHasMore(result.hasMore === true && posts.length > 0)
-          setPage(1)
-          setInitialized(true)
+          const newPosts = Array.isArray(result.data) ? result.data : []
+          const newHasMore = result.hasMore === true && newPosts.length > 0
+          
+          feedState.updateState(activeTab, {
+            posts: newPosts,
+            page: 1,
+            hasMore: newHasMore,
+            initialized: true
+          })
         }
       } catch (error) {
         console.error('Error fetching posts:', error)
         if (!cancelled) {
-          setPosts([])
-          setHasMore(false)
-          setInitialized(true) // Set initialized even on error
+          feedState.updateState(activeTab, {
+            posts: [],
+            hasMore: false,
+            initialized: true
+          })
         }
       } finally {
         if (!cancelled) {
@@ -149,11 +170,11 @@ export function TimelineFeed({
     return () => {
       cancelled = true
     }
-  }, [user?.id, activeTab, currentMainContent]) // Removed fetchPosts from dependencies
+  }, [user?.id, activeTab, currentMainContent, feedState])
 
-  // Load more when in view - simplified
+  // Load more when in view
   useEffect(() => {
-    if (!inView || !hasMore || isLoading || !user || !initialized) {
+    if (!inView || !hasMore || isLoading || !user || !initialized || currentMainContent !== "timeline") {
       return
     }
 
@@ -183,11 +204,19 @@ export function TimelineFeed({
         if (!cancelled && result) {
           const newPosts = Array.isArray(result.data) ? result.data : []
           if (newPosts.length > 0) {
-            setPosts(prev => [...prev, ...newPosts])
-            setHasMore(result.hasMore === true)
-            setPage(nextPage)
+            const updatedPosts = [...posts, ...newPosts]
+            const newHasMore = result.hasMore === true
+            
+            feedState.updateState(activeTab, {
+              posts: updatedPosts,
+              page: nextPage,
+              hasMore: newHasMore,
+              initialized: true
+            })
           } else {
-            setHasMore(false)
+            feedState.updateState(activeTab, {
+              hasMore: false
+            })
           }
         }
       } catch (error) {
@@ -200,14 +229,17 @@ export function TimelineFeed({
     return () => {
       cancelled = true
     }
-  }, [inView, page, hasMore, isLoading, user?.id, activeTab, initialized])
+  }, [inView, page, hasMore, isLoading, user?.id, activeTab, initialized, currentMainContent, posts, feedState])
 
-  // Define handleRefresh early to maintain hook order
+  // Define handleRefresh with state clearing
   const handleRefresh = useCallback(async () => {
     if (!user) return
     
     setIsRefreshing(true)
     setNewPostsCount(0)
+    
+    // Clear cache to force fresh load
+    feedState.clearState(activeTab)
     
     try {
       let result
@@ -226,16 +258,21 @@ export function TimelineFeed({
           result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
       }
 
-      const posts = Array.isArray(result.data) ? result.data : []
-      setPosts(posts)
-      setHasMore(result.hasMore === true && posts.length > 0)
-      setPage(1)
+      const newPosts = Array.isArray(result.data) ? result.data : []
+      const newHasMore = result.hasMore === true && newPosts.length > 0
+      
+      feedState.updateState(activeTab, {
+        posts: newPosts,
+        page: 1,
+        hasMore: newHasMore,
+        initialized: true
+      })
     } catch (error) {
       console.error('Error refreshing posts:', error)
     } finally {
       setIsRefreshing(false)
     }
-  }, [user?.id, activeTab])
+  }, [user?.id, activeTab, feedState])
 
   // Simulate real-time updates
   useEffect(() => {
@@ -266,35 +303,18 @@ export function TimelineFeed({
     }, [] as any[])
   }, [posts, showAds, features.adsFrequency])
 
-  // Don't render anything until initialized
-  if (!initialized) {
+  // Clear all feed state on user change (logout/login)
+  useEffect(() => {
+    if (!user) {
+      feedState.clearAllStates()
+    }
+  }, [user?.id, feedState])
+
+  // Show loading skeleton only on initial load or when we have no data and are loading
+  if ((currentMainContent === "timeline" && !initialized && isLoading) || (isLoading && posts.length === 0 && !initialized)) {
     return (
       <div className={cn("space-y-6", className)}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
-                <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
-              </div>
-            </div>
-            <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10" />
-            <div className="flex space-x-6">
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (isLoading && initialized) {
-    return (
-      <div className={cn("space-y-6", className)}>
-        {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
             <div className="flex items-center space-x-4">
               <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
@@ -529,22 +549,7 @@ export function TimelineFeed({
           </AnimatePresence>
 
           {/* Posts with smooth transition */}
-          {isLoading && !posts.length ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
-                      <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10" />
-                </div>
-              ))}
-            </div>
-          ) : postsWithAds.length > 0 ? (
+          {postsWithAds.length > 0 ? (
             <AnimatePresence>
               {postsWithAds.map((item: any, index: number) => (
                 <motion.div

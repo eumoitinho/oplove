@@ -55,6 +55,7 @@ import { PostSkeleton } from "../PostSkeleton"
 import { cn } from "@/lib/utils"
 import type { User, Post } from "@/types/common"
 import { UserService } from "@/lib/services/user-service"
+import { EditProfileModal } from "@/components/profile/EditProfileModal"
 
 interface UserProfileProps {
   userId?: string

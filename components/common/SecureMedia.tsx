@@ -97,8 +97,10 @@ export function SecureMedia({
         return "aspect-square"
       case "video":
         return "aspect-video"
+      case "auto":
+        return "" // No aspect ratio constraint for auto
       default:
-        return ""
+        return "aspect-auto min-h-[200px]" // Fallback with minimum height
     }
   }
 
@@ -158,10 +160,10 @@ export function SecureMedia({
         <Image
           src={src}
           alt={alt}
-          fill={!width && !height}
-          width={width}
-          height={height}
-          className="secure-media object-cover select-none"
+          fill={aspectRatio !== "auto" && !width && !height}
+          width={width || (aspectRatio === "auto" ? 600 : undefined)}
+          height={height || (aspectRatio === "auto" ? 400 : undefined)}
+          className={`secure-media object-cover select-none ${aspectRatio === "auto" ? "w-full h-auto" : ""}`}
           priority={priority}
           onLoad={() => setIsLoading(false)}
           onError={() => {
@@ -177,7 +179,8 @@ export function SecureMedia({
             MozUserSelect: 'none',
             msUserSelect: 'none',
             WebkitUserDrag: 'none',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            ...(aspectRatio === "auto" && !width && !height ? { maxHeight: '500px' } : {})
           }}
         />
 

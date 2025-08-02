@@ -200,6 +200,7 @@ class FeedAlgorithmService {
           comments_count,
           shares_count,
           media_urls,
+          media_types,
           users (
             id,
             username,
@@ -290,6 +291,7 @@ class FeedAlgorithmService {
           comments_count,
           shares_count,
           media_urls,
+          media_types,
           users (
             id,
             username,
@@ -337,6 +339,7 @@ class FeedAlgorithmService {
           comments_count,
           shares_count,
           media_urls,
+          media_types,
           users (
             id,
             username,

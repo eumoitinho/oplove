@@ -47,12 +47,12 @@ export default function FeedPage() {
     setIsDarkMode(!isDarkMode)
   }
 
-  // Reset to "for-you" tab when returning to timeline
-  useEffect(() => {
-    if (currentMainContent === "timeline") {
-      setActiveTab("for-you")
-    }
-  }, [currentMainContent])
+  // Don't reset tab when returning to timeline - preserve user's choice
+  // useEffect(() => {
+  //   if (currentMainContent === "timeline") {
+  //     setActiveTab("for-you")
+  //   }
+  // }, [currentMainContent])
 
   // Wrapper function to handle view changes
   const handleViewChange = (view: string) => {

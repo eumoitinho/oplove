@@ -169,23 +169,93 @@ export function useSettings() {
   const saveSettings = async (section?: string) => {
     setLoading(true)
     try {
-      // TODO: Implementar salvamento real
-      // const response = await fetch('/api/settings', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(settings)
-      // })
-      
-      // Simular delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (!user?.id) {
+        throw new Error("Usuário não autenticado")
+      }
+
+      // Preparar dados para enviar dependendo da seção
+      let dataToUpdate: any = {}
+
+      switch (section) {
+        case "conta":
+          dataToUpdate = {
+            email: settings.email,
+            phone: settings.phone,
+          }
+          break
+        
+        case "perfil":
+          dataToUpdate = {
+            name: settings.full_name,
+            bio: settings.bio,
+            location: settings.location,
+            website: settings.website,
+            birth_date: settings.birth_date,
+          }
+          break
+        
+        case "privacidade":
+          dataToUpdate = {
+            privacy_settings: {
+              profile_visibility: settings.profile_visibility,
+              show_location: true, // Add this based on UI needs
+              show_age: true, // Add this based on UI needs
+              show_last_active: settings.show_last_seen,
+              show_online_status: settings.show_online_status,
+              allow_messages: settings.allow_messages_from,
+            }
+          }
+          break
+        
+        case "notificações":
+          dataToUpdate = {
+            notification_settings: {
+              email_notifications: settings.email_notifications,
+              push_notifications: settings.push_notifications,
+              message_notifications: settings.notification_messages,
+              like_notifications: settings.notification_likes,
+              comment_notifications: settings.notification_comments,
+              follow_notifications: settings.notification_follows,
+              event_notifications: settings.notification_events,
+            }
+          }
+          break
+        
+        default:
+          // Se não for especificada uma seção, enviar todos os dados do perfil
+          dataToUpdate = {
+            name: settings.full_name,
+            bio: settings.bio,
+            location: settings.location,
+            website: settings.website,
+            birth_date: settings.birth_date,
+          }
+      }
+
+      // Usar a API correta dependendo do tipo de dados
+      const endpoint = section === "privacidade" || section === "notificações" || section === "conta" 
+        ? `/api/v1/users/settings`
+        : `/api/v1/users/${user.id}`
+
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToUpdate)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao salvar configurações')
+      }
       
       setIsDirty(false)
       toast.success(`Configurações ${section ? `de ${section}` : ''} salvas com sucesso!`)
       return { success: true }
     } catch (error) {
       console.error("Error saving settings:", error)
-      toast.error("Erro ao salvar configurações")
-      return { success: false, error: "Erro ao salvar configurações" }
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar configurações")
+      return { success: false, error: error instanceof Error ? error.message : "Erro ao salvar configurações" }
     } finally {
       setLoading(false)
     }

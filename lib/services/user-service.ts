@@ -25,28 +25,29 @@ export class UserService {
     }
   }
 
-  // Update user profile
+  // Update user profile using API for better validation
   static async updateUserProfile(
     userId: string, 
-    updates: Partial<Pick<User, 'bio' | 'location' | 'website' | 'avatar_url' | 'name'>>
+    updates: Partial<User>
   ): Promise<{ data: User | null; error: string | null }> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
-        .single()
+      // Use the API endpoint for proper validation
+      const response = await fetch(`/api/v1/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      })
 
-      if (error) {
-        console.error('Error updating user profile:', error)
-        return { data: null, error: error.message }
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Error updating user profile:', result.error)
+        return { data: null, error: result.error || 'Erro ao atualizar perfil' }
       }
 
-      return { data: data as User, error: null }
+      return { data: result.data as User, error: null }
     } catch (error) {
       console.error('Error in updateUserProfile:', error)
       return { data: null, error: (error as Error).message }

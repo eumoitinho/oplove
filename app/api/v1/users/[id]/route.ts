@@ -3,12 +3,64 @@ import { z } from "zod"
 import { createServerClient } from "@/lib/supabase"
 
 const updateProfileSchema = z.object({
+  // Basic info
   name: z.string().min(2).max(50).optional(),
-  bio: z.string().max(160).optional(),
+  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
+  bio: z.string().max(500).optional(),
+  
+  // Location
   location: z.string().max(100).optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  uf: z.string().length(2).optional(),
+  country: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  
+  // Profile details
+  gender: z.enum(['male', 'female', 'non_binary', 'other', 'prefer_not_say']).optional(),
+  profile_type: z.enum(['single', 'couple', 'trans', 'other']).optional(),
+  birth_date: z.string().optional(),
+  
+  // Arrays
+  interests: z.array(z.string()).optional(),
+  looking_for: z.array(z.string()).optional(),
+  relationship_goals: z.array(z.string()).optional(),
+  
+  // URLs
   website: z.string().url().optional().or(z.literal("")),
   avatar_url: z.string().url().optional(),
   cover_url: z.string().url().optional(),
+  
+  // Social links
+  social_links: z.object({
+    instagram: z.string().optional(),
+    twitter: z.string().optional(),
+    tiktok: z.string().optional(),
+    onlyfans: z.string().optional(),
+    privacy: z.string().optional(),
+  }).optional(),
+  
+  // Privacy settings
+  privacy_settings: z.object({
+    profile_visibility: z.enum(['public', 'friends', 'private']).optional(),
+    show_location: z.boolean().optional(),
+    show_age: z.boolean().optional(),
+    show_last_active: z.boolean().optional(),
+    show_online_status: z.boolean().optional(),
+    allow_messages: z.enum(['everyone', 'friends', 'nobody']).optional(),
+  }).optional(),
+  
+  // Notification settings
+  notification_settings: z.object({
+    email_notifications: z.boolean().optional(),
+    push_notifications: z.boolean().optional(),
+    message_notifications: z.boolean().optional(),
+    like_notifications: z.boolean().optional(),
+    comment_notifications: z.boolean().optional(),
+    follow_notifications: z.boolean().optional(),
+    event_notifications: z.boolean().optional(),
+  }).optional(),
 })
 
 // GET /api/v1/users/[id] - Get user profile
@@ -100,6 +152,43 @@ export async function PATCH(
 
     const body = await request.json()
     const updates = updateProfileSchema.parse(body)
+
+    // Check if username is being changed
+    if (updates.username) {
+      // Check if username is already taken
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("username", updates.username)
+        .neq("id", user.id)
+        .single()
+
+      if (existingUser) {
+        return NextResponse.json(
+          { error: "Nome de usuário já está em uso", success: false },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Check if birth_date is being changed and validate age
+    if (updates.birth_date) {
+      const birthDate = new Date(updates.birth_date)
+      const today = new Date()
+      const age = today.getFullYear() - birthDate.getFullYear()
+      
+      if (age < 18) {
+        return NextResponse.json(
+          { error: "Você deve ter pelo menos 18 anos", success: false },
+          { status: 400 }
+        )
+      }
+    }
+
+    // If location is provided with city and state, build location string
+    if (updates.city && updates.state && !updates.location) {
+      updates.location = `${updates.city}, ${updates.state}`
+    }
 
     const { data: updatedUser, error } = await supabase
       .from("users")

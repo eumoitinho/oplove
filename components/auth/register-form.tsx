@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin, Camera, ArrowRight, ArrowLeft, Mail, Lock, User, AtSign, Calendar, Star, Gem, Crown, Check, Heart, Users, Building2 } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/app/lib/supabase-browser"
@@ -32,13 +32,25 @@ interface FormData {
   bio: string
   profilePicture: File | null
   gender: "male" | "female" | "other" | "prefer_not_to_say"
-  lookingFor: "friendship" | "dating" | "relationship" | "networking"
+  lookingFor: "single" | "couple" | "couple_mm" | "couple_ff" | "couple_mf" | "trans" | "crossdresser"
+  profileType: "single" | "couple" | "trans" | "other"
+  relationshipGoals: string[]
   
   // Location
   city: string
   state: string
+  uf: string
   latitude: number | null
   longitude: number | null
+  
+  // Profile customization
+  coverUrl: string
+  interests: string[]
+  
+  // Business fields (for business accounts)
+  businessName?: string
+  businessType?: string
+  cnpj?: string
   
   // Plan selection
   plan: "free" | "gold" | "diamond" | "couple"
@@ -72,13 +84,20 @@ export function RegisterForm() {
     bio: "",
     profilePicture: null,
     gender: "prefer_not_to_say",
-    lookingFor: "friendship",
+    lookingFor: "single",
+    profileType: "single",
+    relationshipGoals: [],
     
     // Location
     city: "",
     state: "",
+    uf: "",
     latitude: null,
     longitude: null,
+    
+    // Profile customization
+    coverUrl: "",
+    interests: [],
     
     // Plan
     plan: "free",
@@ -125,7 +144,24 @@ export function RegisterForm() {
           const data = await res.json()
           const city = data.address.city || data.address.town || data.address.village || data.address.county || ""
           const state = data.address.state || data.address.region || ""
-          setFormData((prev) => ({ ...prev, city, state, latitude, longitude }))
+          
+          // Extract UF (state abbreviation) from state name
+          let uf = ""
+          const stateToUF: Record<string, string> = {
+            "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
+            "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES",
+            "Goiás": "GO", "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS",
+            "Minas Gerais": "MG", "Pará": "PA", "Paraíba": "PB", "Paraná": "PR",
+            "Pernambuco": "PE", "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN",
+            "Rio Grande do Sul": "RS", "Rondônia": "RO", "Roraima": "RR", "Santa Catarina": "SC",
+            "São Paulo": "SP", "Sergipe": "SE", "Tocantins": "TO"
+          }
+          
+          if (state && stateToUF[state]) {
+            uf = stateToUF[state]
+          }
+          
+          setFormData((prev) => ({ ...prev, city, state, uf, latitude, longitude }))
         } catch (e) {
           console.error("Erro ao buscar cidade:", e)
           setFormData((prev) => ({ ...prev, latitude, longitude }))
@@ -136,8 +172,8 @@ export function RegisterForm() {
     }
   }
 
-  // Check username availability
-  const checkUsernameAvailability = async (username: string) => {
+  // Check username availability - memoized to prevent recreating function
+  const checkUsernameAvailability = useCallback(async (username: string) => {
     if (!username || username.length < 3) {
       setUsernameAvailable(null)
       return
@@ -152,7 +188,7 @@ export function RegisterForm() {
     } finally {
       setCheckingUsername(false)
     }
-  }
+  }, [])
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -330,12 +366,49 @@ export function RegisterForm() {
     setLoading(true)
     try {
       // Prepare registration data matching the API schema
-      const registrationData = {
+      const registrationData: any = {
         email: formData.email,
         password: formData.password,
         username: formData.username,
         name: formData.name,
         birth_date: formData.birthDate,
+        account_type: formData.accountType,
+        plan: formData.plan,
+      }
+
+      // Add location data
+      if (formData.city) registrationData.city = formData.city
+      if (formData.state) registrationData.state = formData.state
+      if (formData.latitude) registrationData.latitude = formData.latitude
+      if (formData.longitude) registrationData.longitude = formData.longitude
+
+      // Add personal account fields
+      if (formData.accountType === "personal") {
+        if (formData.gender) registrationData.gender = formData.gender
+        if (formData.profileType) registrationData.profile_type = formData.profileType
+        
+        // Convert lookingFor to array format
+        if (formData.lookingFor) {
+          registrationData.looking_for = [formData.lookingFor]
+        }
+        
+        if (formData.interests && formData.interests.length > 0) {
+          registrationData.interests = formData.interests
+        }
+        if (formData.relationshipGoals && formData.relationshipGoals.length > 0) {
+          registrationData.relationship_goals = formData.relationshipGoals
+        }
+        if (formData.bio) registrationData.bio = formData.bio
+        
+        // Add UF if available
+        if (formData.uf) registrationData.uf = formData.uf
+      }
+
+      // Add business account fields
+      if (formData.accountType === "business") {
+        registrationData.business_name = formData.businessName
+        registrationData.business_type = formData.businessType
+        if (formData.cnpj) registrationData.cnpj = formData.cnpj
       }
 
       // Call registration API
@@ -355,58 +428,6 @@ export function RegisterForm() {
 
       if (result.success) {
         const supabase = createClient()
-        
-        // Update user profile with additional information
-        if (result.data?.user) {
-          const updateData: any = {
-            bio: formData.bio,
-            location: `${formData.city}, ${formData.state}`,
-            account_type: formData.accountType
-          }
-
-          // Only set premium_type for personal accounts
-          if (formData.accountType === "personal") {
-            updateData.premium_type = formData.plan
-          }
-
-          const { error: updateError } = await supabase
-            .from("users")
-            .update(updateData)
-            .eq("id", result.data.user.id)
-
-          if (updateError) {
-            console.error("Erro ao atualizar perfil:", updateError)
-          }
-
-          // Upload profile picture if exists
-          if (formData.profilePicture) {
-            try {
-              // Upload to the new upload API endpoint
-              const uploadFormData = new FormData()
-              uploadFormData.append('file', formData.profilePicture)
-              uploadFormData.append('type', 'avatar')
-
-              const uploadResponse = await fetch('/api/v1/upload', {
-                method: 'POST',
-                body: uploadFormData
-              })
-
-              if (uploadResponse.ok) {
-                const { url } = await uploadResponse.json()
-                
-                // Update user profile with avatar URL
-                await supabase
-                  .from("users")
-                  .update({ avatar_url: url })
-                  .eq("id", result.data.user.id)
-              } else {
-                console.error('Failed to upload profile picture')
-              }
-            } catch (error) {
-              console.error('Error uploading profile picture:', error)
-            }
-          }
-        }
 
         // Auto login the user
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -418,6 +439,42 @@ export function RegisterForm() {
           toast.error("Conta criada, mas erro ao fazer login. Por favor, faça login manualmente.")
           router.push("/login")
           return
+        }
+        
+        // Wait for session to be established
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Now try to upload profile picture after login
+        if (formData.profilePicture) {
+          try {
+            const uploadFormData = new FormData()
+            uploadFormData.append('file', formData.profilePicture)
+            uploadFormData.append('type', 'avatar')
+
+            const uploadResponse = await fetch('/api/v1/upload', {
+              method: 'POST',
+              body: uploadFormData
+            })
+
+            if (uploadResponse.ok) {
+              const { url } = await uploadResponse.json()
+              
+              // Update user profile with avatar URL
+              const { error: avatarError } = await supabase
+                .from("users")
+                .update({ avatar_url: url })
+                .eq("id", result.data.user.id)
+
+              if (avatarError) {
+                console.error('Failed to save avatar URL:', avatarError)
+              }
+            } else {
+              console.error('Failed to upload profile picture:', await uploadResponse.text())
+            }
+          } catch (error) {
+            console.error('Error uploading profile picture:', error)
+            // Don't show error to user as account was created successfully
+          }
         }
 
         // Handle routing based on account type
@@ -449,20 +506,28 @@ export function RegisterForm() {
     <div className="w-full">
       {/* Progress Indicator */}
       <div className="flex justify-center mb-6 gap-2">
-        {[1, 2, 3, 4, 5, 6].map((s) => (
-          <div
-            key={s}
-            className={`h-2 w-2 rounded-full transition-colors ${
-              s <= step 
-                ? "bg-pink-600 dark:bg-pink-400" 
-                : "bg-gray-300 dark:bg-gray-600"
-            }`}
-          />
-        ))}
+        {[1, 2, 3, 4, 5, 6].map((s) => {
+          // Skip step 3 for business accounts in progress indicator
+          if (formData.accountType === "business" && s === 3) return null
+          
+          const adjustedStep = formData.accountType === "business" && s > 3 ? s - 1 : s
+          const isActive = s <= step || (formData.accountType === "business" && s === 3 && step >= 3)
+          
+          return (
+            <div
+              key={s}
+              className={`h-2 w-2 rounded-full transition-colors duration-200 ${
+                isActive
+                  ? "bg-gradient-to-r from-pink-600 to-purple-600" 
+                  : "bg-gray-300 dark:bg-gray-600"
+              }`}
+            />
+          )
+        })}
       </div>
 
       {/* Form Steps */}
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         {/* Step 1: Account Type Selection */}
         {step === 1 && (
           <div className="space-y-4">
@@ -471,7 +536,7 @@ export function RegisterForm() {
               Escolha o tipo de conta que melhor se adequa às suas necessidades
             </p>
             
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Personal Account */}
               <div
                 className={`relative rounded-lg border-2 p-6 transition-all cursor-pointer hover:shadow-md ${
@@ -549,8 +614,9 @@ export function RegisterForm() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Informações Básicas</h2>
             
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome Completo</Label>
               <div className="relative">
                 <Input
                   id="name"
@@ -561,14 +627,14 @@ export function RegisterForm() {
                   className="pl-10"
                 />
                 <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                </div>
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name}</p>
+                )}
               </div>
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name}</p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="username">Nome de usuário</Label>
+              <div className="space-y-2">
+                <Label htmlFor="username">Nome de usuário</Label>
               <div className="relative">
                 <Input
                   id="username"
@@ -594,13 +660,15 @@ export function RegisterForm() {
               <p className="text-xs text-gray-500">
                 Apenas letras, números e _ são permitidos. Não pode ser alterado depois.
               </p>
-              {errors.username && (
-                <p className="text-sm text-red-500">{errors.username}</p>
-              )}
+                {errors.username && (
+                  <p className="text-sm text-red-500">{errors.username}</p>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
               <div className="relative">
                 <Input
                   id="email"
@@ -613,11 +681,11 @@ export function RegisterForm() {
                 />
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               </div>
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
-            </div>
+                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Data de Nascimento</Label>
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Data de Nascimento</Label>
               <div className="relative">
                 <Input
                   id="birthDate"
@@ -633,12 +701,13 @@ export function RegisterForm() {
               <p className="text-xs text-gray-500">
                 Você deve ter pelo menos 18 anos para se cadastrar.
               </p>
-              {errors.birthDate && (
-                <p className="text-sm text-red-500">{errors.birthDate}</p>
-              )}
+                {errors.birthDate && (
+                  <p className="text-sm text-red-500">{errors.birthDate}</p>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
@@ -685,8 +754,9 @@ export function RegisterForm() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">Preferências do Perfil</h2>
             
-            <div className="space-y-2">
-              <Label>Gênero</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Gênero</Label>
               <Select
                 value={formData.gender}
                 onValueChange={(value) => handleSelectChange("gender", value)}
@@ -701,13 +771,13 @@ export function RegisterForm() {
                   <SelectItem value="prefer_not_to_say">Prefiro não dizer</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.gender && (
-                <p className="text-sm text-red-500">{errors.gender}</p>
-              )}
-            </div>
+                {errors.gender && (
+                  <p className="text-sm text-red-500">{errors.gender}</p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label>O que você procura?</Label>
+              <div className="space-y-2">
+                <Label>O que você procura?</Label>
               <Select
                 value={formData.lookingFor}
                 onValueChange={(value) => handleSelectChange("lookingFor", value)}
@@ -716,14 +786,134 @@ export function RegisterForm() {
                   <SelectValue placeholder="Selecione o que você procura" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="friendship">Amizade</SelectItem>
-                  <SelectItem value="dating">Encontros</SelectItem>
-                  <SelectItem value="relationship">Relacionamento</SelectItem>
-                  <SelectItem value="networking">Networking</SelectItem>
+                  <SelectItem value="single">Solteiro(a)</SelectItem>
+                  <SelectItem value="couple">Casal</SelectItem>
+                  <SelectItem value="couple_mm">Casal (H/H)</SelectItem>
+                  <SelectItem value="couple_ff">Casal (M/M)</SelectItem>
+                  <SelectItem value="couple_mf">Casal (H/M)</SelectItem>
+                  <SelectItem value="trans">Trans</SelectItem>
+                  <SelectItem value="crossdresser">Crossdresser</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.lookingFor && (
-                <p className="text-sm text-red-500">{errors.lookingFor}</p>
+                {errors.lookingFor && (
+                  <p className="text-sm text-red-500">{errors.lookingFor}</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Profile Type */}
+            <div className="space-y-2 mt-4">
+              <Label>Tipo de Perfil</Label>
+              <Select
+                value={formData.profileType}
+                onValueChange={(value) => handleSelectChange("profileType", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo de perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">Solteiro(a)</SelectItem>
+                  <SelectItem value="couple">Casal</SelectItem>
+                  <SelectItem value="trans">Trans</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Relationship Goals */}
+            <div className="space-y-2 mt-4">
+              <Label>Preferências (selecione até 3)</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                O que você busca em encontros?
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {[
+                  "Ménage", "BDSM", "Swing", "Exibicionismo", "Voyeur",
+                  "Fetiche", "Dominação", "Submissão", "Sexo casual",
+                  "Sexo virtual", "Encontros discretos", "Relacionamento aberto"
+                ].map((goal) => (
+                  <label
+                    key={goal}
+                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      formData.relationshipGoals.includes(goal)
+                        ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                    } ${formData.relationshipGoals.length >= 3 && !formData.relationshipGoals.includes(goal) ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <Checkbox
+                      checked={formData.relationshipGoals.includes(goal)}
+                      onCheckedChange={(checked) => {
+                        if (checked && formData.relationshipGoals.length < 3) {
+                          setFormData(prev => ({
+                            ...prev,
+                            relationshipGoals: [...prev.relationshipGoals, goal]
+                          }))
+                        } else if (!checked) {
+                          setFormData(prev => ({
+                            ...prev,
+                            relationshipGoals: prev.relationshipGoals.filter(g => g !== goal)
+                          }))
+                        }
+                      }}
+                      disabled={formData.relationshipGoals.length >= 3 && !formData.relationshipGoals.includes(goal)}
+                    />
+                    <span className="text-sm">{goal}</span>
+                  </label>
+                ))}
+              </div>
+              {formData.relationshipGoals.length > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Selecionados: {formData.relationshipGoals.length}/3
+                </p>
+              )}
+            </div>
+            
+            {/* Interests Selection */}
+            <div className="space-y-2 mt-6">
+              <Label>Fetiches e Fantasias (selecione até 5)</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Escolha seus interesses para encontrar pessoas compatíveis
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {[
+                  "Lingerie", "Uniformes", "Roleplay", "Massagem", "Striptease",
+                  "Sexo oral", "Anal", "Brinquedos", "Cordas", "Algemas",
+                  "Vendas", "Cera quente", "Spanking", "Dirty talk", "Sexo ao ar livre",
+                  "Gravação", "Sexo no carro", "Quickie", "Sexo tântrico", "Pés"
+                ].map((interest) => (
+                  <label
+                    key={interest}
+                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      formData.interests.includes(interest)
+                        ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                    } ${formData.interests.length >= 5 && !formData.interests.includes(interest) ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <Checkbox
+                      checked={formData.interests.includes(interest)}
+                      onCheckedChange={(checked) => {
+                        if (checked && formData.interests.length < 5) {
+                          setFormData(prev => ({
+                            ...prev,
+                            interests: [...prev.interests, interest]
+                          }))
+                        } else if (!checked) {
+                          setFormData(prev => ({
+                            ...prev,
+                            interests: prev.interests.filter(i => i !== interest)
+                          }))
+                        }
+                      }}
+                      disabled={formData.interests.length >= 5 && !formData.interests.includes(interest)}
+                    />
+                    <span className="text-sm">{interest}</span>
+                  </label>
+                ))}
+              </div>
+              {formData.interests.length > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Selecionados: {formData.interests.length}/5
+                </p>
               )}
             </div>
           </div>
@@ -832,17 +1022,33 @@ export function RegisterForm() {
             </div>
 
             {formData.state && (
-              <div className="space-y-2">
-                <Label htmlFor="state">Estado</Label>
-                <Input
-                  id="state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  placeholder="Estado"
-                  disabled
-                  className="bg-gray-50 dark:bg-gray-800"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="state">Estado</Label>
+                  <Input
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    placeholder="Estado"
+                    disabled
+                    className="bg-gray-50 dark:bg-gray-800"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="uf">UF</Label>
+                  <Input
+                    id="uf"
+                    name="uf"
+                    value={formData.uf}
+                    onChange={handleInputChange}
+                    placeholder="UF"
+                    maxLength={2}
+                    disabled
+                    className="bg-gray-50 dark:bg-gray-800"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -855,7 +1061,7 @@ export function RegisterForm() {
               <>
                 <h2 className="text-xl font-semibold text-center">Escolha seu Plano</h2>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Free Plan */}
               <div
                 className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${

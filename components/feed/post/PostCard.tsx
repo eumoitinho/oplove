@@ -14,6 +14,7 @@ import { CommentsModal } from "@/components/feed/comments/CommentsModal"
 import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
 import { PostPoll } from "./PostPoll"
 import { useRestrictionModal } from "@/components/common/RestrictionModal"
+import { MediaViewer } from "@/components/common/MediaViewer"
 
 interface PostCardProps {
   post: Post
@@ -25,6 +26,8 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   const [post] = useState(initialPost)
   const [isLikeAnimating, setIsLikeAnimating] = useState(false)
   const [showComments, setShowComments] = useState(false)
+  const [showMediaViewer, setShowMediaViewer] = useState(false)
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const { showRestriction } = useRestrictionModal()
   
   const {
@@ -200,8 +203,27 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                 poll={post.poll}
                 canVote={!!user && user.id !== post.user_id}
                 onVote={async (pollId, optionId) => {
-                  // TODO: Implementar votação
-                  console.log("Vote:", pollId, optionId)
+                  try {
+                    const response = await fetch(`/api/v1/polls/${pollId}/vote`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ optionId }),
+                    })
+
+                    if (!response.ok) {
+                      const error = await response.json()
+                      throw new Error(error.error || 'Erro ao votar')
+                    }
+
+                    // Refresh post to show updated vote counts
+                    // This would typically be handled by the parent component
+                    console.log('Vote registered successfully')
+                  } catch (error) {
+                    console.error('Error voting:', error)
+                    alert(error instanceof Error ? error.message : 'Erro ao votar')
+                  }
                 }}
                 className="my-3"
               />
@@ -211,15 +233,27 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
               <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm">
                 {post.media_urls.length === 1 ? (
                   // Single media item
-                  <SecureMedia
-                    src={post.media_urls[0]}
-                    type={post.media_urls[0].includes('.mp4') || post.media_urls[0].includes('.webm') || post.media_urls[0].includes('.mov') ? 'video' : 'image'}
-                    alt={`Post de ${post.user?.username || 'usuário'}`}
-                    aspectRatio="auto"
-                    className="w-full"
-                    autoPlay={false}
-                    controls={true}
-                  />
+                  <div className="relative w-full" style={{ minHeight: '200px' }}>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setSelectedMediaIndex(0)
+                        setShowMediaViewer(true)
+                      }}
+                    >
+                      <SecureMedia
+                        src={post.media_urls[0]}
+                        type={post.media_urls[0].includes('.mp4') || post.media_urls[0].includes('.webm') || post.media_urls[0].includes('.mov') ? 'video' : 'image'}
+                        alt={`Post de ${post.user?.username || 'usuário'}`}
+                        aspectRatio="auto"
+                        className="w-full max-h-96 object-cover hover:opacity-95 transition-opacity"
+                        autoPlay={false}
+                        controls={true}
+                        width={600}
+                        height={400}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   // Multiple media items - gallery layout
                   <div className={`grid gap-1 ${
@@ -230,17 +264,19 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                       : 'grid-cols-2 grid-rows-2'
                   }`}>
                     {post.media_urls.slice(0, 4).map((url, index) => (
-                      <div key={index} className={`${
+                      <div key={index} className={`relative ${
                         post.media_urls.length === 3 && index === 0 ? 'row-span-2' : ''
-                      }`}>
+                      }`} style={{ minHeight: '150px' }}>
                         <SecureMedia
                           src={url}
                           type={url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') ? 'video' : 'image'}
                           alt={`Post de ${post.user?.username || 'usuário'} - imagem ${index + 1}`}
                           aspectRatio="square"
-                          className="w-full h-full"
+                          className="w-full h-full object-cover"
                           autoPlay={false}
                           controls={url.includes('.mp4') || url.includes('.webm') || url.includes('.mov')}
+                          width={300}
+                          height={300}
                         />
                         {/* Show count indicator for 4+ images */}
                         {index === 3 && post.media_urls.length > 4 && (
@@ -324,6 +360,27 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           postId={post.id}
           isOpen={showComments}
           onClose={() => setShowComments(false)}
+        />
+      )}
+      
+      {/* Media Viewer Modal */}
+      {post.media_urls && post.media_urls.length > 0 && (
+        <MediaViewer
+          mediaUrls={post.media_urls}
+          mediaTypes={post.media_types || post.media_urls.map(url => {
+            if (url.includes('.mp4') || url.includes('.webm') || url.includes('.mov')) {
+              return 'video'
+            }
+            return 'image'
+          })}
+          initialIndex={selectedMediaIndex}
+          isOpen={showMediaViewer}
+          onClose={() => setShowMediaViewer(false)}
+          postAuthor={{
+            name: post.user?.name || 'Usuário',
+            username: post.user?.username || 'usuario',
+            avatar_url: post.user?.avatar_url
+          }}
         />
       )}
     </article>

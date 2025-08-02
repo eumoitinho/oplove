@@ -41,7 +41,7 @@ export function ForgotPasswordForm() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password`,
       })
 
       if (error) {
@@ -72,7 +72,7 @@ export function ForgotPasswordForm() {
           <p className="text-sm text-muted-foreground">
             Verifique sua caixa de entrada e spam. O link expira em 1 hora.
           </p>
-          <Link href="/auth/signin">
+          <Link href="/login">
             <Button variant="outline" className="w-full">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar para login
@@ -123,7 +123,7 @@ export function ForgotPasswordForm() {
 
           <div className="text-center">
             <Link 
-              href="/auth/signin" 
+              href="/login" 
               className="text-sm text-muted-foreground hover:text-primary underline"
             >
               Lembrei da senha? Fazer login

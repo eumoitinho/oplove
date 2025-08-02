@@ -117,14 +117,8 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Check monthly limit
-      if (profile.monthly_photo_limit !== -1 && 
-          profile.monthly_photo_count + validatedData.media_urls.length > profile.monthly_photo_limit) {
-        return NextResponse.json(
-          { error: "Monthly photo upload limit reached" },
-          { status: 403 }
-        )
-      }
+      // Skip monthly limit check - columns don't exist
+      // TODO: Implement monthly limits when columns are added
     }
 
     // Create post
@@ -191,15 +185,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update user's monthly photo count if media was uploaded
-    if (validatedData.media_urls && validatedData.media_urls.length > 0) {
-      await supabase
-        .from("users")
-        .update({ 
-          monthly_photo_count: profile.monthly_photo_count + validatedData.media_urls.length 
-        })
-        .eq("id", user.id)
-    }
+    // Skip updating monthly photo count - column doesn't exist
+    // TODO: Implement when column is added
 
     // Extract mentions from content
     const mentions = validatedData.content.match(/@(\w+)/g)

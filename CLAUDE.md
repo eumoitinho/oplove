@@ -207,6 +207,9 @@ useUserCredits() - Credit balance management (new)
 - Group chat restrictions
 - Stories system with boosts (v0.3.3)
 - Credits system and gift seals (v0.3.3)
+- Media viewer with fullscreen expansion (2025-08-02)
+- Enhanced security watermark system (2025-08-02)
+- Timeline state persistence with caching (2025-08-02)
 
 ### In Progress 🚧
 - Video calls (WebRTC)
@@ -302,6 +305,18 @@ pnpm dev
 - Conventional commits
 - PR reviews required
 - No console.logs in production
+
+## 📚 Documentation
+
+### Frontend Changelog
+All frontend changes are documented in `/docs/FRONTEND_CHANGELOG.md`. When making UI/UX changes, performance improvements, or bug fixes, update this file following the established format.
+
+### Key Documentation Files
+- `/docs/FRONTEND_CHANGELOG.md` - Frontend changes and updates
+- `/docs/FEED_TIMELINE_ANALISE_v0.3.4.md` - Feed timeline analysis
+- `/docs/LOGIN_ANALISE_v0.3.4.md` - Login flow analysis  
+- `/docs/MEDIA_UPLOAD_BEHAVIOR_v0.3.4.md` - Media upload behavior
+- `/docs/REGISTRO_CORRECOES_v0.3.4.md` - Registration corrections
 
 ## 💡 Context for Claude
 
@@ -1267,3 +1282,4 @@ Fixes #123
 ---
 
 **Remember**: OpenLove is a production system with real users and real money. Always test thoroughly and consider edge cases.
+**Important**: When new dev server open, close the old ones. localhost:3000/3001 etc.

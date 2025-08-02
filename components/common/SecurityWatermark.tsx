@@ -73,11 +73,15 @@ export function SecurityWatermark({ className = "", style = {} }: SecurityWaterm
     })
   }
 
-  const watermarkText = `@${user?.username || 'anonimo'} • ${formatTime(currentTime)} • ${formatDate(currentTime)} • ${userLocation}`
+  // Separate watermark components for better distribution
+  const username = `@${user?.username || 'anonimo'}`
+  const time = formatTime(currentTime)
+  const date = formatDate(currentTime)
+  const location = userLocation
 
   return (
     <>
-      {/* Main diagonal watermark */}
+      {/* Main watermark container */}
       <div 
         className={`absolute inset-0 pointer-events-none select-none ${className}`}
         style={{
@@ -85,112 +89,65 @@ export function SecurityWatermark({ className = "", style = {} }: SecurityWaterm
           userSelect: 'none',
           WebkitUserSelect: 'none',
           MozUserSelect: 'none',
-          msUserSelect: 'none'
+          msUserSelect: 'none',
+          overflow: 'hidden'
         }}
       >
-        {/* Diagonal watermarks - multiple layers for security */}
-        {Array.from({ length: 15 }).map((_, i) => (
-          <div
-            key={`diagonal-${i}`}
-            className="absolute whitespace-nowrap text-white/20 font-mono text-xs font-bold tracking-wide"
-            style={{
-              top: `${(i * 8) % 100}%`,
-              left: `${(i * 12) % 100}%`,
-              transform: 'rotate(-45deg)',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8)',
-              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-              zIndex: 10,
-              mixBlendMode: 'difference'
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-            onDragStart={(e) => e.preventDefault()}
-          >
-            {watermarkText}
-          </div>
-        ))}
-
-        {/* Straight horizontal watermarks */}
-        {Array.from({ length: 8 }).map((_, i) => (
+        {/* Horizontal watermark lines with different content positioning */}
+        {Array.from({ length: 10 }).map((_, i) => (
           <div
             key={`horizontal-${i}`}
-            className="absolute whitespace-nowrap text-white/15 font-mono text-xs font-bold tracking-wide"
+            className="absolute w-full flex items-center justify-between whitespace-nowrap font-mono text-xs"
             style={{
-              top: `${12 + (i * 12)}%`,
-              left: '5%',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-              zIndex: 9,
-              mixBlendMode: 'overlay'
+              top: `${5 + (i * 10)}%`,
+              left: 0,
+              opacity: 0.08,
+              color: 'white',
+              textShadow: '0 0 1px rgba(0,0,0,0.5)',
+              filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.5))',
+              zIndex: 10,
+              paddingLeft: `${(i * 7) % 30}%`,
+              paddingRight: `${((9 - i) * 5) % 25}%`
             }}
             onContextMenu={(e) => e.preventDefault()}
             onDragStart={(e) => e.preventDefault()}
           >
-            {watermarkText}
+            {/* Vary content order based on row */}
+            {i % 4 === 0 && (
+              <>
+                <span>{username}</span>
+                <span>{time}</span>
+                <span>{date}</span>
+                <span>{location}</span>
+              </>
+            )}
+            {i % 4 === 1 && (
+              <>
+                <span>{time}</span>
+                <span>{location}</span>
+                <span>{username}</span>
+                <span>{date}</span>
+              </>
+            )}
+            {i % 4 === 2 && (
+              <>
+                <span>{date}</span>
+                <span>{username}</span>
+                <span>{location}</span>
+                <span>{time}</span>
+              </>
+            )}
+            {i % 4 === 3 && (
+              <>
+                <span>{location}</span>
+                <span>{date}</span>
+                <span>{time}</span>
+                <span>{username}</span>
+              </>
+            )}
           </div>
         ))}
 
-        {/* Corner watermarks for extra security */}
-        <div
-          className="absolute top-2 left-2 text-white/25 font-mono text-xs font-bold"
-          style={{
-            textShadow: '1px 1px 2px rgba(0,0,0,0.9)',
-            filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-            zIndex: 11
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {watermarkText}
-        </div>
-
-        <div
-          className="absolute top-2 right-2 text-white/25 font-mono text-xs font-bold"
-          style={{
-            textShadow: '1px 1px 2px rgba(0,0,0,0.9)',
-            filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-            zIndex: 11
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {watermarkText}
-        </div>
-
-        <div
-          className="absolute bottom-2 left-2 text-white/25 font-mono text-xs font-bold"
-          style={{
-            textShadow: '1px 1px 2px rgba(0,0,0,0.9)',
-            filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-            zIndex: 11
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {watermarkText}
-        </div>
-
-        <div
-          className="absolute bottom-2 right-2 text-white/25 font-mono text-xs font-bold"
-          style={{
-            textShadow: '1px 1px 2px rgba(0,0,0,0.9)',
-            filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))',
-            zIndex: 11
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {watermarkText}
-        </div>
-
-        {/* Center watermark */}
-        <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/20 font-mono text-sm font-bold"
-          style={{
-            textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
-            filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.9))',
-            zIndex: 11,
-            mixBlendMode: 'difference'
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {watermarkText}
-        </div>
       </div>
 
       {/* Anti-screenshot overlay - invisible but detectable */}
