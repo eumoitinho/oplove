@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,7 +81,8 @@ export function ExploreView() {
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [dailyViewCount, setDailyViewCount] = useState(0)
   
-  const [filters, setFilters] = useState<ExploreFilters>({
+  // Memoize initial filters to prevent re-creation
+  const initialFilters = useMemo(() => ({
     distance_km: features.userPlan === "free" ? 25 : 50,
     age_range: { min: 18, max: 65 },
     gender: [],
@@ -90,8 +91,10 @@ export function ExploreView() {
     online_only: false,
     has_photos: true,
     premium_only: false,
-    relationship_type: 'both'
-  })
+    relationship_type: 'both' as const
+  }), [features.userPlan])
+  
+  const [filters, setFilters] = useState<ExploreFilters>(initialFilters)
 
   // Load daily view count for free users
   useEffect(() => {
@@ -112,20 +115,24 @@ export function ExploreView() {
     }
   }, [features.userPlan])
 
+  // Memoize stable values
+  const userPlan = features.userPlan
+  const userId = user?.id
+  
   // Fetch function for infinite scroll
   const fetchProfiles = useCallback(async (page: number) => {
-    if (!user) return { data: [], hasMore: false }
+    if (!userId) return { data: [], hasMore: false }
     
     console.log('🔍 ExploreView - Fetching profiles:', {
-      userId: user.id,
+      userId,
       filters,
       page,
       dailyViewCount,
-      userPlan: features.userPlan
+      userPlan
     })
     
     // Check explore limits for free users
-    if (features.userPlan === "free" && dailyViewCount >= 20) {
+    if (userPlan === "free" && dailyViewCount >= 20) {
       showToast({
         title: "Limite diário atingido",
         description: "Usuários gratuitos podem explorar até 20 perfis por dia. Faça upgrade para explorar ilimitadamente.",
@@ -136,7 +143,7 @@ export function ExploreView() {
     }
     
     try {
-      const result = await exploreService.searchProfiles(user.id, filters, page, 20)
+      const result = await exploreService.searchProfiles(userId, filters, page, 20)
       
       console.log('✅ ExploreView - Search result:', {
         success: !!result,
@@ -146,7 +153,7 @@ export function ExploreView() {
       })
       
       // Update view count for free users
-      if (features.userPlan === "free" && result.data.length > 0) {
+      if (userPlan === "free" && result.data.length > 0) {
         const newCount = dailyViewCount + result.data.length
         setDailyViewCount(newCount)
         const today = new Date().toDateString()
@@ -156,15 +163,15 @@ export function ExploreView() {
       return result
     } catch (error) {
       console.error('❌ ExploreView - Error fetching profiles:', error)
-      showToast({
-        title: "Erro ao buscar perfis",
-        description: "Ocorreu um erro ao buscar perfis. Tente novamente.",
-        type: "error"
-      })
+      // Don't show toast on error to avoid breaking UX
+      console.warn('Explore profiles fetch failed, returning empty result')
       return { data: [], hasMore: false }
     }
-  }, [user, filters, features.userPlan, dailyViewCount, showToast])
+  }, [userId, filters, userPlan, dailyViewCount, showToast])
 
+  // Memoize filters serialization to prevent unnecessary re-renders
+  const filtersKey = useMemo(() => JSON.stringify(filters), [filters])
+  
   // Infinite scroll
   const {
     data: scrollProfiles,
@@ -175,41 +182,46 @@ export function ExploreView() {
   } = useInfiniteScroll({
     fetchFn: fetchProfiles,
     limit: 20,
-    enabled: !!user,
-    dependencies: [filters]
+    enabled: !!userId,
+    dependencies: [filtersKey] // Use serialized string instead of object
   })
 
-  // Update local state
+  // Update local state when scrollProfiles change
   useEffect(() => {
+    console.log('🔄 ExploreView - scrollProfiles changed:', {
+      scrollProfilesLength: scrollProfiles.length,
+      currentProfilesLength: profiles.length,
+      loading
+    })
     setProfiles(scrollProfiles)
-  }, [scrollProfiles])
+  }, [scrollProfiles, loading])
 
-  const handleFilterChange = (key: keyof ExploreFilters, value: any) => {
+  const handleFilterChange = useCallback((key: keyof ExploreFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
-  const handleGenderToggle = (gender: Gender) => {
+  const handleGenderToggle = useCallback((gender: Gender) => {
     setFilters(prev => ({
       ...prev,
       gender: prev.gender.includes(gender)
         ? prev.gender.filter(g => g !== gender)
         : [...prev.gender, gender]
     }))
-  }
+  }, [])
 
-  const handleInterestToggle = (interest: AdultInterest) => {
+  const handleInterestToggle = useCallback((interest: AdultInterest) => {
     setFilters(prev => ({
       ...prev,
       interests: prev.interests.includes(interest)
         ? prev.interests.filter(i => i !== interest)
         : [...prev.interests, interest]
     }))
-  }
+  }, [])
 
-  const formatDistance = (distance: number) => {
+  const formatDistance = useCallback((distance: number) => {
     if (distance < 1) return `${Math.round(distance * 1000)}m`
     return `${distance.toFixed(1)}km`
-  }
+  }, [])
 
   if (!user) {
     return (
@@ -423,6 +435,13 @@ export function ExploreView() {
 
       {/* Results */}
       <div className="space-y-4">
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+            Debug: loading={loading.toString()}, profiles={profiles.length}, scrollProfiles={scrollProfiles.length}
+          </div>
+        )}
+        
         {loading && profiles.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -496,7 +515,7 @@ export function ExploreView() {
                   <div className="space-y-3">
                     <div>
                       <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                        {profile.display_name || profile.username}
+                        {profile.name || profile.username}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-white/60">
                         {profile.age} anos • {profile.location?.city}

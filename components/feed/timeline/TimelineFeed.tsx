@@ -113,8 +113,7 @@ export function TimelineFeed({
     // Load state for the current tab
     const currentState = loadState(activeTab)
     
-    // Check if we have    // Load state for the current tab FIRST
-    const currentState = loadState(activeTab)
+
     
     // Check if we have valid cached data for this tab
     if (currentState.initialized && currentState.posts.length > 0 && isCacheValid(activeTab)) {
@@ -129,14 +128,27 @@ export function TimelineFeed({
       setIsLoading(false) // Don't show skeleton, show stale data
     } else {
       setIsLoading(true) // Only show skeleton if no data at all
-(cancelled) return
+    }
+
+    // Load fresh data
+    let cancelled = false
+    
+    const loadPosts = async () => {
+      if (cancelled) return
       
       console.log('[TimelineFeed] Loading fresh posts for tab:', activeTab)
       setIsLoading(true)
       
       try {
         // Use effectiveUserId which could be from props or current user
-        const userIdToUse = effectiveUserId || 'anonymous'
+        const userIdToUse = effectiveUserId || user?.id
+        
+        if (!userIdToUse) {
+          console.error('[TimelineFeed] No user ID available for loading posts')
+          throw new Error('User ID is required for loading posts')
+        }
+        
+        console.log('[TimelineFeed] Loading posts for user:', userIdToUse)
         let result
         
         switch (activeTab) {
@@ -153,11 +165,13 @@ export function TimelineFeed({
             result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
         }
 
+        console.log('[TimelineFeed] Feed service result - posts:', result?.data?.length || 0)
+
         if (!cancelled && result) {
           const newPosts = Array.isArray(result.data) ? result.data : []
           const newHasMore = result.hasMore === true && newPosts.length > 0
           
-          console.log('[TimelineFeed] Loaded posts:', newPosts.length)
+          console.log('[TimelineFeed] Loaded posts:', newPosts.length, 'Has more:', newHasMore)
           
           updateState(activeTab, {
             posts: newPosts,
@@ -340,20 +354,21 @@ export function TimelineFeed({
     }
   }, [user?.id, feedState])
 
-  // Show loading skeleton only on initial load when we have no posts
-  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading) {
+
+  // Show loading skeleton only on initial load when we have no posts AND we're loading
+  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
     return (
       <div className={cn("space-y-6", className)}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white/80 dark:bg-white/  // Show loading skeleton only on initial load when we have no posts AND we're loading
-  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
-eleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
+          <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 animate-pulse">
+            <div className="flex items-start space-x-4 mb-4">
+              <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
                 <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
               </div>
             </div>
-            <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10" />
+            <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10 mb-4" />
             <div className="flex space-x-6">
               <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
               <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
@@ -481,18 +496,22 @@ eleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
 
       {/* Feed Tabs */}
       <div className="w-full mb-6">
-        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm">
+        <div className={cn(
+          "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
+          isLoading && "opacity-90 transition-opacity"
+        )}>
           <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
             <Button
               onClick={() => {
                 if (activeTab !== "for-you") {
                   setIsChangingTab(true)
                   onTabChange?.("for-you")
-                  setTimeout(() => setIsChangingTab(fals        <div className={cn(
-          "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
-          isLoading && "opacity-90 transition-opacity"
-        )}>
-text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
+                  setTimeout(() => setIsChangingTab(false), 300)
+                }
+              }}
+              disabled={isChangingTab}
+              className={cn(
+                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "for-you"
                   ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
                   : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
@@ -549,19 +568,7 @@ text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
         <ExploreView />
       ) : (
         <div className="space-y-6">
-          {/* New Posts Toast - Twitter Style */}
-          <AnimatePresence>
-            {newPostsCount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -50, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -50, scale: 0.95 }}
-                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
-              >
-                <Button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  c          {/* Background Loading Indicator */}
+          {/* Background Loading Indicator */}
           <AnimatePresence>
             {isLoading && posts.length > 0 && (
               <motion.div
@@ -578,7 +585,19 @@ text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
             )}
           </AnimatePresence>
 
-lassName="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
+          {/* New Posts Toast - Twitter Style */}
+          <AnimatePresence>
+            {newPostsCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -50, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -50, scale: 0.95 }}
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
+              >
+                <Button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
                 >
                   <div className="flex -space-x-2">
                     {/* Mock avatars */}

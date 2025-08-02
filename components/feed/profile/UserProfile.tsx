@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
 import { 
   MapPin, 
   Link as LinkIcon, 
@@ -46,16 +47,30 @@ import {
   EyeOff,
   Mail,
   Phone,
-  ImageIcon
+  ImageIcon,
+  Coins,
+  Shield,
+  Star,
+  Award,
+  Play,
+  FileImage,
+  Filter,
+  TrendingUp,
+  Gift,
+  Zap,
+  Target
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
+import { useUserCredits } from "@/hooks/useUserCredits"
 import { PostCard } from "../post/PostCard"
 import { PostSkeleton } from "../PostSkeleton"
 import { cn } from "@/lib/utils"
 import type { User, Post } from "@/types/common"
 import { UserService } from "@/lib/services/user-service"
 import { EditProfileModal } from "@/components/profile/EditProfileModal"
+import { OptimizedImage } from "@/components/common/OptimizedImage"
+import { MediaViewer } from "@/components/common/MediaViewer"
 
 interface UserProfileProps {
   userId?: string
@@ -64,21 +79,31 @@ interface UserProfileProps {
 export function UserProfile({ userId }: UserProfileProps) {
   const { user: currentUser } = useAuth()
   const { features } = usePremiumFeatures()
+  const { credits } = useUserCredits()
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [mediaItems, setMediaItems] = useState<any[]>([])
+  const [userStories, setUserStories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [mediaLoading, setMediaLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [isFollowing, setIsFollowing] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
     following: 0,
-    likes: 0
+    likes: 0,
+    seals: 0
   })
   const [interests, setInterests] = useState<string[]>([])
+  const [profileSeals, setProfileSeals] = useState<any[]>([])
+  const [verificationStatus, setVerificationStatus] = useState<any>(null)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showMediaViewer, setShowMediaViewer] = useState(false)
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({
     bio: "",
@@ -104,10 +129,44 @@ export function UserProfile({ userId }: UserProfileProps) {
 
   const isOwnProfile = !userId || userId === currentUser?.id
 
+  // Define loadUserMedia function first
+  const loadUserMedia = useCallback(async (type?: 'photo' | 'video') => {
+    try {
+      setMediaLoading(true)
+      const targetUserId = userId || currentUser?.id
+      if (!targetUserId) {
+        setMediaItems([])
+        return
+      }
+
+      const { data: mediaData, error } = await UserService.getUserMedia(targetUserId, type, 30)
+      if (error) {
+        console.error('Error loading user media:', error)
+        setMediaItems([])
+        return
+      }
+
+      setMediaItems(mediaData || [])
+    } catch (error) {
+      console.error('Error loading user media:', error)
+      setMediaItems([])
+    } finally {
+      setMediaLoading(false)
+    }
+  }, [userId, currentUser?.id])
+
   useEffect(() => {
     loadUserProfile()
     loadUserPosts()
   }, [userId, currentUser?.id])
+
+  // Load media when media tab is selected
+  useEffect(() => {
+    if (activeTab === "media") {
+      const mediaType = mediaFilter === 'all' ? undefined : (mediaFilter === 'photos' ? 'photo' : 'video')
+      loadUserMedia(mediaType)
+    }
+  }, [activeTab, mediaFilter, loadUserMedia])
 
   useEffect(() => {
     if (user && isOwnProfile) {
@@ -148,31 +207,62 @@ export function UserProfile({ userId }: UserProfileProps) {
         })
       }
 
-      // Load real stats from API
+      // Load all user data in parallel
       if (targetUserId) {
-        const { data: userStats, error: statsError } = await UserService.getUserStats(targetUserId)
-        if (userStats && !statsError) {
-          setStats(userStats)
+        const [
+          statsResult,
+          interestsResult,
+          sealsResult,
+          verificationResult,
+          storiesResult
+        ] = await Promise.all([
+          UserService.getUserStats(targetUserId),
+          UserService.getUserInterests(targetUserId),
+          UserService.getUserSeals(targetUserId),
+          UserService.getUserVerificationStatus(targetUserId),
+          UserService.getUserStories(targetUserId)
+        ])
+
+        // Update stats
+        if (statsResult.data && !statsResult.error) {
+          setStats(statsResult.data)
         } else {
-          console.error('Error loading user stats:', statsError)
-          // Fallback to default stats
+          console.error('Error loading user stats:', statsResult.error)
           setStats({
             posts: 0,
             followers: 0,
             following: 0,
-            likes: 0
+            likes: 0,
+            seals: 0
           })
         }
-      }
-      
-      // Load real interests from API
-      if (targetUserId) {
-        const { data: userInterests, error: interestsError } = await UserService.getUserInterests(targetUserId)
-        if (userInterests && !interestsError) {
-          setInterests(userInterests)
+
+        // Update interests
+        if (interestsResult.data && !interestsResult.error) {
+          setInterests(interestsResult.data)
         } else {
-          // Fallback to empty interests for now
           setInterests([])
+        }
+
+        // Update profile seals
+        if (sealsResult.data && !sealsResult.error) {
+          setProfileSeals(sealsResult.data)
+        } else {
+          setProfileSeals([])
+        }
+
+        // Update verification status
+        if (verificationResult.data && !verificationResult.error) {
+          setVerificationStatus(verificationResult.data)
+        } else {
+          setVerificationStatus(null)
+        }
+
+        // Update stories
+        if (storiesResult.data && !storiesResult.error) {
+          setUserStories(storiesResult.data)
+        } else {
+          setUserStories([])
         }
       }
 
@@ -707,7 +797,7 @@ export function UserProfile({ userId }: UserProfileProps) {
               )}
 
               {/* Stats */}
-              <div className="flex gap-6 mt-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
                 <div className="text-center">
                   <p className="font-bold text-xl bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                     {stats.posts}
@@ -726,7 +816,102 @@ export function UserProfile({ userId }: UserProfileProps) {
                   <p className="font-bold text-xl">{stats.likes.toLocaleString()}</p>
                   <p className="text-sm text-gray-500 dark:text-white/60">Curtidas</p>
                 </div>
+                {stats.seals > 0 && (
+                  <div className="text-center">
+                    <p className="font-bold text-xl text-gradient-to-r from-yellow-500 to-orange-500">{stats.seals}</p>
+                    <p className="text-sm text-gray-500 dark:text-white/60">Seals</p>
+                  </div>
+                )}
               </div>
+
+              {/* Credits Section (Only for own profile) */}
+              {isOwnProfile && credits && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full">
+                        <Coins className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg">{credits.creditBalance.toLocaleString()} Créditos</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Use para boost stories e presentear seals
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Comprar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Profile Seals Section */}
+              {profileSeals.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Award className="w-5 h-5 text-yellow-500" />
+                    Profile Seals
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {profileSeals.slice(0, 6).map((userSeal) => (
+                      <div
+                        key={userSeal.id}
+                        className="group relative"
+                        title={`${userSeal.seal.name} - Enviado por @${userSeal.sender.username}`}
+                      >
+                        <div className="p-3 bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl border border-yellow-200 dark:border-yellow-800 hover:scale-105 transition-transform cursor-pointer">
+                          <span className="text-2xl">{userSeal.seal.emoji}</span>
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center">
+                          <Gift className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                    {profileSeals.length > 6 && (
+                      <div className="p-3 bg-gray-100 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 flex items-center justify-center">
+                        <span className="text-sm text-gray-500 dark:text-white/60 font-medium">
+                          +{profileSeals.length - 6}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Verification Status */}
+              {isOwnProfile && verificationStatus && !verificationStatus.isVerified && verificationStatus.canVerify && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-600 rounded-full">
+                        <Shield className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-blue-900 dark:text-blue-100">Verificar Perfil</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Obtenha o badge verificado e recursos completos
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 text-white hover:bg-blue-700"
+                      onClick={() => {
+                        // TODO: Navigate to verification page
+                        window.location.href = '/feed/verification'
+                      }}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Verificar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -734,35 +919,49 @@ export function UserProfile({ userId }: UserProfileProps) {
 
       {/* Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-1 rounded-2xl">
+        <TabsList className="w-full justify-start bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-1 rounded-2xl overflow-x-auto">
           <TabsTrigger 
             value="posts" 
-            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white whitespace-nowrap"
           >
             <Grid3X3 className="w-4 h-4" />
             Posts
           </TabsTrigger>
           <TabsTrigger 
             value="media" 
-            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white whitespace-nowrap"
           >
             <Image className="w-4 h-4" />
             Mídia
           </TabsTrigger>
+          {userStories.length > 0 && (
+            <TabsTrigger 
+              value="stories" 
+              className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white whitespace-nowrap"
+            >
+              <Play className="w-4 h-4" />
+              Stories
+              <Badge variant="secondary" className="ml-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs">
+                {userStories.length}
+              </Badge>
+            </TabsTrigger>
+          )}
           <TabsTrigger 
             value="likes" 
-            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white whitespace-nowrap"
           >
             <Heart className="w-4 h-4" />
             Curtidas
           </TabsTrigger>
-          <TabsTrigger 
-            value="saved" 
-            className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
-          >
-            <Bookmark className="w-4 h-4" />
-            Salvos
-          </TabsTrigger>
+          {isOwnProfile && (
+            <TabsTrigger 
+              value="saved" 
+              className="flex items-center gap-2 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white whitespace-nowrap"
+            >
+              <Bookmark className="w-4 h-4" />
+              Salvos
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="posts" className="mt-6 space-y-6">
@@ -801,22 +1000,193 @@ export function UserProfile({ userId }: UserProfileProps) {
         </TabsContent>
 
         <TabsContent value="media" className="mt-6">
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+          {/* Media Filter */}
+          <div className="flex items-center justify-between mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtro:</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={mediaFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setMediaFilter('all')}
+                className={cn(
+                  "rounded-full transition-all",
+                  mediaFilter === 'all' 
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" 
+                    : "text-gray-600 dark:text-gray-400"
+                )}
               >
-                <div className="w-full h-full flex items-center justify-center">
-                  <Image className="w-8 h-8 text-purple-400 dark:text-purple-600" />
-                </div>
-              </motion.div>
-            ))}
+                <FileImage className="w-3 h-3 mr-1" />
+                Todos
+              </Button>
+              <Button
+                size="sm"
+                variant={mediaFilter === 'photos' ? 'default' : 'outline'}
+                onClick={() => setMediaFilter('photos')}
+                className={cn(
+                  "rounded-full transition-all",
+                  mediaFilter === 'photos' 
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" 
+                    : "text-gray-600 dark:text-gray-400"
+                )}
+              >
+                <Camera className="w-3 h-3 mr-1" />
+                Fotos
+              </Button>
+              <Button
+                size="sm"
+                variant={mediaFilter === 'videos' ? 'default' : 'outline'}
+                onClick={() => setMediaFilter('videos')}
+                className={cn(
+                  "rounded-full transition-all",
+                  mediaFilter === 'videos' 
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white" 
+                    : "text-gray-600 dark:text-gray-400"
+                )}
+              >
+                <Video className="w-3 h-3 mr-1" />
+                Vídeos
+              </Button>
+            </div>
           </div>
+
+          {/* Media Grid */}
+          {mediaLoading ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-square bg-gray-200 dark:bg-white/10 rounded-lg animate-pulse"
+                />
+              ))}
+            </div>
+          ) : mediaItems.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {mediaItems.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.02 }}
+                  className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform group relative"
+                  onClick={() => {
+                    setSelectedMediaIndex(index)
+                    setShowMediaViewer(true)
+                  }}
+                >
+                  <OptimizedImage
+                    src={item.media_urls?.[0] || ''}
+                    alt="User media"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  {item.media_types?.includes('video') && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="p-2 bg-black/50 rounded-full backdrop-blur-sm">
+                        <Play className="w-4 h-4 text-white fill-white" />
+                      </div>
+                    </div>
+                  )}
+                  {item.like_count > 0 && (
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/50 rounded-full px-2 py-1 backdrop-blur-sm">
+                      <Heart className="w-3 h-3 text-white fill-white" />
+                      <span className="text-xs text-white font-medium">
+                        {item.like_count > 999 ? `${(item.like_count / 1000).toFixed(1)}k` : item.like_count}
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl"
+            >
+              <FileImage className="w-12 h-12 mx-auto text-gray-400 dark:text-white/40 mb-4" />
+              <p className="text-gray-500 dark:text-white/60">
+                {mediaFilter === 'all' && "Nenhuma mídia ainda"}
+                {mediaFilter === 'photos' && "Nenhuma foto ainda"}
+                {mediaFilter === 'videos' && "Nenhum vídeo ainda"}
+              </p>
+              {isOwnProfile && (
+                <Button className="mt-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
+                  Adicionar mídia
+                </Button>
+              )}
+            </motion.div>
+          )}
         </TabsContent>
+
+        {/* Stories Tab */}
+        {userStories.length > 0 && (
+          <TabsContent value="stories" className="mt-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {userStories.map((story, index) => (
+                <motion.div
+                  key={story.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="aspect-[9/16] bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform group relative border-2 border-gradient-to-r from-purple-500 to-pink-500"
+                >
+                  <OptimizedImage
+                    src={story.media_url}
+                    alt="Story"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  
+                  {/* Story Duration Indicator */}
+                  <div className="absolute top-3 left-3 right-3">
+                    <div className="w-full h-1 bg-white/30 rounded-full">
+                      <div 
+                        className="h-full bg-white rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${Math.max(10, Math.min(100, 
+                            100 - ((Date.now() - new Date(story.created_at).getTime()) / (24 * 60 * 60 * 1000)) * 100
+                          ))}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Play Icon */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="p-3 bg-black/30 rounded-full backdrop-blur-sm group-hover:bg-black/50 transition-colors">
+                      <Play className="w-6 h-6 text-white fill-white" />
+                    </div>
+                  </div>
+
+                  {/* Story Info */}
+                  <div className="absolute bottom-3 left-3 right-3">
+                    {story.caption && (
+                      <p className="text-white text-sm font-medium line-clamp-2 mb-2">
+                        {story.caption}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between text-white text-xs">
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        {story.view_count || 0}
+                      </span>
+                      <span>
+                        {new Date(story.created_at).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="likes" className="mt-6">
           <motion.div 
@@ -940,6 +1310,23 @@ export function UserProfile({ userId }: UserProfileProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Media Viewer */}
+      {showMediaViewer && mediaItems.length > 0 && (
+        <MediaViewer
+          media={mediaItems.map(item => ({
+            id: item.id,
+            type: item.media_types?.[0] === 'video' ? 'video' : 'image',
+            url: item.media_urls?.[0] || '',
+            caption: item.content || '',
+            likes: item.like_count || 0,
+            comments: item.comment_count || 0
+          }))}
+          initialIndex={selectedMediaIndex}
+          onClose={() => setShowMediaViewer(false)}
+          onIndexChange={setSelectedMediaIndex}
+        />
       )}
     </div>
   )

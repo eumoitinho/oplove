@@ -7,6 +7,45 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased] - 2025-08-02
 
+### 🎨 UI/UX
+
+#### 🔥 Perfil de Usuário Completo - Implementação Avançada
+- **NOVA FUNCIONALIDADE**: Sistema completo de perfil de usuário com todas as informações integradas
+- **Arquivo**: `components/feed/profile/UserProfile.tsx`
+- **Recursos implementados**:
+  - **Informações Básicas**: Avatar editável, nome, username, bio, localização, plano atual
+  - **Estatísticas Completas**: Posts, seguidores, seguindo, curtidas, profile seals
+  - **Sistema de Créditos**: Exibição de saldo de créditos para perfil próprio com botão de compra
+  - **Profile Seals**: Exibição visual de badges/seals recebidos com hover tooltips
+  - **Status de Verificação**: Banner para iniciar verificação se não verificado
+  - **Grid de Mídia Responsivo**: Filtros para fotos/vídeos com preview e MediaViewer
+  - **Tab de Stories**: Exibição de stories ativas com indicador de duração
+  - **Responsividade**: Layout adaptativo para mobile/desktop
+  - **Performance**: Lazy loading de mídia, carregamento otimizado de dados
+
+#### 📡 APIs e Serviços Implementados
+- **NOVA API**: `/api/v1/users/[id]/seals` - Busca profile seals do usuário
+- **UserService Melhorado**: Novos métodos para:
+  - `getUserSeals()`: Busca profile seals com detalhes completos
+  - `getUserVerificationStatus()`: Status de verificação do usuário
+  - `getUserMedia()`: Mídia filtrada por tipo (foto/vídeo)
+  - `getUserStories()`: Stories ativas do usuário
+  - `getUserStats()`: Estatísticas completas (incluindo seals)
+
+#### 🎯 Integração de Sistemas
+- **Sistema de Créditos**: Integração com `useUserCredits()` hook
+- **Sistema de Verificação**: Link direto para página de verificação
+- **Sistema de Stories**: Exibição com indicadores visuais de duração
+- **Sistema de Seals**: Preview visual com informações do remetente
+- **MediaViewer**: Integração para visualização fullscreen de mídia
+
+#### 🔧 Melhorias Técnicas
+- **Carregamento Paralelo**: Todas as APIs carregadas em paralelo para performance
+- **Cache Inteligente**: Dados carregados apenas quando necessário (tab ativa)
+- **Estados de Loading**: Skeletons específicos para cada seção
+- **Error Handling**: Tratamento gracioso de erros com fallbacks
+- **TypeScript**: Tipagem completa e interfaces bem definidas
+
 ### 📋 Instrução do Usuário
 **Task:** Resolver inúmeros re-renders no front-end
 - Buscar contexto do feed e componentes dependentes
@@ -311,6 +350,56 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Corrigido** erro na API `/api/v1/explore/users`
 - **Removido** filtro `is_active` inexistente da tabela users
 - **Melhorada** estabilidade do sistema de exploração
+
+### 🐛 Correção Maximum Update Depth Exceeded - ExploreView
+
+#### Problema Identificado
+- **Erro**: "Maximum update depth exceeded" em components/feed/explore/ExploreView.tsx
+- **Causa**: Re-renders infinitos causados por dependências instáveis em useEffect e useCallback
+
+#### Correções Implementadas
+
+##### 1. Memoização de Filtros Iniciais
+- **Problema**: `filters` state inicializado com `features.userPlan` causava re-criação constante
+- **Solução**: Usado `useMemo` para memoizar `initialFilters`
+- **Código**:
+  ```typescript
+  const initialFilters = useMemo(() => ({
+    distance_km: features.userPlan === "free" ? 25 : 50,
+    // ... outros filtros
+  }), [features.userPlan])
+  ```
+
+##### 2. Otimização do fetchProfiles useCallback
+- **Problema**: Dependências instáveis causavam re-criação constante da função
+- **Solução**: Extraídas variáveis estáveis (`userId`, `userPlan`) e memoizadas
+- **Reduzidas** dependências de objetos completos para valores primitivos
+
+##### 3. Serialização de Filtros para useInfiniteScroll
+- **Problema**: `dependencies: [filters]` causava refresh a cada mudança no objeto
+- **Solução**: Usado `JSON.stringify(filters)` para comparação estável
+- **Código**:
+  ```typescript
+  const filtersKey = useMemo(() => JSON.stringify(filters), [filters])
+  // dependencies: [filtersKey] // String em vez de objeto
+  ```
+
+##### 4. Handlers Memoizados
+- **Aplicado** `useCallback` em todas as funções handler:
+  - `handleFilterChange`
+  - `handleGenderToggle` 
+  - `handleInterestToggle`
+  - `formatDistance`
+
+##### 5. Correção no ExploreService
+- **Removido** referências ao campo `is_active` inexistente
+- **Corrigidas** queries em `getTrendingProfiles` e `getRecommendations`
+
+#### Resultado
+- **Eliminado** erro "Maximum update depth exceeded"
+- **Reduzidos** re-renders desnecessários significativamente
+- **Melhorada** performance geral do ExploreView
+- **Mantida** funcionalidade completa sem breaking changes
 
 ---
 

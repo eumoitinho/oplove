@@ -53,7 +53,6 @@ export async function GET(request: NextRequest) {
           id,
           username,
           name,
-          display_name,
           birth_date,
           gender,
           location,

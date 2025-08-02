@@ -1,87 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@/app/lib/supabase-server'
 
-// GET /api/v1/users/[id]/seals - Get user's profile seals
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createServerClient()
-    
-    // Handle special case for "me"
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    const userId = params.id === "me" ? currentUser?.id : params.id
+    const supabase = createClient()
+    const userId = params.id
 
-    if (!userId) {
+    // Get current user to check permissions
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
       return NextResponse.json(
-        { error: "Usuário não encontrado", success: false },
-        { status: 404 }
+        { error: 'Não autorizado' }, 
+        { status: 401 }
       )
     }
 
-    // Get user's profile seals with seal details
-    const { data: userSeals, error } = await supabase
+    // Get user profile seals with seal details and sender info
+    const { data: userSeals, error: sealsError } = await supabase
       .from('user_profile_seals')
       .select(`
         id,
-        seal_id,
-        gifted_at,
-        is_displayed,
-        display_order,
-        message,
-        sender:users!sender_id(
-          id,
-          username,
-          full_name,
-          avatar_url,
-          is_verified
-        ),
+        created_at,
         seal:profile_seals(
           id,
           name,
           emoji,
-          icon_url,
-          color_scheme,
-          description,
-          cost_credits,
-          rarity
+          color,
+          rarity,
+          cost_credits
+        ),
+        gifted_by:users!user_profile_seals_gifted_by_fkey(
+          id,
+          username,
+          full_name,
+          avatar_url
         )
       `)
-      .eq('recipient_id', userId)
-      .eq('is_displayed', true)
-      .order('display_order', { ascending: true })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching user seals:', error)
+    if (sealsError) {
+      console.error('Error fetching user seals:', sealsError)
       return NextResponse.json(
-        { error: "Erro ao buscar seals do usuário", success: false },
+        { error: 'Erro ao buscar seals do usuário' },
         { status: 500 }
       )
     }
 
-    // Count total seals received (including hidden ones)
+    // Count total seals
     const { count: totalSeals, error: countError } = await supabase
       .from('user_profile_seals')
       .select('*', { count: 'exact', head: true })
-      .eq('recipient_id', userId)
+      .eq('user_id', userId)
 
     if (countError) {
       console.error('Error counting user seals:', countError)
     }
 
     return NextResponse.json({
-      data: {
-        seals: userSeals || [],
-        totalSeals: totalSeals || 0,
-        displayedSeals: userSeals?.length || 0
-      },
-      success: true
+      data: userSeals || [],
+      total: totalSeals || 0,
+      displayed: Math.min(6, (userSeals || []).length)
     })
+
   } catch (error) {
-    console.error('Error in user seals endpoint:', error)
+    console.error('Unexpected error in GET /api/v1/users/[id]/seals:', error)
     return NextResponse.json(
-      { error: "Erro interno do servidor", success: false },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }

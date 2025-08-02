@@ -163,7 +163,7 @@ export interface AdultCommunity {
 export interface UserProfile {
   id: string
   username: string
-  display_name: string
+  name: string
   age: number
   gender: Gender
   location: LocationData

@@ -44,10 +44,24 @@ class ExploreService {
         },
       })
 
+      if (!response.ok) {
+        console.error('Explore API response not ok:', response.status, response.statusText)
+        return {
+          data: [],
+          hasMore: false,
+          total: 0
+        }
+      }
+
       const result = await response.json()
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to search profiles')
+        console.error('Explore API returned error:', result.error)
+        return {
+          data: [],
+          hasMore: false,
+          total: 0
+        }
       }
 
       return {
@@ -57,7 +71,11 @@ class ExploreService {
       }
     } catch (error) {
       console.error('Search profiles error:', error)
-      throw error
+      return {
+        data: [],
+        hasMore: false,
+        total: 0
+      }
     }
   }
 
@@ -81,12 +99,10 @@ class ExploreService {
           bio,
           interests,
           is_verified,
-          is_active,
           premium_type,
           created_at
         `)
         .not('avatar_url', 'is', null)
-        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(limit)
         .range(offset, offset + limit - 1)
@@ -134,13 +150,11 @@ class ExploreService {
           bio,
           interests,
           is_verified,
-          is_active,
           premium_type,
           created_at
         `)
         .neq('id', userId)
         .not('avatar_url', 'is', null)
-        .eq('is_active', true)
         .overlaps('interests', currentUser.interests || [])
         .order('created_at', { ascending: false })
         .limit(limit)

@@ -9,9 +9,7 @@ import { Flame, MessageCircle, Share, Bookmark, MoreVertical, MapPin, Verified, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Post } from "@/types/common"
 import { SecureMedia } from "@/components/common/SecureMedia"
-import { OptimizedImage } from "@/components/common/OptimizedImage"
-import { usimport { OptimizedImage } from "@/components/common/OptimizedImage"
-ePostInteractions } from "@/hooks/usePostInteractions"
+import { usePostInteractions } from "@/hooks/usePostInteractions"
 import { CommentsModal } from "@/components/feed/comments/CommentsModal"
 import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
 import { PostPoll } from "./PostPoll"
@@ -256,24 +254,24 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                           height={400}
                         />
                       ) : (
-                        <OptimizedImage
+                        <SecureMedia
                           src={post.media_urls[0]}
+                          type="image"
                           alt={`Post de ${post.user?.username || 'usuário'}`}
-                          aspectRatio="auto"
-                          className="w-full max-h-96 object-cover hover:opacity-95 transition-opacity"
                           width={600}
                           height={400}
-                          priority={true}
-                          loading="eager"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                          aspectRatio="auto"
+                          className="w-full max-h-96 object-cover hover:opacity-95 transition-opacity"
                         />
                       )}
                     </div>
                   </div>
                 ) : (
-                      </div>
-                  </div>
-     : post.media_urls.length === 3
+                  // Multiple media items - gallery layout
+                  <div className={`grid gap-1 ${
+                    post.media_urls.length === 2 
+                      ? 'grid-cols-2' 
+                      : post.media_urls.length === 3
                       ? 'grid-cols-2 grid-rows-2'
                       : 'grid-cols-2 grid-rows-2'
                   }`}>
@@ -281,7 +279,14 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                       <div key={index} className={`relative ${
                         post.media_urls.length === 3 && index === 0 ? 'row-span-2' : ''
                       }`} style={{ minHeight: '150px' }}>
-                        {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') ? (
+                        <div 
+                          className="cursor-pointer w-full h-full"
+                          onClick={() => {
+                            setSelectedMediaIndex(index)
+                            setShowMediaViewer(true)
+                          }}
+                        >
+                          {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') ? (
                           <SecureMedia
                             src={url}
                             type="video"
@@ -294,22 +299,18 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                             height={300}
                           />
                         ) : (
-                          <OptimizedImage
+                          <SecureMedia
                             src={url}
+                            type="image"
                             alt={`Post de ${post.user?.username || 'usuário'} - imagem ${index + 1}`}
-                            aspectRatio="square"
-                            className="w-full h-full object-cover cursor-pointer"
                             width={300}
                             height={300}
                             priority={index === 0}
-                            loading={index === 0 ? "eager" : "lazy"}
-                            sizes="(max-width: 768px) 50vw, 300px"
-                            onClick={() => {
-                              setSelectedMediaIndex(index)
-                              setShowMediaViewer(true)
-                            }}
+                            aspectRatio="square"
+                            className="w-full h-full object-cover"
                           />
-                        )}
+                          )}
+                        </div>
                         {/* Show count indicator for 4+ images */}
                         {index === 3 && post.media_urls.length > 4 && (
                           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
