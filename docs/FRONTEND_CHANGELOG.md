@@ -47,6 +47,15 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
   - Movido useEffect para antes de conditional returns
   - Garantida ordem consistente de execução dos hooks
   - Resolvido problema de hooks após return condicional
+- **Corrigido** skeleton loading após criar post (2025-08-02)
+  - Ajustado handleRefresh para não limpar estado completamente
+  - Melhorada condição de exibição do skeleton
+  - Mantidos posts existentes durante refresh
+- **Corrigido** problema de autenticação e carregamento de dados (2025-08-02)
+  - Mudado de verificação de `user` para `isAuthenticated`
+  - Garantido acesso completo para usuários com token válido em cache
+  - Resolvido skeleton infinito ao recarregar página
+  - Implementado `effectiveUserId` para melhor gerenciamento de estado
 
 #### Feed State Management
 - **Implementado** sistema inteligente de cache para timeline
@@ -56,6 +65,11 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
   - Cache com expiração de 5 minutos
   - Limpeza automática ao fazer logout
   - **Removido** skeleton loading desnecessário ao retornar para timeline
+
+#### Media Uploader
+- **Corrigido** aviso "invalid position" no componente Image (2025-08-02)
+  - Adicionado `position: relative` ao container pai
+  - Resolvido warning do Next.js Image com fill
 
 ### 🚀 Performance
 

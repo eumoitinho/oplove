@@ -70,12 +70,13 @@ export function TimelineFeed({
   showAds = true, 
   className 
 }: TimelineFeedProps) {
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const features = usePremiumFeatures()
   const router = useRouter()
   
-  // Use new feed state management hook
-  const feedState = useFeedState(user?.id, { cacheTimeMs: 5 * 60 * 1000 }) // 5 minutes cache
+  // Use new feed state management hook - use userId prop or user.id
+  const effectiveUserId = userId || user?.id
+  const feedState = useFeedState(effectiveUserId, { cacheTimeMs: 5 * 60 * 1000 }) // 5 minutes cache
   
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -98,19 +99,22 @@ export function TimelineFeed({
       return
     }
 
-    if (!user) {
+    // For authenticated users, always try to load data
+    // This ensures users with valid tokens get their content
+    if (!isAuthenticated) {
       setIsLoading(false)
       feedState.updateState(activeTab, { initialized: true, posts: [], hasMore: false })
       return
     }
 
+    // Load state for the current tab
+    const currentState = feedState.loadState(activeTab)
+    
     // Check if we have valid cached data for this tab
-    if (feedState.isCacheValid(activeTab)) {
-      const cachedState = feedState.loadState(activeTab)
-      if (cachedState.initialized && cachedState.posts.length > 0) {
-        setIsLoading(false)
-        return
-      }
+    if (currentState.initialized && currentState.posts.length > 0 && feedState.isCacheValid(activeTab)) {
+      console.log('[TimelineFeed] Using cached data for tab:', activeTab)
+      setIsLoading(false)
+      return
     }
 
     // Load fresh data if no valid cache
@@ -119,28 +123,33 @@ export function TimelineFeed({
     const loadPosts = async () => {
       if (cancelled) return
       
+      console.log('[TimelineFeed] Loading fresh posts for tab:', activeTab)
       setIsLoading(true)
       
       try {
+        // Use effectiveUserId which could be from props or current user
+        const userIdToUse = effectiveUserId || 'anonymous'
         let result
         
         switch (activeTab) {
           case "for-you":
-            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+            result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
             break
           case "following":
-            result = await feedAlgorithmService.getFollowingFeed(user.id, 1, 10)
+            result = await feedAlgorithmService.getFollowingFeed(userIdToUse, 1, 10)
             break
           case "explore":
-            result = await feedAlgorithmService.getExploreFeed(user.id, 1, 10)
+            result = await feedAlgorithmService.getExploreFeed(userIdToUse, 1, 10)
             break
           default:
-            result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+            result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
         }
 
         if (!cancelled && result) {
           const newPosts = Array.isArray(result.data) ? result.data : []
           const newHasMore = result.hasMore === true && newPosts.length > 0
+          
+          console.log('[TimelineFeed] Loaded posts:', newPosts.length)
           
           feedState.updateState(activeTab, {
             posts: newPosts,
@@ -150,7 +159,7 @@ export function TimelineFeed({
           })
         }
       } catch (error) {
-        console.error('Error fetching posts:', error)
+        console.error('[TimelineFeed] Error fetching posts:', error)
         if (!cancelled) {
           feedState.updateState(activeTab, {
             posts: [],
@@ -170,7 +179,7 @@ export function TimelineFeed({
     return () => {
       cancelled = true
     }
-  }, [user?.id, activeTab, currentMainContent, feedState])
+  }, [isAuthenticated, effectiveUserId, activeTab, currentMainContent, feedState])
 
   // Load more when in view
   useEffect(() => {
@@ -233,30 +242,37 @@ export function TimelineFeed({
 
   // Define handleRefresh with state clearing
   const handleRefresh = useCallback(async () => {
-    if (!user) return
+    if (!isAuthenticated) return
     
+    console.log('[TimelineFeed] Refreshing posts for tab:', activeTab)
     setIsRefreshing(true)
     setNewPostsCount(0)
     
-    // Clear cache to force fresh load
+    // Clear the cache for this tab to force fresh data
     feedState.clearState(activeTab)
     
     try {
+      const userIdToUse = effectiveUserId || 'anonymous'
       let result
       
       switch (activeTab) {
         case "for-you":
-          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+          result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
           break
         case "following":
-          result = await feedAlgorithmService.getFollowingFeed(user.id, 1, 10)
+          result = await feedAlgorithmService.getFollowingFeed(userIdToUse, 1, 10)
           break
         case "explore":
-          result = await feedAlgorithmService.getExploreFeed(user.id, 1, 10)
+          result = await feedAlgorithmService.getExploreFeed(userIdToUse, 1, 10)
           break
         default:
-          result = await feedAlgorithmService.generatePersonalizedFeed(user.id, 1, 10)
+          result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
       }
+
+      console.log('[TimelineFeed] Refresh result:', { 
+        postsCount: result?.data?.length || 0,
+        hasMore: result?.hasMore 
+      })
 
       const newPosts = Array.isArray(result.data) ? result.data : []
       const newHasMore = result.hasMore === true && newPosts.length > 0
@@ -268,11 +284,17 @@ export function TimelineFeed({
         initialized: true
       })
     } catch (error) {
-      console.error('Error refreshing posts:', error)
+      console.error('[TimelineFeed] Error refreshing posts:', error)
+      // Still mark as initialized even on error
+      feedState.updateState(activeTab, {
+        posts: [],
+        hasMore: false,
+        initialized: true
+      })
     } finally {
       setIsRefreshing(false)
     }
-  }, [user?.id, activeTab, feedState])
+  }, [isAuthenticated, effectiveUserId, activeTab, feedState])
 
   // Simulate real-time updates
   useEffect(() => {
@@ -310,8 +332,8 @@ export function TimelineFeed({
     }
   }, [user?.id, feedState])
 
-  // Show loading skeleton only on initial load or when we have no data and are loading
-  if ((currentMainContent === "timeline" && !initialized && isLoading) || (isLoading && posts.length === 0 && !initialized)) {
+  // Show loading skeleton only on initial load when we have no posts
+  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading) {
     return (
       <div className={cn("space-y-6", className)}>
         {Array.from({ length: 3 }).map((_, i) => (

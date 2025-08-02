@@ -209,7 +209,7 @@ export function MediaUploader({
                   exit={{ opacity: 0, scale: 0.8 }}
                   className="relative group"
                 >
-                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative">
                     {preview && !isVideo && !isAudio ? (
                       <Image src={preview || "/placeholder.svg"} alt={file.name} fill className="object-cover" />
                     ) : (
