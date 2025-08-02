@@ -209,4 +209,155 @@ export class UserService {
       return { data: null, error: (error as Error).message }
     }
   }
+
+  // Get user's profile seals
+  static async getUserSeals(userId: string): Promise<{
+    data: {
+      seals: any[]
+      totalSeals: number
+      displayedSeals: number
+    } | null
+    error: string | null
+  }> {
+    try {
+      const response = await fetch(`/api/v1/users/${userId}/seals`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || 'Erro ao buscar seals' }
+      }
+      
+      const result = await response.json()
+      return { data: result.data, error: null }
+    } catch (error) {
+      console.error('Error in getUserSeals:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  }
+
+  // Get user verification status
+  static async getUserVerificationStatus(userId: string): Promise<{
+    data: {
+      isVerified: boolean
+      verificationStatus?: 'pending' | 'approved' | 'rejected' | 'manual_review'
+      canVerify: boolean
+      submittedAt?: string
+    } | null
+    error: string | null
+  }> {
+    try {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('is_verified')
+        .eq('id', userId)
+        .single()
+
+      if (userError) {
+        return { data: null, error: userError.message }
+      }
+
+      // Check verification records
+      const { data: verification, error: verificationError } = await supabase
+        .from('user_verifications')
+        .select('status, submitted_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      const canVerify = !user.is_verified && (!verification || verification.status === 'rejected')
+
+      return {
+        data: {
+          isVerified: user.is_verified,
+          verificationStatus: verification?.status,
+          canVerify,
+          submittedAt: verification?.submitted_at
+        },
+        error: null
+      }
+    } catch (error) {
+      console.error('Error in getUserVerificationStatus:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  }
+
+  // Get user's media posts (photos/videos only)
+  static async getUserMedia(userId: string, mediaType?: 'photo' | 'video', limit: number = 20): Promise<{
+    data: any[] | null
+    error: string | null
+  }> {
+    try {
+      let query = supabase
+        .from('posts')
+        .select(`
+          id,
+          content,
+          media_urls,
+          media_types,
+          created_at,
+          like_count,
+          comment_count
+        `)
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .not('media_urls', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      // Filter by media type if specified
+      if (mediaType) {
+        if (mediaType === 'photo') {
+          query = query.contains('media_types', ['image'])
+        } else if (mediaType === 'video') {
+          query = query.contains('media_types', ['video'])
+        }
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error('Error fetching user media:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error in getUserMedia:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  }
+
+  // Get user's stories (current active stories)
+  static async getUserStories(userId: string): Promise<{
+    data: any[] | null
+    error: string | null
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('stories')
+        .select(`
+          id,
+          media_url,
+          media_type,
+          caption,
+          created_at,
+          expires_at,
+          view_count
+        `)
+        .eq('user_id', userId)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching user stories:', error)
+        return { data: null, error: error.message }
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error in getUserStories:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  }
 }
