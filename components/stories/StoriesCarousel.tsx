@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, ChevronLeft, ChevronRight, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -36,17 +36,17 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
   const [canScrollRight, setCanScrollRight] = useState(false)
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       loadStories()
       loadDailyLimit()
     }
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     checkScrollButtons()
   }, [stories])
 
-  const loadStories = async () => {
+  const loadStories = useCallback(async () => {
     try {
       // Load different story categories
       const [userStoriesRes, followingStoriesRes, boostedStoriesRes] = await Promise.all([
@@ -80,9 +80,9 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadDailyLimit = async () => {
+  const loadDailyLimit = useCallback(async () => {
     try {
       const response = await fetch('/api/v1/stories/limits', { credentials: 'include' })
       if (response.ok) {
@@ -92,17 +92,17 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
     } catch (error) {
       console.error('Error loading daily limit:', error)
     }
-  }
+  }, [])
 
-  const checkScrollButtons = () => {
+  const checkScrollButtons = useCallback(() => {
     if (!carouselRef.current) return
     
     const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current
     setCanScrollLeft(scrollLeft > 0)
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
-  }
+  }, [])
 
-  const scroll = (direction: 'left' | 'right') => {
+  const scroll = useCallback((direction: 'left' | 'right') => {
     if (!carouselRef.current) return
     
     const scrollAmount = 200
@@ -112,9 +112,9 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
       left: newScrollLeft,
       behavior: 'smooth'
     })
-  }
+  }, [])
 
-  const handleCreateStory = () => {
+  const handleCreateStory = useCallback(() => {
     if (!user) {
       toast.error('Faça login para postar stories')
       return
@@ -131,9 +131,9 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
     }
 
     setShowCreator(true)
-  }
+  }, [user, canPostStories, dailyLimit])
 
-  const handleStoryCreated = (story: Story) => {
+  const handleStoryCreated = useCallback((story: Story) => {
     setUserStories([story, ...userStories])
     setStories([story, ...stories])
     setDailyLimit(prev => prev ? {
@@ -142,13 +142,13 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
     } : null)
     setShowCreator(false)
     toast.success('Story publicado com sucesso!')
-  }
+  }, [userStories, stories])
 
-  const handleStoryClick = (index: number) => {
+  const handleStoryClick = useCallback((index: number) => {
     setSelectedStoryIndex(index)
-  }
+  }, [])
 
-  const renderStoryItem = (story: Story, index: number, isOwnStory: boolean = false) => {
+  const renderStoryItem = useCallback((story: Story, index: number, isOwnStory: boolean = false) => {
     const hasNewStory = !story.hasViewed
     
     return (
@@ -195,7 +195,7 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
         </p>
       </motion.div>
     )
-  }
+  }, [handleStoryClick])
 
   if (loading) {
     return (

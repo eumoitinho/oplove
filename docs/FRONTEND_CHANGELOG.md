@@ -7,6 +7,63 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased] - 2025-08-02
 
+### 📋 Instrução do Usuário
+**Task:** Resolver inúmeros re-renders no front-end
+- Buscar contexto do feed e componentes dependentes
+- Analisar useEffects e useStates fora de hierarquia ou desnecessários
+- Centralizar lógica de renderização baseada em autenticação
+- Garantir que erros "Maximum update depth exceeded" não aconteçam
+- Analisar @components/feed, @components/profile, @components/stories recursivamente
+
+### 🚀 Performance Optimization Task (2025-08-02)
+
+#### Análise Realizada
+- **Criado** documento de análise em `/docs/PERFORMANCE_ANALYSIS_2025_08_02.md`
+- Identificados componentes problemáticos: FeedLayout, TimelineFeed, usePremiumFeatures, UserProfile, StoriesCarousel
+- Mapeados useEffects desnecessários e dependências incorretas
+- Analisados componentes de profile e stories recursivamente
+
+#### Otimizações Implementadas
+
+##### FeedLayout Component
+- **Removido** múltiplos useEffects vazios e redundantes
+- **Consolidado** lógica de inicialização de tema dark/light
+- **Adicionado** persistência de tema em localStorage
+- **Removido** useEffect que dependia de children (sempre mudava)
+
+##### usePremiumFeatures Hook
+- **Otimizado** para extrair apenas valores primitivos do user
+- **Memoizado** cálculos de features com dependências estáveis
+- **Convertido** funções helper para useCallback
+- **Reduzido** dependências de user object para valores específicos
+
+##### Novos Componentes Criados
+- **OptimizedAuthContext** (`/contexts/OptimizedAuthContext.tsx`)
+  - Context otimizado com valores memoizados
+  - Hooks específicos para casos comuns (useUserId, useIsAuthenticated)
+  - Previne prop drilling e re-renders desnecessários
+  
+- **useTimelineFeedReducer** (`/hooks/useTimelineFeedReducer.ts`)
+  - Consolidação de estados relacionados em único reducer
+  - Actions memoizadas para evitar recriação
+  - Estado centralizado para melhor performance
+
+##### UserProfile Component
+- **Otimizado** múltiplas funções com useCallback para evitar recriação
+- **Corrigido** useEffect com dependências de objeto user completo
+- **Memoizado** funções: handleFollow, handleBlock, handleShare, copyProfileLink
+- **Memoizado** funções: shareProfile, handleReport, submitReport, getPlanBadge
+- **Memoizado** funções assíncronas: loadUserProfile, loadUserPosts
+- **Reduzido** dependências no useEffect de editData
+
+##### StoriesCarousel Component  
+- **Adicionado** useCallback para todas as funções do componente
+- **Memoizado** loadStories, loadDailyLimit, checkScrollButtons
+- **Memoizado** scroll, handleCreateStory, handleStoryCreated
+- **Memoizado** handleStoryClick, renderStoryItem
+- **Previne** recriação de funções a cada render
+- **Melhora** performance ao evitar re-renders desnecessários
+
 ### 🎨 UI/UX Melhorias
 
 #### Media Viewer
@@ -70,6 +127,22 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Corrigido** aviso "invalid position" no componente Image (2025-08-02)
   - Adicionado `position: relative` ao container pai
   - Resolvido warning do Next.js Image com fill
+
+#### Componentes com useEffect
+- **Corrigido** erro "Maximum update depth exceeded" (2025-08-02)
+  - RecommendationsCard: Mudado de `[user]` para `[user?.id]` na dependência
+  - StoriesCarousel: Mudado de `[user]` para `[user?.id]` na dependência
+  - EditProfileModal: Adicionado `isOpen` e mudado para `[isOpen, user?.id]`
+  - MessagesView: Mudado de `[user]` para `[user?.id]` na dependência
+  - UserProfile: Corrigido useEffect com dependências específicas do user
+  - Previne loops infinitos causados por objetos user recriados
+
+#### Hook useFeedState
+- **Corrigido** recriação constante do objeto retornado (2025-08-02)
+  - Adicionado `useMemo` para estabilizar o objeto retornado
+  - Memoizado funções utilitárias com `useCallback`
+  - Previne re-renders desnecessários em componentes que usam o hook
+  - Resolve loops infinitos causados por objeto feedState recriado
 
 ### 🚀 Performance
 

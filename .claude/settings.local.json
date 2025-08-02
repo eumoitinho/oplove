@@ -43,7 +43,9 @@
       "Bash(del \"D:\\MSYNC PESSOAL\\oplove\\supabase\\migrations\\temp_backup.sql\")",
       "Bash(del test-register.js test-simple-register.js)",
       "Bash(set:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(nslookup:*)",
+      "Bash(ping:*)"
     ],
     "deny": []
   }

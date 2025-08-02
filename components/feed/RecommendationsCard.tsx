@@ -49,15 +49,18 @@ export function RecommendationsCard({ onViewChange }: RecommendationsCardProps) 
 
   useEffect(() => {
     const loadRecommendations = async () => {
-      if (!user) {
+      if (!user?.id) {
         setLoading(false)
+        setRecommendations([])
         return
       }
 
+      setLoading(true)
       try {
         const recs = await exploreService.getRecommendations(user.id, 4)
         setRecommendations(recs)
       } catch (error) {
+        console.error('[RecommendationsCard] Error loading recommendations:', error)
         setRecommendations([])
       } finally {
         setLoading(false)
@@ -65,7 +68,7 @@ export function RecommendationsCard({ onViewChange }: RecommendationsCardProps) 
     }
 
     loadRecommendations()
-  }, [user])
+  }, [user?.id])
 
   if (!user) {
     return (

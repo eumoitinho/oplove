@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useMemo } from "react"
 
 interface FeedState {
   posts: any[]
@@ -116,7 +116,24 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     })
   }, [])
 
-  return {
+  // Memoize utility functions to prevent recreation
+  const isCacheValidMemo = useCallback((tab: string) => {
+    const key = getCacheKey(tab)
+    const cached = stateCache.current[key]
+    return cached ? isCacheValid(cached) : false
+  }, [getCacheKey, isCacheValid])
+  
+  const getCacheInfoMemo = useCallback(() => ({
+    keys: Object.keys(stateCache.current),
+    sizes: Object.entries(stateCache.current).map(([key, state]) => ({
+      key,
+      posts: state.posts.length,
+      lastUpdated: new Date(state.lastUpdated).toISOString()
+    }))
+  }), [])
+
+  // Memoize the return object to prevent recreation on every render
+  return useMemo(() => ({
     // Current state
     currentState,
     
@@ -128,19 +145,16 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     clearAllStates,
     
     // Utility functions
-    isCacheValid: (tab: string) => {
-      const key = getCacheKey(tab)
-      const cached = stateCache.current[key]
-      return cached ? isCacheValid(cached) : false
-    },
-    
-    getCacheInfo: () => ({
-      keys: Object.keys(stateCache.current),
-      sizes: Object.entries(stateCache.current).map(([key, state]) => ({
-        key,
-        posts: state.posts.length,
-        lastUpdated: new Date(state.lastUpdated).toISOString()
-      }))
-    })
-  }
+    isCacheValid: isCacheValidMemo,
+    getCacheInfo: getCacheInfoMemo
+  }), [
+    currentState,
+    getState,
+    updateState,
+    loadState,
+    clearState,
+    clearAllStates,
+    isCacheValidMemo,
+    getCacheInfoMemo
+  ])
 }

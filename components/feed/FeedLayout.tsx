@@ -19,32 +19,23 @@ export function FeedLayout({ children }: FeedLayoutProps) {
   const [currentView, setCurrentView] = useState<'timeline' | 'other'>('timeline')
   const { user } = useAuth()
 
-  // Check system preference on initial load
+  // Initialize dark mode from system preference or localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      const savedTheme = localStorage.getItem("theme")
+      const prefersDark = savedTheme === "dark" || 
+        (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+      
       setIsDarkMode(prefersDark)
-      if (prefersDark) {
-        document.documentElement.classList.add("dark")
-      }
+      document.documentElement.classList.toggle("dark", prefersDark)
     }
-  }, [])
-
-  // Track current view based on URL or other conditions
-  useEffect(() => {
-    // This could be enhanced to detect actual view based on routing
-    // For now, we'll assume timeline is the default
-    setCurrentView('timeline')
-  }, [])
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setIsMobileMenuOpen(false)
-  }, [children])
+  }, []) // Only run once on mount
 
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
-    document.documentElement.classList.toggle("dark")
+    const newTheme = !isDarkMode
+    setIsDarkMode(newTheme)
+    document.documentElement.classList.toggle("dark", newTheme)
+    localStorage.setItem("theme", newTheme ? "dark" : "light")
   }
 
   const handleScrollToTop = () => {

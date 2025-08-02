@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useCallback } from "react"
 import { useAuth } from "./useAuth"
 import { CONTENT_LIMITS } from "@/utils/constants"
 import type { PremiumPlan } from "@/types/common"
@@ -263,22 +263,27 @@ const planFeatures: Record<PremiumPlan, PremiumFeatures> = {
 export function usePremiumFeatures() {
   const { user } = useAuth()
   
+  // Extract only the values we need to prevent unnecessary re-renders
+  const userPlan = user?.premium_type || "free"
+  const isVerified = user?.is_verified || false
+  const storageUsed = user?.storage_used || 0
+  const dailyMessageCount = user?.daily_message_count || 0
+  
   const features = useMemo(() => {
-    const plan = user?.premium_type || "free"
-    const baseFeatures = planFeatures[plan]
+    const baseFeatures = planFeatures[userPlan]
     
     // Apply verification bonuses
-    if (user?.is_verified) {
+    if (isVerified) {
       const verifiedFeatures = { ...baseFeatures }
       
-      if (plan === "free") {
+      if (userPlan === "free") {
         verifiedFeatures.canPostStories = true // Free verified can post stories
         verifiedFeatures.canUploadImages = true // Free verified can upload 1 image
-      } else if (plan === "gold") {
+      } else if (userPlan === "gold") {
         verifiedFeatures.messagesPerDay = -1 // Unlimited messages
         verifiedFeatures.maxEventsPerMonth = -1 // Unlimited events
         verifiedFeatures.dailyStoryLimit = 10 // Increased limit
-      } else if (plan === "diamond" || plan === "couple") {
+      } else if (userPlan === "diamond" || userPlan === "couple") {
         verifiedFeatures.dailyStoryLimit = -1 // Unlimited stories
       }
       
@@ -286,31 +291,28 @@ export function usePremiumFeatures() {
     }
     
     return baseFeatures
-  }, [user?.premium_type, user?.is_verified])
+  }, [userPlan, isVerified])
   
   // Check if user has reached storage limit
   const canUploadMoreMedia = useMemo(() => {
-    if (!user) return false
     if (features.storageLimit === -1) return true // Unlimited
-    const usedStorage = user.storage_used || 0
-    return usedStorage < features.storageLimit
-  }, [user, features.storageLimit])
+    return storageUsed < features.storageLimit
+  }, [storageUsed, features.storageLimit])
   
   const canSendMoreMessages = useMemo(() => {
-    if (!user) return false
     if (features.messagesPerDay === -1) return true // Unlimited
     if (features.messagesPerDay === 0) return false // Free users can't initiate
-    return user.daily_message_count < features.messagesPerDay
-  }, [user, features.messagesPerDay])
+    return dailyMessageCount < features.messagesPerDay
+  }, [dailyMessageCount, features.messagesPerDay])
   
-  // Helper function to check if a feature requires upgrade
-  const requiresUpgrade = (feature: keyof PremiumFeatures) => {
+  // Memoize helper functions to prevent recreation
+  const requiresUpgrade = useCallback((feature: keyof PremiumFeatures) => {
     return !features[feature] || 
            (typeof features[feature] === "number" && features[feature] === 0)
-  }
+  }, [features])
   
   // Get minimum plan required for a feature
-  const getRequiredPlan = (feature: keyof PremiumFeatures): PremiumPlan | null => {
+  const getRequiredPlan = useCallback((feature: keyof PremiumFeatures): PremiumPlan | null => {
     const plans: PremiumPlan[] = ["free", "gold", "diamond", "couple"]
     
     for (const plan of plans) {
@@ -322,25 +324,20 @@ export function usePremiumFeatures() {
     }
     
     return null
-  }
+  }, [])
   
   // Get story limit based on plan and verification
-  const getStoryLimit = () => {
-    if (!user) return 0
-    
-    const plan = user.premium_type || "free"
-    const isVerified = user.is_verified || false
-    
-    if (plan === "free") {
+  const getStoryLimit = useCallback(() => {
+    if (userPlan === "free") {
       return isVerified ? 3 : 0
-    } else if (plan === "gold") {
+    } else if (userPlan === "gold") {
       return isVerified ? 10 : 5
-    } else if (plan === "diamond" || plan === "couple") {
+    } else if (userPlan === "diamond" || userPlan === "couple") {
       return isVerified ? -1 : 10 // -1 means unlimited
     }
     
     return 0
-  }
+  }, [userPlan, isVerified])
   
   return {
     ...features,
@@ -355,12 +352,12 @@ export function usePremiumFeatures() {
     getStoryLimit,
     
     // User info
-    userPlan: user?.premium_type || "free",
-    isVerified: user?.is_verified || false,
+    userPlan,
+    isVerified,
     
     // Usage stats
-    storageUsed: user?.storage_used || 0,
-    messagesUsedToday: user?.daily_message_count || 0,
+    storageUsed,
+    messagesUsedToday: dailyMessageCount,
     
     // Helpers for UI
     formatStorageLimit: (limit: number) => {

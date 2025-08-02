@@ -49,21 +49,23 @@ export function EditProfileModal({ isOpen, onClose, user, onSuccess }: EditProfi
   })
 
   useEffect(() => {
-    // Update form when user prop changes
-    setFormData({
-      name: user.name || "",
-      bio: user.bio || "",
-      location: user.location || "",
-      city: user.city || "",
-      state: user.state || "",
-      website: user.website || "",
-      birth_date: user.birth_date || "",
-      gender: user.gender || "prefer_not_say",
-      profile_type: user.profile_type || "single",
-      interests: user.interests || [],
-      looking_for: user.looking_for || [],
-    })
-  }, [user])
+    // Update form when modal opens with fresh user data
+    if (isOpen && user) {
+      setFormData({
+        name: user.name || "",
+        bio: user.bio || "",
+        location: user.location || "",
+        city: user.city || "",
+        state: user.state || "",
+        website: user.website || "",
+        birth_date: user.birth_date || "",
+        gender: user.gender || "prefer_not_say",
+        profile_type: user.profile_type || "single",
+        interests: user.interests || [],
+        looking_for: user.looking_for || [],
+      })
+    }
+  }, [isOpen, user?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

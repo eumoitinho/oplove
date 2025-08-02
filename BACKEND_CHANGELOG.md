@@ -1,82 +1,61 @@
 # Backend Changelog - OpenLove
 
-## Objetivo
-Documentar todas as alterações, correções e melhorias realizadas no backend do OpenLove para manter rastreabilidade e facilitar manutenção futura.
+Este arquivo documenta todas as alterações no backend do projeto OpenLove.
 
-## Formato de Entrada
-```
-## [Data] - [Tipo de Alteração]
-### Problema Identificado
-- Descrição do problema
-- Sintomas observados
-- Impacto no usuário
+## [2025-08-02]
 
-### Investigação
-- Passos realizados para diagnóstico
-- Arquivos analisados
-- Logs relevantes
+### 15:45 - Cache Redis Inativo
+- **Problema**: Banco de dados Redis no Upstash foi excluído por inatividade
+- **Impacto**: Sistema de cache não está funcionando, causando lentidão no carregamento de feeds
+- **Ação**: Implementar fallback gracioso quando Redis não está disponível
 
-### Solução Implementada
-- Alterações realizadas
-- Arquivos modificados
-- Testes realizados
+### 15:50 - Análise do Sistema de Cache
+- **Situação atual**:
+  - Variáveis UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN estão configuradas no .env.local
+  - O código já possui proteção com `isRedisAvailable` que detecta se Redis está disponível
+  - CacheService retorna null quando Redis não está disponível
+  - Sistema funciona sem cache, mas com performance reduzida
+- **Opções de solução**:
+  1. Criar novo banco Redis no Upstash (recomendado)
+  2. Implementar cache local em memória como fallback temporário
+  3. Usar cache do Supabase como alternativa
+- **Status**: Sistema operacional mas sem cache ativo
 
-### Resultado
-- Melhoria obtida
-- Métricas de performance (se aplicável)
-- Status: ✅ Resolvido / ⚠️ Parcial / ❌ Não resolvido
-```
+### 15:55 - Confirmação: Redis Database Deletado
+- **Teste executado**: `node test-redis-connection.js`
+- **Erro**: `ENOTFOUND exact-cheetah-45946.upstash.io` - hostname não existe mais
+- **Confirmação**: Banco Redis foi completamente removido do Upstash
+- **Impacto atual**: 
+  - Sistema está funcionando normalmente sem cache
+  - Performance reduzida em operações de feed
+  - Todas as chamadas de cache retornam null (fallback ativo)
+- **Próximos passos**:
+  1. Criar novo banco Redis no Upstash
+  2. Atualizar variáveis de ambiente com novas credenciais
+  3. Testar nova conexão
 
----
-
-## [02/08/2025] - Investigação do Sistema de Cache Redis
-
-### Problema Identificado
-- Sistema de cache não está funcionando conforme esperado
-- Possível problema na conexão com Upstash Redis
-- Performance do feed pode estar comprometida
-- Cache pode estar caindo em fallback constantemente
-
-### Investigação
-**Arquivos a serem analisados:**
-- [ ] `.env.local` - Verificar variáveis de ambiente do Redis
-- [ ] `lib/cache/` - Analisar implementação do cache
-- [ ] `lib/services/feed-algorithm-service.ts` - Verificar uso do cache
-- [ ] `lib/redis.ts` - Verificar inicialização do Redis
-- [ ] Logs do console para identificar erros
-
-**Pontos de verificação:**
-- [ ] Variáveis UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN configuradas
-- [ ] Conexão com Redis funcionando
-- [ ] Cache sendo utilizado nos serviços críticos
-- [ ] TTL e estratégias de invalidação corretas
-
-### Solução Implementada
-*[Em investigação...]*
-
-### Resultado
-*[Pendente...]*
+### 16:05 - Redis Reconectado com Sucesso
+- **Ação**: Novo banco Redis criado no Upstash
+- **Novas credenciais**:
+  - URL: `https://wise-starling-7607.upstash.io`
+  - Token atualizado no .env.local
+- **Teste de conexão**: ✅ Sucesso
+  - Ping: PONG
+  - Operações de cache: ~30ms
+- **Status**: Cache totalmente operacional
+- **Melhorias esperadas**:
+  - Timeline 10x mais rápido
+  - Troca de abas instantânea
+  - Scroll infinito sem travadas
+  - Hit rate de cache ~70-80%
+  - Redução de carga no Supabase
 
 ---
 
-## Histórico de Alterações
+## Formato para novas entradas:
 
-### Estrutura do Sistema de Cache
-- **CacheService**: Operações básicas do Redis com tracking de analytics
-- **TimelineCacheService**: Cache específico para timeline com TTLs diferentes por aba
-- **ProfileCacheService**: Cache de perfis de usuário e recomendações
-- **CacheInvalidationService**: Invalidação distribuída de cache
-- **StaleWhileRevalidateService**: Refresh em background para dados frescos
-
-### Configurações Atuais
-- Timeline feeds: TTL 5-15min dependendo da aba
-- Perfis de usuário: TTL 30 minutos
-- Recomendações: TTL 20 minutos
-- Conteúdo trending: TTL 5 minutos
-- Estatísticas: TTL 15 minutos
-
----
-
-**Última atualização:** 02/08/2025
-**Responsável:** Claude Code Assistant
-**Status:** 🔍 Em investigação
+### HH:MM - Título da Alteração
+- **Problema**: Descrição do problema
+- **Arquivos modificados**: Lista de arquivos
+- **Mudanças**: O que foi alterado
+- **Resultado**: Impacto da mudança

@@ -73,10 +73,10 @@ export function MessagesView() {
 
   // Load conversations
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       loadConversations()
     }
-  }, [user])
+  }, [user?.id])
 
   // Load messages when conversation selected
   useEffect(() => {

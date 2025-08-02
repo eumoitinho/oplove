@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -107,7 +107,7 @@ export function UserProfile({ userId }: UserProfileProps) {
   useEffect(() => {
     loadUserProfile()
     loadUserPosts()
-  }, [userId])
+  }, [userId, currentUser?.id])
 
   useEffect(() => {
     if (user && isOwnProfile) {
@@ -117,9 +117,9 @@ export function UserProfile({ userId }: UserProfileProps) {
         website: user.website || ""
       })
     }
-  }, [user, isOwnProfile])
+  }, [user?.id, isOwnProfile])
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       const targetUserId = userId || currentUser?.id
       if (!targetUserId) return
@@ -180,9 +180,9 @@ export function UserProfile({ userId }: UserProfileProps) {
     } catch (error) {
       console.error("Error loading profile:", error)
     }
-  }
+  }, [userId, currentUser, isOwnProfile])
 
-  const loadUserPosts = async () => {
+  const loadUserPosts = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -207,9 +207,9 @@ export function UserProfile({ userId }: UserProfileProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, currentUser?.id])
 
-  const handleFollow = async () => {
+  const handleFollow = useCallback(async () => {
     try {
       setIsFollowing(!isFollowing)
       setStats(prev => ({
@@ -219,9 +219,9 @@ export function UserProfile({ userId }: UserProfileProps) {
     } catch (error) {
       console.error("Error following user:", error)
     }
-  }
+  }, [isFollowing])
 
-  const handleBlock = async () => {
+  const handleBlock = useCallback(async () => {
     try {
       setIsBlocked(!isBlocked)
       if (!isBlocked) {
@@ -230,20 +230,20 @@ export function UserProfile({ userId }: UserProfileProps) {
     } catch (error) {
       console.error("Error blocking user:", error)
     }
-  }
+  }, [isBlocked])
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     setShowShareModal(true)
-  }
+  }, [])
 
-  const copyProfileLink = async () => {
+  const copyProfileLink = useCallback(async () => {
     const profileUrl = `${window.location.origin}/profile/${user?.username}`
     await navigator.clipboard.writeText(profileUrl)
     // TODO: Show toast
     setShowShareModal(false)
-  }
+  }, [user?.username])
 
-  const shareProfile = async (platform: string) => {
+  const shareProfile = useCallback(async (platform: string) => {
     const profileUrl = `${window.location.origin}/profile/${user?.username}`
     const text = `Confira o perfil de ${user?.full_name || user?.username} no OpenLove!`
     
@@ -259,13 +259,13 @@ export function UserProfile({ userId }: UserProfileProps) {
         break
     }
     setShowShareModal(false)
-  }
+  }, [user?.username, user?.full_name])
 
-  const handleReport = () => {
+  const handleReport = useCallback(() => {
     setShowReportModal(true)
-  }
+  }, [])
 
-  const submitReport = async (reason: string) => {
+  const submitReport = useCallback(async (reason: string) => {
     try {
       // TODO: Implement real report
       console.log("Report user:", user?.id, "Reason:", reason)
@@ -273,7 +273,7 @@ export function UserProfile({ userId }: UserProfileProps) {
     } catch (error) {
       console.error("Error reporting user:", error)
     }
-  }
+  }, [user?.id])
 
   const handleAvatarUpload = async (file: File) => {
     if (!user?.id) return
@@ -375,7 +375,7 @@ export function UserProfile({ userId }: UserProfileProps) {
     }
   }
 
-  const getPlanBadge = (planType: string) => {
+  const getPlanBadge = useCallback((planType: string) => {
     switch (planType) {
       case "gold":
         return (
@@ -401,7 +401,7 @@ export function UserProfile({ userId }: UserProfileProps) {
       default:
         return null
     }
-  }
+  }, [])
 
   if (!user) return <PostSkeleton />
 
