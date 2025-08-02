@@ -66,7 +66,6 @@ export async function GET(request: NextRequest) {
           created_at
         `)
         .neq('id', currentUser.id)
-        .eq('is_active', true)
 
       // Apply filters
       if (filters.gender.length > 0) {

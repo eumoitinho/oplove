@@ -184,7 +184,6 @@ export function EventsView() {
               Criar Evento
             </Button>
           </PremiumTooltip>
-          )}
         </div>
 
         {/* Premium Alerts */}

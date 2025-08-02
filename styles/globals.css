@@ -120,3 +120,18 @@
 .dark .glass-effect {
   @apply bg-black/10 backdrop-blur-md border border-white/10;
 }
+
+/* Story viewer modal - ensure highest z-index on mobile */
+.story-viewer-modal {
+  z-index: 999999 !important;
+  position: fixed !important;
+  inset: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .story-viewer-modal {
+    z-index: 999999 !important;
+    position: fixed !important;
+    inset: 0 !important;
+  }
+}

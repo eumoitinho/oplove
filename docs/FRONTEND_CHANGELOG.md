@@ -113,6 +113,31 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ### 🐛 Correções de Bugs
 
+#### PostCard Restoration and Optimization (2025-08-02)
+- **Restaurado** PostCard otimizado que foi perdido durante o git reset
+  - Criado componente `OptimizedImage` com suporte a AVIF/WebP
+  - Substituído SecureMedia por OptimizedImage para imagens (mantendo vídeos)
+  - Adicionado loading skeleton e tratamento de erro de imagem
+  - Implementado otimizações de performance com lazy loading seletivo
+  - Melhorado onClick handler para abrir MediaViewer
+  - Configurado quality=95 para melhor qualidade visual
+  - Adicionado priority loading para primeira imagem em galerias
+
+#### CreatePost Responsiveness Fix (2025-08-02)
+- **Corrigido** responsividade do botão "Publicar" no componente CreatePost
+  - Ajustado layout flexbox para prevenir overflow em mobile
+  - Adicionado `flex-shrink-0` nos containers de ações e botão
+  - Configurado `min-width` responsivo (80px mobile, 100px desktop)
+  - Melhorado padding responsivo (px-3 mobile, px-6 desktop)
+  - Ajustado justificação de conteúdo para melhor alinhamento
+
+#### Stories Modal Z-Index (2025-08-02)
+- **Corrigido** modal de stories aparecendo atrás dos elementos no mobile
+  - Aumentado z-index para 999999 usando classe CSS `story-viewer-modal`
+  - Adicionado regras CSS específicas para mobile com `!important`
+  - Garantido que modal de stories aparece acima de header (z-50), bottom navigation (z-50), e timeline
+  - Resolvido problema de stacking context no mobile
+
 #### Timeline Feed
 - **Corrigido** erro "Rendered fewer hooks than expected"
   - Movido useEffect para antes de conditional returns
@@ -127,6 +152,12 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
   - Garantido acesso completo para usuários com token válido em cache
   - Resolvido skeleton infinito ao recarregar página
   - Implementado `effectiveUserId` para melhor gerenciamento de estado
+- **Corrigido** skeleton loading ao trocar de abas (2025-08-02)
+  - Implementado sistema inteligente de cache com fallback para dados stale
+  - Adicionado indicador de loading em background quando atualizando dados cached
+  - Melhorada lógica de carregamento para mostrar dados em cache imediatamente
+  - Skeleton aparece apenas quando não há dados e está carregando
+  - Adicionado indicador visual sutil "Atualizando..." quando carregando em background
 
 #### Feed State Management
 - **Implementado** sistema inteligente de cache para timeline
@@ -184,6 +215,17 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ### 🔧 Refatorações
 
+#### Novos Componentes (2025-08-02)
+- **Criado** `components/common/OptimizedImage.tsx`
+  - Componente otimizado baseado em Next.js Image
+  - Suporte automático para formatos modernos (AVIF/WebP)
+  - Loading skeleton integrado
+  - Tratamento de erro com fallback
+  - Props responsivas para width/height e fill
+  - Quality configurável (padrão 95%)
+  - Priority loading seletivo
+  - ForwardRef para referência de DOM
+
 #### Estrutura de Componentes
 - **Criado** `components/common/MediaViewer.tsx`
 - **Atualizado** `components/feed/post/PostCard.tsx` para integração com MediaViewer
@@ -198,6 +240,77 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Portal rendering usado no MediaViewer para melhor controle de z-index
 - Framer Motion para animações suaves
 - TypeScript strict mode mantido em todos os novos componentes
+
+---
+
+### 🔧 Correções no Algoritmo de Recomendação
+
+#### Aba "Seguindo" - Correção Crítica
+- **PROBLEMA**: Aba tentava buscar da tabela inexistente `user_connections`
+- **SOLUÇÃO**: Alterado para usar tabela `follows` correta
+- **Arquivo**: `lib/services/feed-algorithm-service.ts`
+- **Mudanças**:
+  ```typescript
+  // Antes (quebrado)
+  .from('user_connections')
+  .select('connected_user_id')
+  .eq('user_id', userId)
+  
+  // Depois (correto)
+  .from('follows')
+  .select('following_id')
+  .eq('follower_id', userId)
+  ```
+
+### 🔍 Sistema de Busca e Exploração - Implementação Completa
+
+#### API de Busca Avançada (`/api/v1/search/advanced`)
+- **Implementada** busca com ranking inteligente e filtros avançados
+- **Recursos**:
+  - Busca por relevância, recente, popular
+  - Filtro por localização geográfica (lat/lng + raio)
+  - Scoring baseado em correspondência exata, verificação, premium
+  - Busca de hashtags com análise de trending
+  - Proximidade geográfica: até +50 pontos de boost
+
+#### API de Trending (`/api/v1/trending`)
+- **Implementada** análise de conteúdo em alta com múltiplos períodos
+- **Recursos**:
+  - Períodos: 1h, 24h, 7d, 30d
+  - Trending de posts: engajamento + velocidade + decaimento temporal
+  - Trending de usuários: crescimento de seguidores + taxa de crescimento
+  - Trending de hashtags: velocidade de uso + engajamento médio
+  - Boost para premium/verificado e localização próxima
+
+#### API de Sugestões (`/api/v1/suggestions/users`)
+- **Implementada** recomendações personalizadas "quem seguir"
+- **Estratégias múltiplas**:
+  - Network: amigos de amigos (conexões mútuas)
+  - Location: usuários próximos geograficamente
+  - Interests: interesses em comum
+  - Popular: usuários em alta/trending
+  - Mixed: combinação inteligente de todas
+- **Personalização**:
+  - Exclui seguidos e bloqueados
+  - Mostra posts de amostra
+  - Indica razão da sugestão
+  - Super boost para <10km: 2x
+
+#### API Explorar Melhorada (`/api/v1/explore`)
+- **Adicionados** filtros avançados e múltiplas estratégias
+- **Novos filtros**:
+  - Filter: trending, recent, popular, nearby
+  - Period: 1h, 24h, 7d, 30d
+  - Media: all, photo, video
+  - Verified: apenas verificados
+  - Premium: apenas assinantes
+- **Suporte a Stories**: inclui stories ativos
+- **Cálculo inteligente**: engajamento + decaimento temporal + boost premium
+
+#### Correção ExploreView
+- **Corrigido** erro na API `/api/v1/explore/users`
+- **Removido** filtro `is_active` inexistente da tabela users
+- **Melhorada** estabilidade do sistema de exploração
 
 ---
 

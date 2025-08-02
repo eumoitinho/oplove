@@ -41,8 +41,8 @@ function parseWindow(window: string): number {
 }
 
 // Get client IP address
-function getClientIP(request: NextRequest): string {
-  const headersList = headers()
+async function getClientIP(request: NextRequest): Promise<string> {
+  const headersList = await headers()
   const forwardedFor = headersList.get('x-forwarded-for')
   const realIP = headersList.get('x-real-ip')
   const cfConnectingIP = headersList.get('cf-connecting-ip')
@@ -72,7 +72,7 @@ export async function rateLimit(
     
     if (byIP) {
       // Rate limit by IP address
-      const ip = getClientIP(request)
+      const ip = await getClientIP(request)
       key = `ratelimit:ip:${ip}:${identifier}`
     } else if (!skipAuth) {
       // Rate limit by authenticated user
@@ -81,14 +81,14 @@ export async function rateLimit(
       
       if (!user) {
         // If no user, fall back to IP-based rate limiting
-        const ip = getClientIP(request)
+        const ip = await getClientIP(request)
         key = `ratelimit:ip:${ip}:${identifier}`
       } else {
         key = `ratelimit:user:${user.id}:${identifier}`
       }
     } else {
       // Rate limit by IP when auth is skipped
-      const ip = getClientIP(request)
+      const ip = await getClientIP(request)
       key = `ratelimit:ip:${ip}:${identifier}`
     }
     
@@ -231,11 +231,17 @@ export async function getPremiumRateLimit(
   
   switch (user.premium_type) {
     case 'gold':
-      return rateLimitPresets.premium.gold[action] || rateLimitPresets.user[action]
+      if (action in rateLimitPresets.premium.gold) {
+        return rateLimitPresets.premium.gold[action as keyof typeof rateLimitPresets.premium.gold]
+      }
+      return rateLimitPresets.user[action]
     case 'diamond':
     case 'couple':
-      return rateLimitPresets.premium.diamond[action] || rateLimitPresets.user[action]
+      if (action in rateLimitPresets.premium.diamond) {
+        return rateLimitPresets.premium.diamond[action as keyof typeof rateLimitPresets.premium.diamond]
+      }
+      return rateLimitPresets.user[action]
     default:
       return rateLimitPresets.user[action]
   }
-}
+} 

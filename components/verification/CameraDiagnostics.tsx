@@ -221,7 +221,7 @@ Erro: ${info.capabilities.errorMessage || 'Nenhum'}
                   {permissionStatus.state === 'denied' && (
                     <>
                       <li>• Clique no ícone de câmera na barra de endereços</li>
-                      <li>• Vá em Configurações do navegador > Privacidade > Câmera</li>
+                      <li>• Vá em Configurações do navegador {'>'}  Privacidade {'>'} Câmera</li>
                       <li>• Permita acesso para este site</li>
                       <li>• Recarregue a página após alterar as permissões</li>
                     </>

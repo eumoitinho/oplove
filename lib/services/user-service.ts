@@ -107,6 +107,8 @@ export class UserService {
       followers: number
       following: number
       likes: number
+      views?: number
+      seals?: number
     } | null
     error: string | null
   }> {
@@ -123,14 +125,38 @@ export class UserService {
         return { data: null, error: postsError.message }
       }
 
-      // TODO: Implement followers/following/likes count queries when those tables exist
-      // For now, return mock data for non-posts stats
+      // Get followers count
+      const { count: followersCount, error: followersError } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', userId)
+
+      // Get following count
+      const { count: followingCount, error: followingError } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', userId)
+
+      // Get total likes received (from post_reactions table)
+      const { count: likesCount, error: likesError } = await supabase
+        .from('post_reactions')
+        .select('posts!inner(*)', { count: 'exact', head: true })
+        .eq('posts.user_id', userId)
+        .eq('reaction_type', 'like')
+
+      // Get profile seals count
+      const { count: sealsCount, error: sealsError } = await supabase
+        .from('user_profile_seals')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', userId)
+
       return {
         data: {
           posts: postsCount || 0,
-          followers: 0, // TODO: Get from follows table
-          following: 0, // TODO: Get from follows table  
-          likes: 0      // TODO: Get from post_likes table
+          followers: followersCount || 0,
+          following: followingCount || 0,
+          likes: likesCount || 0,
+          seals: sealsCount || 0
         },
         error: null
       }

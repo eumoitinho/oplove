@@ -113,6 +113,9 @@ export function TimelineFeed({
     // Load state for the current tab
     const currentState = loadState(activeTab)
     
+    // Check if we have    // Load state for the current tab FIRST
+    const currentState = loadState(activeTab)
+    
     // Check if we have valid cached data for this tab
     if (currentState.initialized && currentState.posts.length > 0 && isCacheValid(activeTab)) {
       console.log('[TimelineFeed] Using cached data for tab:', activeTab)
@@ -120,11 +123,13 @@ export function TimelineFeed({
       return
     }
 
-    // Load fresh data if no valid cache
-    let cancelled = false
-
-    const loadPosts = async () => {
-      if (cancelled) return
+    // If we have some cached data but it's stale, show it while loading fresh data
+    if (currentState.initialized && currentState.posts.length > 0) {
+      console.log('[TimelineFeed] Using stale cached data while refreshing for tab:', activeTab)
+      setIsLoading(false) // Don't show skeleton, show stale data
+    } else {
+      setIsLoading(true) // Only show skeleton if no data at all
+(cancelled) return
       
       console.log('[TimelineFeed] Loading fresh posts for tab:', activeTab)
       setIsLoading(true)
@@ -340,9 +345,9 @@ export function TimelineFeed({
     return (
       <div className={cn("space-y-6", className)}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
+          <div key={i} className="bg-white/80 dark:bg-white/  // Show loading skeleton only on initial load when we have no posts AND we're loading
+  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
+eleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
                 <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
@@ -483,12 +488,11 @@ export function TimelineFeed({
                 if (activeTab !== "for-you") {
                   setIsChangingTab(true)
                   onTabChange?.("for-you")
-                  setTimeout(() => setIsChangingTab(false), 300)
-                }
-              }}
-              disabled={isChangingTab}
-              className={cn(
-                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
+                  setTimeout(() => setIsChangingTab(fals        <div className={cn(
+          "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
+          isLoading && "opacity-90 transition-opacity"
+        )}>
+text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "for-you"
                   ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
                   : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
@@ -557,7 +561,24 @@ export function TimelineFeed({
                 <Button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
+                  c          {/* Background Loading Indicator */}
+          <AnimatePresence>
+            {isLoading && posts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40"
+              >
+                <div className="bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-full px-4 py-2 flex items-center space-x-2 shadow-lg">
+                  <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Atualizando...</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+lassName="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
                 >
                   <div className="flex -space-x-2">
                     {/* Mock avatars */}

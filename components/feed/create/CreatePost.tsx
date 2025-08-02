@@ -214,7 +214,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
             rows={3}
           />
           <div className="flex items-center justify-between mt-4 flex-wrap xs:flex-nowrap gap-2">
-            <div className="flex gap-1 order-2 xs:order-1">
+            <div className="flex gap-1 order-2 xs:order-1 flex-shrink-0">
               {/* Image Upload */}
               <TooltipProvider>
                 <Tooltip>
@@ -343,7 +343,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="flex items-center gap-2 xs:gap-3 order-1 xs:order-2 w-full xs:w-auto">
+            <div className="flex items-center gap-2 xs:gap-3 order-1 xs:order-2 w-full xs:w-auto justify-end xs:justify-start">
               {/* Seletor de Visibilidade */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -386,7 +386,7 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
               <Button
                 onClick={handlePublish}
                 disabled={(!postContent.trim() && mediaFiles.length === 0 && !audioFile && !poll) || isSubmitting}
-                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-4 xs:px-6 py-2 text-sm xs:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-1 xs:flex-none"
+                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-3 xs:px-6 py-2 text-sm xs:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-shrink-0 min-w-[80px] xs:min-w-[100px]"
               >
                 {isSubmitting ? "Publicando..." : "Publicar"}
               </Button>

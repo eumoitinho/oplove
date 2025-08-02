@@ -8,10 +8,10 @@ class FeedAlgorithmService {
   
   // Pesos do algoritmo (soma = 100%)
   private weights: FeedAlgorithmWeights = {
-    location: 0.40,  // 40% baseado em localização
-    interests: 0.30, // 30% baseado em interesses
-    activity: 0.15,  // 15% baseado em atividade
-    premium: 0.10,   // 10% baseado em premium
+    location: 0.45,  // 45% baseado em localização (AUMENTADO)
+    interests: 0.00, // 0% - não implementado ainda
+    activity: 0.25,  // 25% baseado em engajamento (likes/comentários)
+    premium: 0.25,   // 25% baseado em premium (AUMENTADO)
     verification: 0.05 // 5% baseado em verificação
   }
 
@@ -178,8 +178,54 @@ class FeedAlgorithmService {
   private async getPostsWithScores(userProfile: any, page: number, limit: number) {
     const offset = (page - 1) * limit
 
-    // Por enquanto, usar sempre o fallback até implementarmos a função RPC
-    return this.getFallbackPosts(offset, limit)
+    try {
+      // Extrair coordenadas da localização do usuário se disponível
+      const userLat = userProfile.location?.latitude || null
+      const userLng = userProfile.location?.longitude || null
+
+      // Chamar função RPC para obter feed personalizado
+      const { data: posts, error } = await this.supabase
+        .rpc('get_personalized_feed', {
+          p_user_id: userProfile.id,
+          p_user_lat: userLat,
+          p_user_lng: userLng,
+          p_limit: limit,
+          p_offset: offset
+        })
+
+      if (error) {
+        console.error('Error calling get_personalized_feed RPC:', error)
+        // Fallback para posts simples se a função RPC falhar
+        return this.getFallbackPosts(offset, limit)
+      }
+
+      // Formatar posts para corresponder ao formato esperado
+      return posts?.map(post => ({
+        id: post.id,
+        content: post.content,
+        created_at: post.created_at,
+        updated_at: post.updated_at,
+        user_id: post.user_id,
+        likes_count: post.likes_count,
+        comments_count: post.comments_count,
+        shares_count: post.shares_count,
+        media_urls: post.media_urls,
+        media_types: post.media_types,
+        visibility: post.visibility,
+        user: {
+          id: post.user_id,
+          username: post.username,
+          name: post.name,
+          avatar_url: post.avatar_url,
+          is_verified: post.is_verified,
+          premium_type: post.premium_type
+        }
+      })) || []
+    } catch (error) {
+      console.error('Error in getPostsWithScores:', error)
+      // Usar fallback em caso de erro
+      return this.getFallbackPosts(offset, limit)
+    }
   }
 
   /**
@@ -267,16 +313,16 @@ class FeedAlgorithmService {
     try {
       // First get the list of users that current user follows
       const { data: connections, error: connError } = await this.supabase
-        .from('user_connections')
-        .select('connected_user_id')
-        .eq('user_id', userId)
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
 
       if (connError || !connections || connections.length === 0) {
         // If no connections, return empty array
         return []
       }
 
-      const followingIds = connections.map(c => c.connected_user_id)
+      const followingIds = connections.map(c => c.following_id)
 
       // Get posts from followed users
       const { data: posts, error } = await this.supabase

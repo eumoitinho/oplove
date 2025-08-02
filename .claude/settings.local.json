@@ -45,7 +45,8 @@
       "Bash(set:*)",
       "Bash(cat:*)",
       "Bash(nslookup:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": []
   }
