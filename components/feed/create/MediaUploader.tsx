@@ -92,7 +92,12 @@ export function MediaUploader({
     accept: {
       "image/*": [".jpeg", ".jpg", ".png", ".gif", ".webp"],
       ...(allowVideo && {
-        "video/*": [".mp4", ".mov", ".avi", ".webm"],
+        "video/*": [".mp4", ".mov", ".avi", ".webm", ".m4v", ".3gp"],
+        "video/mp4": [".mp4", ".m4v"],
+        "video/quicktime": [".mov"],
+        "video/x-msvideo": [".avi"],
+        "video/webm": [".webm"],
+        "video/3gpp": [".3gp"]
       }),
       ...(allowAudio && {
         "audio/*": [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".webm"],

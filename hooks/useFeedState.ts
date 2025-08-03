@@ -8,6 +8,7 @@ interface FeedState {
   hasMore: boolean
   initialized: boolean
   lastUpdated: number
+  isFollowingAnyone?: boolean
 }
 
 interface UseFeedStateOptions {
@@ -29,7 +30,8 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     page: 1,
     hasMore: true,
     initialized: false,
-    lastUpdated: 0
+    lastUpdated: 0,
+    isFollowingAnyone: undefined
   })
 
   // Generate cache key for current context
@@ -59,7 +61,8 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
       page: 1,
       hasMore: true,
       initialized: false,
-      lastUpdated: 0
+      lastUpdated: 0,
+      isFollowingAnyone: undefined
     }
   }, [getCacheKey, isCacheValid])
 
@@ -97,7 +100,8 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
       page: 1,
       hasMore: true,
       initialized: false,
-      lastUpdated: 0
+      lastUpdated: 0,
+      isFollowingAnyone: undefined
     }
     
     setCurrentState(freshState)

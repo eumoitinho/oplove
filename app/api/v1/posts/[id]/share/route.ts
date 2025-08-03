@@ -4,17 +4,16 @@ import { getCurrentUser } from '@/lib/auth/auth-utils'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    const postId = params.id
     const { shareType = 'public', message = null } = await request.json()
 
     // Verificar se o post existe e está público
@@ -102,17 +101,16 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    const postId = params.id
 
     // Remover compartilhamento
     const { error: deleteError } = await supabase
@@ -155,12 +153,12 @@ export async function DELETE(
 // Buscar compartilhamentos de um post
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
-    const postId = params.id
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')

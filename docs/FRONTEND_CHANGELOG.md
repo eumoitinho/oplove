@@ -5,7 +5,236 @@ Todas as alterações notáveis no frontend do projeto serão documentadas neste
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
-## [Unreleased] - 2025-08-02
+## [Unreleased] - 2025-08-03
+
+### 🐛 Correções de Comentários e Notificações (2025-08-03)
+
+#### Problema Identificado
+- **ERRO**: Comentários não apareciam após serem postados
+- **ERRO**: Notificações não eram enviadas para outros perfis
+- **ERRO**: API de likes retornando erro 400
+- **CAUSA**: Múltiplos problemas de importação e nomes de colunas incorretos
+
+#### Correções Implementadas
+
+##### 1. Correção de Importações do Supabase Client
+- **PROBLEMA**: APIs importando de `@/lib/supabase/server` ao invés de `@/app/lib/supabase-server`
+- **SOLUÇÕES**:
+  - Corrigido em `/api/v1/posts/[id]/comments/route.ts`
+  - Corrigido em `/api/v1/posts/[id]/like/route.ts`
+  - Importação correta: `import { createServerClient } from "@/app/lib/supabase-server"`
+
+##### 2. Correção de Campos na Tabela notifications
+- **PROBLEMA**: APIs usando campos inexistentes (content, related_data)
+- **CORRETO**: message, metadata
+- **MANTIDOS**: recipient_id e sender_id (nomes corretos confirmados pelo usuário)
+- **ARQUIVOS CORRIGIDOS**:
+  - `/api/v1/posts/[id]/comments/route.ts`
+  - `/api/v1/posts/[id]/like/route.ts`
+
+##### 3. Melhorias no CommentsModal
+- **ADICIONADO**: `credentials: "include"` em todas as chamadas fetch
+- **ADICIONADO**: Callback `onCommentAdded` para atualizar contador
+- **ADICIONADO**: Reload automático após adicionar comentário
+- **ADICIONADO**: Logs de debug para troubleshooting
+
+##### 4. Atualização do Hook usePostInteractions
+- **ADICIONADO**: Função `incrementCommentCount()` para atualizar contador
+- **ADICIONADO**: `credentials: "include"` em todas as chamadas de API
+- **MELHORADO**: Integração com PostCard para atualizar contador em tempo real
+
+##### 5. Debug Logging Adicionado
+- **Comments API**: Logs para GET e POST de comentários
+- **Like API**: Logs para curtidas e notificações
+- **CommentsModal**: Logs para carregamento de comentários
+
+#### Resultado das Correções
+- ✅ **Comentários aparecem** imediatamente após serem postados
+- ✅ **Contador atualiza** em tempo real ao adicionar comentário
+- ✅ **Notificações funcionam** corretamente com colunas corretas
+- ✅ **API de likes** funcionando sem erros 400
+- ✅ **Autenticação SSR** funcionando com cookies incluídos
+
+### 🐛 Correções Críticas de Perfil de Usuário (2025-08-03)
+
+#### Correção do Sistema de Carregamento de Dados
+- **PROBLEMA**: Posts e mídias não apareciam no perfil do usuário 
+- **CAUSA**: Componente UserProfile definia funções de carregamento mas não as executava
+- **SOLUÇÃO**: Adicionados useEffect hooks essenciais para inicialização de dados
+- **Arquivo**: `components/feed/profile/UserProfile.tsx`
+
+##### Hooks useEffect Implementados
+```typescript
+// Carregamento do perfil na montagem do componente
+useEffect(() => {
+  if (currentUser || userId) {
+    loadUserProfile()
+  }
+}, [loadUserProfile, currentUser, userId])
+
+// Carregamento de posts ao ativar aba "Posts"
+useEffect(() => {
+  if (activeTab === 'posts' && (currentUser || userId)) {
+    loadUserPosts()
+  }
+}, [activeTab, loadUserPosts, currentUser, userId])
+
+// Carregamento de mídia ao ativar aba "Mídia" ou mudar filtro
+useEffect(() => {
+  if (activeTab === 'media' && (currentUser || userId)) {
+    const mediaType = mediaFilter === 'all' ? undefined : 
+                      mediaFilter === 'photos' ? 'photo' : 
+                      mediaFilter === 'videos' ? 'video' : undefined
+    loadUserMedia(mediaType)
+  }
+}, [activeTab, mediaFilter, loadUserMedia, currentUser, userId])
+```
+
+##### Estados de Loading Aprimorados
+- **Adicionado** `profileLoading` state para controle específico do carregamento do perfil
+- **Melhorada** condição de loading: `if (profileLoading || !user) return <PostSkeleton />`
+- **Otimizado** `loadUserProfile()` com controle de loading state
+- **Debug logs** melhorados para rastreamento de execução
+
+##### Validações de Dados
+- **Verificação** de `currentUser` e `userId` antes de carregar dados
+- **Prevenção** de chamadas desnecessárias quando usuário não está disponível
+- **Logging** detalhado para debug: usuário atual, ID, status de carregamento
+
+#### Resultado das Correções
+- ✅ **Posts agora carregam** corretamente na aba "Posts"
+- ✅ **Mídia agora carrega** corretamente na aba "Mídia" com filtros funcionais
+- ✅ **Estados de loading** funcionam adequadamente
+- ✅ **Skeleton apenas** quando realmente carregando
+- ✅ **Debug logs** facilitam troubleshooting futuro
+- ✅ **Performance** otimizada com verificações de usuário
+
+#### Criação de APIs Dedicadas para Perfil (2025-08-03)
+- **PROBLEMA**: UserService usava cliente Supabase direto, causando problemas de autenticação
+- **SOLUÇÃO**: Criadas APIs dedicadas para dados do perfil com autenticação server-side
+- **APIs Criadas**:
+  - `GET /api/v1/users/[id]/posts` - Posts do usuário com contadores de reações
+  - `GET /api/v1/users/[id]/stats` - Estatísticas completas (posts, seguidores, curtidas, seals)
+  - `GET /api/v1/users/[id]/media` - Mídia filtrada por tipo (fotos/vídeos)
+
+##### UserService Refatorado
+- **Mudança**: De queries Supabase diretas para chamadas de API
+- **Vantagens**: 
+  - Autenticação consistente via server-side
+  - Validações centralizadas
+  - Logs de debug aprimorados
+  - Formatação de dados padronizada
+- **Métodos atualizados**:
+  - `getUserProfile()` → API `/api/v1/users/[id]`
+  - `getUserPosts()` → API `/api/v1/users/[id]/posts`
+  - `getUserStats()` → API `/api/v1/users/[id]/stats`
+  - `getUserMedia()` → API `/api/v1/users/[id]/media`
+
+##### Correção Next.js 15 Compatibility
+- **PROBLEMA**: Erro "params should be awaited" em várias APIs
+- **CORRIGIDO**: Atualizado tipo de params para `Promise<{ id: string }>` 
+- **Adicionado**: `const resolvedParams = await params` em todas as APIs
+- **APIs corrigidas**: users/[id]/following, users/[id]/posts, users/[id]/stats, users/[id]/media
+
+#### Logs de Debug Estruturados
+- **Implementados** logs consistentes em todas as APIs e UserService
+- **Formato**: `[ComponentName/ServiceName] Action: details`
+- **Facilita**: Troubleshooting e monitoramento de performance
+- **Exemplos**:
+  ```
+  [UserService] Fetching user profile for ID: 123
+  [UserPosts API] Found posts: 5
+  [UserProfile] Loading posts for user: 123
+  ```
+
+#### Correção de Autenticação nas APIs (2025-08-03)
+- **PROBLEMA**: Erro "Não autorizado" ao buscar posts do usuário
+- **CAUSA**: APIs exigiam autenticação obrigatória, mas cookies não eram enviados
+- **SOLUÇÕES IMPLEMENTADAS**:
+  1. **APIs tornadas públicas**: Removida exigência de autenticação para visualizar posts/stats/media
+  2. **Credentials adicionadas**: `credentials: 'include'` em todas as chamadas fetch do UserService
+  3. **Autenticação opcional**: APIs ainda obtêm usuário atual para features adicionais
+
+##### Mudanças nas APIs:
+```typescript
+// Antes (bloqueava requisições não autenticadas)
+if (authError || !user) {
+  return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+}
+
+// Depois (permite acesso público)
+const { data: { user } } = await supabase.auth.getUser() // opcional
+```
+
+##### Mudanças no UserService:
+```typescript
+// Todas as chamadas fetch agora incluem:
+fetch(url, {
+  method: 'GET',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include' // ← Garante envio de cookies
+})
+```
+
+#### Correção de Nomes de Colunas do Banco (2025-08-03)
+- **PROBLEMA**: Queries usando nomes incorretos de colunas causavam erros 500
+- **ERROS ENCONTRADOS**:
+  - `users.full_name` → deve ser `users.name`
+  - `posts.comment_count` → deve ser `posts.comments_count`
+- **APIs CORRIGIDAS**:
+  - `/api/v1/users/[id]/posts` - corrigido para usar `name` em vez de `full_name`
+  - `/api/v1/users/[id]/media` - corrigido para usar `comments_count`
+  - Removidas agregações desnecessárias pois colunas já existem
+
+##### Melhorias de Debug
+- **Logs detalhados**: Adicionado `details` nos erros de API
+- **UserService**: Mostra detalhes completos dos erros
+- **Console logs**: Facilitam identificação de problemas de schema
+
+#### Correção Content Security Policy (2025-08-03)
+- **PROBLEMA**: Mídia do Supabase bloqueada por CSP restritiva
+- **ERRO**: "Refused to load media... violates Content Security Policy directive"
+- **SOLUÇÃO**: Adicionada diretiva `media-src` no middleware
+- **Arquivo**: `middleware.ts`
+
+##### CSP Atualizada
+```typescript
+'Content-Security-Policy': `
+  // ... outras diretivas
+  media-src 'self' blob: https://*.supabase.co;
+  // ... outras diretivas
+`
+```
+
+##### Resultado
+- ✅ Vídeos e áudios do Supabase agora carregam corretamente
+- ✅ Mantida segurança com CSP apropriada
+- ✅ MediaViewer funcionando com conteúdo do storage
+
+#### Correção de Importação do Supabase Client (2025-08-03)
+- **PROBLEMA**: APIs retornando erro 500 devido a importação incorreta
+- **CAUSA**: Usando `createServerClient` de `@/lib/supabase` ao invés do correto
+- **SOLUÇÃO**: Atualizado para usar `@/app/lib/supabase-server`
+- **APIs Corrigidas**:
+  - `/api/v1/users/[id]/posts`
+  - `/api/v1/users/[id]/stats`
+  - `/api/v1/users/[id]/media`
+
+##### Mudanças Implementadas
+```typescript
+// Antes (incorreto)
+import { createServerClient } from '@/lib/supabase'
+const supabase = createServerClient()
+
+// Depois (correto)
+import { createServerClient } from '@/app/lib/supabase-server'
+const supabase = await createServerClient()
+```
+
+##### Resultado
+- ✅ APIs agora usam cliente Supabase correto com cookies
+- ✅ Autenticação SSR funcionando corretamente
+- ✅ Erros 500 resolvidos
 
 ### 🎨 UI/UX
 
@@ -477,6 +706,58 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - ✅ **Priorização** de conteúdo premium e verificado
 - ✅ **Scoring** baseado em engajamento e proximidade
 - ✅ **Preparado** para migração futura da função RPC
+
+### 🔧 Correção Exibição de Perfis e Username-Only Display (2025-08-03)
+
+#### Problema Identificado
+- **Erro**: Perfis do ExploreView não apareciam devido a enum de gender inválido
+- **Erro**: "invalid input value for enum gender_type: 'man'" - incompatibilidade entre frontend e database
+- **Solicitação**: Usuário pediu para NUNCA exibir nome, sempre username
+
+#### Correções Implementadas
+
+##### 1. Mapeamento de Gender Enum
+- **Problema**: Frontend usa 'man'/'woman', database usa 'male'/'female'
+- **Solução**: Adicionado mapeamento na API `/api/v1/explore/users`
+- **Código**:
+  ```typescript
+  const mappedGenders = filters.gender.map(g => {
+    switch(g) {
+      case 'man': return 'male'
+      case 'woman': return 'female'
+      case 'trans': return 'trans'
+      case 'couple_mw': return 'couple_mf'
+      case 'couple_mm': return 'couple_mm'
+      case 'couple_ww': return 'couple_ff'
+      default: return g
+    }
+  })
+  ```
+
+##### 2. Username-Only Display Policy
+- **Implementado** em TODOS os componentes conforme solicitação do usuário
+- **Componentes atualizados**:
+  - `ExploreView.tsx`: Removido `{profile.name || profile.username}` → `{profile.username}`
+  - `WhoToFollowCard.tsx`: Removido fallback para name
+  - `TrendingProfilesCard.tsx`: Username apenas
+  - `CommentsModal.tsx`: Username apenas para autor e avatar
+  - `RecommendationsCard.tsx`: Username apenas
+  - `LeftSidebar.tsx`: Username apenas no perfil
+  - `PostCard.tsx`: Username apenas em author display e MediaViewer
+
+##### 3. Consistência na Interface
+- **Avatar fallbacks**: Usam primeira letra do username
+- **Display names**: Sempre username, nunca name
+- **MediaViewer**: Author name usa username
+- **AudioPlayer**: Artist usa username
+- **Tooltips e alt text**: Referem-se ao username
+
+#### Resultado
+- ✅ **Corrigido** erro de gender enum - perfis agora aparecem no ExploreView
+- ✅ **Implementado** política username-only em toda a aplicação
+- ✅ **Mantida** consistência visual sem quebrar funcionalidades
+- ✅ **Respeitada** solicitação explícita do usuário
+- ✅ **Perfis carregam** corretamente com filtros de gender
 
 ---
 

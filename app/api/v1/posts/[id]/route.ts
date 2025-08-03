@@ -10,9 +10,10 @@ const updatePostSchema = z.object({
 // GET /api/v1/posts/[id] - Get a single post
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
+    const { id: id } = await params
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -25,7 +26,7 @@ export async function GET(
         comments:post_comments(count),
         is_liked:post_likes!inner(user_id)
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single()
 
     if (error) {
@@ -65,9 +66,10 @@ export async function GET(
 // PATCH /api/v1/posts/[id] - Update a post
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
+    const { id: id } = await params
     const supabase = await createServerClient()
     
     const { data: { user } } = await supabase.auth.getUser()
@@ -82,7 +84,7 @@ export async function PATCH(
     const { data: existingPost } = await supabase
       .from("posts")
       .select("user_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single()
 
     if (!existingPost || existingPost.user_id !== user.id) {
@@ -102,7 +104,7 @@ export async function PATCH(
         visibility,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select(`
         *,
         user:users(id, username, name, avatar_url, premium_type, is_verified),
@@ -148,9 +150,10 @@ export async function PATCH(
 // DELETE /api/v1/posts/[id] - Delete a post
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
+    const { id: id } = await params
     const supabase = await createServerClient()
     
     const { data: { user } } = await supabase.auth.getUser()
@@ -165,7 +168,7 @@ export async function DELETE(
     const { data: existingPost } = await supabase
       .from("posts")
       .select("user_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single()
 
     if (!existingPost || existingPost.user_id !== user.id) {
@@ -178,7 +181,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("posts")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
 
     if (error) {
       return NextResponse.json(

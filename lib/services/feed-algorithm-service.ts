@@ -8,10 +8,10 @@ class FeedAlgorithmService {
   
   // Pesos do algoritmo (soma = 100%)
   private weights: FeedAlgorithmWeights = {
-    location: 0.45,  // 45% baseado em localização (AUMENTADO)
-    interests: 0.00, // 0% - não implementado ainda
-    activity: 0.25,  // 25% baseado em engajamento (likes/comentários)
-    premium: 0.25,   // 25% baseado em premium (AUMENTADO)
+    location: 0.40,  // 40% baseado em localização - TODOS da região aparecem
+    interests: 0.15, // 15% baseado em compatibilidade de interesses
+    activity: 0.20,  // 20% baseado em engajamento (likes/comentários)
+    premium: 0.20,   // 20% baseado em premium
     verification: 0.05 // 5% baseado em verificação
   }
 
@@ -105,13 +105,27 @@ class FeedAlgorithmService {
         return cached
       }
 
+      // Check if user follows anyone first
+      const { data: connections, error: connError } = await this.supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .limit(1)
+
+      if (connError) {
+        console.error('Error checking connections:', connError)
+      }
+
+      const isFollowingAnyone = connections && connections.length > 0
+
       // Generate fresh data - get posts from users the current user follows
       const posts = await this.getFollowingPosts(userId, (page - 1) * limit, limit)
       const freshData = {
         data: posts,
         hasMore: posts.length === limit,
         nextPage: page + 1,
-        total: posts.length
+        total: posts.length,
+        isFollowingAnyone
       }
 
       // Cache result
@@ -128,7 +142,8 @@ class FeedAlgorithmService {
         hasMore: false,
         nextPage: page + 1,
         total: 0,
-        cacheHit: false
+        cacheHit: false,
+        isFollowingAnyone: false
       }
     }
   }
@@ -179,14 +194,12 @@ class FeedAlgorithmService {
     const offset = (page - 1) * limit
 
     try {
-      // Implementação simplificada até a função RPC estar disponível
-      console.log('🧠 FeedAlgorithm - Using simplified algorithm for user:', userProfile.id)
+      console.log('🧠 FeedAlgorithm - Generating personalized feed for user:', userProfile.id)
+      console.log('📍 User location:', userProfile.location)
       
-      // Buscar posts dos últimos 7 dias
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-      const { data: posts, error } = await this.supabase
+      // BUSCAR TODOS OS POSTS PÚBLICOS (sem limite de data)
+      // Priorizar posts da região, mas incluir todos se necessário
+      const { data: allPosts, error } = await this.supabase
         .from('posts')
         .select(`
           id,
@@ -207,47 +220,33 @@ class FeedAlgorithmService {
             avatar_url,
             is_verified,
             premium_type,
-            location
+            location,
+            interests
           )
         `)
         .eq('visibility', 'public')
         .neq('user_id', userProfile.id)
-        .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+        .limit(500) // Buscar mais posts para ter variedade no algoritmo
 
       if (error) {
         console.error('Error fetching posts for algorithm:', error)
         return this.getFallbackPosts(offset, limit)
       }
 
-      // Aplicar algoritmo simplificado no cliente
-      const postsWithScores = posts?.map(post => {
-        let score = 0
+      if (!allPosts || allPosts.length === 0) {
+        console.log('📭 No posts found for algorithm')
+        return []
+      }
+
+      console.log(`📊 Found ${allPosts.length} posts to analyze`)
+
+      // Aplicar algoritmo melhorado - MOSTRAR TODOS OS POSTS DA REGIÃO
+      const postsWithScores = allPosts.map(post => {
+        let score = 100 // Score base para garantir que todos apareçam
         
-        // Engajamento (50%)
-        const engagement = (post.likes_count || 0) + (post.comments_count || 0) * 2 + (post.shares_count || 0) * 3
-        score += engagement * 0.5
-
-        // Premium boost (30%)
-        if (post.users?.premium_type === 'couple') {
-          score += 30
-        } else if (post.users?.premium_type === 'diamond') {
-          score += 20
-        } else if (post.users?.premium_type === 'gold') {
-          score += 15
-        }
-
-        // Verificação boost (10%)
-        if (post.users?.is_verified) {
-          score += 10
-        }
-
-        // Recência boost (10%)
-        const hoursAgo = (Date.now() - new Date(post.created_at).getTime()) / (1000 * 60 * 60)
-        score += Math.max(0, 10 * (1 - hoursAgo / 168)) // Decay over 7 days
-
-        // Localização boost se disponível
+        // 1. LOCALIZAÇÃO - PRIORIDADE MÁXIMA (45% do score)
+        let locationScore = 0
         if (userProfile.location?.latitude && userProfile.location?.longitude && 
             post.users?.location?.latitude && post.users?.location?.longitude) {
           const distance = this.calculateDistance(
@@ -256,19 +255,99 @@ class FeedAlgorithmService {
             post.users.location.latitude,
             post.users.location.longitude
           )
-          if (distance <= 50) {
-            score += Math.max(0, 20 * (1 - distance / 50))
+          
+          // Score baseado na distância - quanto mais perto, maior o score
+          if (distance <= 5) {
+            locationScore = 100 // Muito perto (mesmo bairro)
+          } else if (distance <= 15) {
+            locationScore = 80 // Perto (mesma cidade)
+          } else if (distance <= 50) {
+            locationScore = 60 // Região metropolitana
+          } else if (distance <= 100) {
+            locationScore = 40 // Estado/região
+          } else if (distance <= 300) {
+            locationScore = 20 // País
+          } else {
+            locationScore = 5 // Longe
           }
+          
+          console.log(`📍 Post ${post.id} distance: ${distance.toFixed(1)}km, location score: ${locationScore}`)
+        } else {
+          // Posts sem localização recebem score médio para aparecerem também
+          locationScore = 30
+          console.log(`📍 Post ${post.id} no location data, default score: ${locationScore}`)
         }
+        score += locationScore * this.weights.location
 
-        return { ...post, algorithm_score: score }
-      }) || []
+        // 2. INTERESSES/COMPATIBILIDADE - se o usuário tem preferências
+        let interestScore = 0
+        if (userProfile.interests?.length > 0 && post.users?.interests?.length > 0) {
+          const compatibility = this.calculateInterestScore(userProfile.interests, post.users.interests)
+          interestScore = compatibility * 100
+          console.log(`💝 Post ${post.id} interest compatibility: ${(compatibility * 100).toFixed(1)}%`)
+        } else {
+          // Se não tem interesses definidos, score neutro
+          interestScore = 50
+        }
+        // Usar peso correto para interesses
+        score += interestScore * this.weights.interests
 
-      // Ordenar por score
-      postsWithScores.sort((a, b) => b.algorithm_score - a.algorithm_score)
+        // 3. ENGAJAMENTO (20% do score)
+        const engagement = (post.likes_count || 0) + (post.comments_count || 0) * 2 + (post.shares_count || 0) * 3
+        const engagementScore = Math.min(100, engagement * 2) // Normalizar engajamento
+        score += engagementScore * this.weights.activity
+
+        // 4. PREMIUM STATUS (20% do score)
+        let premiumScore = 0
+        if (post.users?.premium_type === 'couple') {
+          premiumScore = 100
+        } else if (post.users?.premium_type === 'diamond') {
+          premiumScore = 80
+        } else if (post.users?.premium_type === 'gold') {
+          premiumScore = 60
+        } else {
+          premiumScore = 20 // Free users também aparecem
+        }
+        score += premiumScore * this.weights.premium
+
+        // 5. VERIFICAÇÃO (5% do score)
+        const verificationScore = post.users?.is_verified ? 100 : 0
+        score += verificationScore * this.weights.verification
+
+        // 6. FATOR TEMPO - posts mais recentes têm pequeno boost
+        const hoursAgo = (Date.now() - new Date(post.created_at).getTime()) / (1000 * 60 * 60)
+        const recencyScore = Math.max(0, 100 * (1 - hoursAgo / (24 * 30))) // Decay over 30 days
+        score += recencyScore * 0.05 // 5% para recência
+
+        const finalScore = Math.round(score)
+        console.log(`📊 Post ${post.id} final score: ${finalScore} (location: ${locationScore}, engagement: ${engagementScore}, premium: ${premiumScore})`)
+
+        return { ...post, algorithm_score: finalScore, distance: locationScore > 30 ? this.calculateDistance(
+          userProfile.location?.latitude || 0,
+          userProfile.location?.longitude || 0,
+          post.users?.location?.latitude || 0,
+          post.users?.location?.longitude || 0
+        ) : 999 }
+      })
+
+      // Ordenar por score (maior primeiro) + shuffle posts com score similar para variedade
+      postsWithScores.sort((a, b) => {
+        // Se a diferença de score é pequena (< 10), adicionar randomização
+        const scoreDiff = b.algorithm_score - a.algorithm_score
+        if (Math.abs(scoreDiff) < 10) {
+          return Math.random() - 0.5 // Random shuffle para posts similares
+        }
+        return scoreDiff
+      })
+
+      console.log(`🎯 Algorithm results - Top 5 scores: ${postsWithScores.slice(0, 5).map(p => p.algorithm_score).join(', ')}`)
+
+      // Aplicar paginação no resultado final
+      const paginatedPosts = postsWithScores.slice(offset, offset + limit)
+      console.log(`📄 Returning page ${page}: posts ${offset} to ${offset + limit - 1} (${paginatedPosts.length} posts)`)
 
       // Formatar resposta
-      return postsWithScores.map(post => ({
+      return paginatedPosts.map(post => ({
         id: post.id,
         content: post.content,
         created_at: post.created_at,
@@ -386,8 +465,14 @@ class FeedAlgorithmService {
         .select('following_id')
         .eq('follower_id', userId)
 
-      if (connError || !connections || connections.length === 0) {
-        // If no connections, return empty array
+      if (connError) {
+        console.error('Error fetching connections:', connError)
+        return []
+      }
+
+      if (!connections || connections.length === 0) {
+        // If no connections, return empty array with a flag
+        console.log(`User ${userId} is not following anyone`)
         return []
       }
 

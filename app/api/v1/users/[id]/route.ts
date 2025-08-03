@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase/server"
 
 const updateProfileSchema = z.object({
   // Basic info
@@ -63,17 +63,18 @@ const updateProfileSchema = z.object({
   }).optional(),
 })
 
-// GET /api/v1/users/[id] - Get user profile
+// GET /api/v1/users/[id] - Get user profile with comprehensive data
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
-    const supabase = createServerClient()
+    const { id: id } = await params
+    const supabase = await createServerClient()
     const { data: { user: currentUser } } = await supabase.auth.getUser()
 
     // Handle special case for "me"
-    const userId = params.id === "me" ? currentUser?.id : params.id
+    const userId = id === "me" ? currentUser?.id : id
 
     if (!userId) {
       return NextResponse.json(
@@ -82,6 +83,18 @@ export async function GET(
       )
     }
 
+    // Parse query parameters for optional data inclusion
+    const { searchParams } = new URL(request.url)
+    const includeStats = searchParams.get('include_stats') === 'true'
+    const includeRecentPosts = searchParams.get('include_recent_posts') === 'true'
+    const includeStories = searchParams.get('include_stories') === 'true'
+    const includeSeals = searchParams.get('include_seals') === 'true'
+
+    console.log('[UserProfile API] Fetching profile for user:', userId, {
+      includeStats, includeRecentPosts, includeStories, includeSeals
+    })
+
+    // Main user profile query with comprehensive data
     const { data: user, error } = await supabase
       .from("users")
       .select(`
@@ -95,14 +108,15 @@ export async function GET(
       .single()
 
     if (error || !user) {
+      console.error('[UserProfile API] User not found:', error)
       return NextResponse.json(
         { error: "Usuário não encontrado", success: false },
         { status: 404 }
       )
     }
 
-    // Format response
-    const formattedUser = {
+    // Base user data formatting
+    let formattedUser = {
       ...user,
       followers_count: user.followers?.[0]?.count || 0,
       following_count: user.following?.[0]?.count || 0,
@@ -111,15 +125,184 @@ export async function GET(
         ? user.is_following?.some((follow: any) => follow.follower_id === currentUser.id)
         : false,
       is_current_user: currentUser?.id === userId,
+      // Remove nested arrays
+      followers: undefined,
+      following: undefined,
+      posts: undefined,
+    }
+
+    // Parallel queries for additional data if requested
+    const additionalDataQueries: Promise<any>[] = []
+    
+    if (includeStats) {
+      additionalDataQueries.push(
+        // User statistics
+        Promise.all([
+          // Media posts count
+          supabase
+            .from('posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .not('media_urls', 'is', null),
+          
+          // Likes received
+          supabase
+            .from('post_reactions')
+            .select('posts!inner(*)', { count: 'exact', head: true })
+            .eq('posts.user_id', userId)
+            .eq('reaction_type', 'like'),
+          
+          // Active stories
+          supabase
+            .from('stories')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .gte('expires_at', new Date().toISOString())
+            .then(result => result)
+            .catch(() => ({ count: 0 })),
+          
+          // Profile seals
+          supabase
+            .from('user_profile_seals')
+            .select('*', { count: 'exact', head: true })
+            .eq('recipient_id', userId)
+            .then(result => result)
+            .catch(() => ({ count: 0 }))
+        ]).then(([mediaResult, likesResult, storiesResult, sealsResult]) => ({
+          media_posts: mediaResult.count || 0,
+          likes_received: likesResult.count || 0,
+          active_stories: storiesResult.count || 0,
+          profile_seals: sealsResult.count || 0
+        }))
+      )
+    }
+
+    if (includeRecentPosts) {
+      additionalDataQueries.push(
+        // Recent posts (last 5)
+        supabase
+          .from('posts')
+          .select(`
+            id,
+            content,
+            media_urls,
+            media_types,
+            created_at,
+            likes_count,
+            comments_count,
+            shares_count
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(5)
+          .then(result => ({ recent_posts: result.data || [] }))
+      )
+    }
+
+    if (includeStories) {
+      additionalDataQueries.push(
+        // Active stories
+        supabase
+          .from('stories')
+          .select(`
+            id,
+            media_url,
+            media_type,
+            created_at,
+            expires_at,
+            view_count,
+            unique_view_count
+          `)
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .gte('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .then(result => ({ active_stories: result.data || [] }))
+          .catch(() => ({ active_stories: [] }))
+      )
+    }
+
+    if (includeSeals) {
+      additionalDataQueries.push(
+        // Profile seals (last 6)
+        supabase
+          .from('user_profile_seals')
+          .select(`
+            id,
+            created_at,
+            seal:profile_seals(
+              id,
+              name,
+              icon_url,
+              color_hex,
+              rarity
+            )
+          `)
+          .eq('recipient_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(6)
+          .then(result => ({ profile_seals: result.data || [] }))
+          .catch(() => ({ profile_seals: [] }))
+      )
+    }
+
+    // Execute additional queries if any were requested
+    let additionalData = {}
+    if (additionalDataQueries.length > 0) {
+      try {
+        const results = await Promise.all(additionalDataQueries)
+        additionalData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
+      } catch (error) {
+        console.error('[UserProfile API] Error fetching additional data:', error)
+        // Continue with base data if additional queries fail
+      }
+    }
+
+    // Calculate profile completion percentage
+    const profileFields = [
+      user.name, user.bio, user.avatar_url, user.location, 
+      user.birth_date, user.interests?.length, user.looking_for?.length
+    ]
+    const completedFields = profileFields.filter(field => 
+      field && (Array.isArray(field) ? field.length > 0 : true)
+    ).length
+    const profileCompletion = Math.round((completedFields / profileFields.length) * 100)
+
+    // Merge all data
+    const comprehensiveUser = {
+      ...formattedUser,
+      ...additionalData,
+      profile_completion: profileCompletion,
+      last_active: user.last_seen || user.updated_at,
     }
 
     return NextResponse.json({
-      data: formattedUser,
+      data: comprehensiveUser,
       success: true,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        version: "1.0",
+        includes: {
+          stats: includeStats && !!additionalData.media_posts,
+          recent_posts: includeRecentPosts && !!additionalData.recent_posts,
+          stories: includeStories && !!additionalData.active_stories,
+          seals: includeSeals && !!additionalData.profile_seals
+        }
+      }
     })
   } catch (error) {
+    console.error('[UserProfile API] Unexpected error:', error)
     return NextResponse.json(
-      { error: "Erro interno do servidor", success: false },
+      { 
+        error: "Erro interno do servidor", 
+        success: false,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          version: "1.0"
+        }
+      },
       { status: 500 }
     )
   }
@@ -128,10 +311,11 @@ export async function GET(
 // PATCH /api/v1/users/[id] - Update user profile
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
-    const supabase = createServerClient()
+    const { id: id } = await params
+    const supabase = await createServerClient()
     
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -142,7 +326,7 @@ export async function PATCH(
     }
 
     // Can only update own profile or if "me"
-    const userId = params.id === "me" ? user.id : params.id
+    const userId = id === "me" ? user.id : id
     if (userId !== user.id) {
       return NextResponse.json(
         { error: "Não autorizado", success: false },

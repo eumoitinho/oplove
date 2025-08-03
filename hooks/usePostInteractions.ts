@@ -48,6 +48,7 @@ export function usePostInteractions({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -88,6 +89,7 @@ export function usePostInteractions({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ collection_id: null }),
       })
 
@@ -125,6 +127,7 @@ export function usePostInteractions({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ shareType: "public" }),
       })
 
@@ -164,6 +167,11 @@ export function usePostInteractions({
     // This will be handled by parent component to open comment modal
     return postId
   }
+  
+  // Update comment count (called after comment is added)
+  const incrementCommentCount = () => {
+    setCommentsCount(prev => prev + 1)
+  }
 
   return {
     isLiked,
@@ -177,5 +185,6 @@ export function usePostInteractions({
     handleSave,
     handleShare,
     handleComment,
+    incrementCommentCount,
   }
 }

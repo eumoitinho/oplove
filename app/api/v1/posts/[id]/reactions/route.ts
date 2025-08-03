@@ -8,17 +8,16 @@ const VALID_REACTIONS: ReactionType[] = ['like', 'love', 'laugh', 'wow', 'sad', 
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    const postId = params.id
     const { reaction_type } = await request.json()
 
     // Validar tipo de reação
@@ -179,12 +178,12 @@ export async function POST(
 // Listar reações de um post
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
-    const postId = params.id
     const { searchParams } = new URL(request.url)
     const reaction_type = searchParams.get('type') as ReactionType | null
     const page = parseInt(searchParams.get('page') || '1')

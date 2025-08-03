@@ -31,6 +31,7 @@ export interface TimelineFeedResult {
   nextPage: number
   total: number
   cacheHit: boolean
+  isFollowingAnyone?: boolean
 }
 
 export interface FeedAlgorithmData {

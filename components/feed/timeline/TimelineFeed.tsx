@@ -87,7 +87,7 @@ export function TimelineFeed({
   const [isChangingTab, setIsChangingTab] = useState(false)
   
   // Get current state from feed state manager
-  const { posts, page, hasMore, initialized } = feedState.currentState
+  const { posts, page, hasMore, initialized, isFollowingAnyone } = feedState.currentState
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -107,6 +107,12 @@ export function TimelineFeed({
     if (!isAuthenticated) {
       setIsLoading(false)
       updateState(activeTab, { initialized: true, posts: [], hasMore: false })
+      return
+    }
+
+    // Don't load data for explore tab - ExploreView handles its own data
+    if (activeTab === "explore") {
+      setIsLoading(false)
       return
     }
 
@@ -139,6 +145,19 @@ export function TimelineFeed({
       console.log('[TimelineFeed] Loading fresh posts for tab:', activeTab)
       setIsLoading(true)
       
+      // Set a timeout to ensure loading state doesn't get stuck
+      const loadingTimeout = setTimeout(() => {
+        if (!cancelled) {
+          console.warn('[TimelineFeed] Loading timeout reached, clearing loading state')
+          setIsLoading(false)
+          updateState(activeTab, {
+            posts: [],
+            hasMore: false,
+            initialized: true
+          })
+        }
+      }, 10000) // 10 seconds timeout
+      
       try {
         // Use effectiveUserId which could be from props or current user
         const userIdToUse = effectiveUserId || user?.id
@@ -158,9 +177,6 @@ export function TimelineFeed({
           case "following":
             result = await feedAlgorithmService.getFollowingFeed(userIdToUse, 1, 10)
             break
-          case "explore":
-            result = await feedAlgorithmService.getExploreFeed(userIdToUse, 1, 10)
-            break
           default:
             result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
         }
@@ -177,7 +193,8 @@ export function TimelineFeed({
             posts: newPosts,
             page: 1,
             hasMore: newHasMore,
-            initialized: true
+            initialized: true,
+            isFollowingAnyone: result.isFollowingAnyone
           })
         }
       } catch (error) {
@@ -190,6 +207,7 @@ export function TimelineFeed({
           })
         }
       } finally {
+        clearTimeout(loadingTimeout)
         if (!cancelled) {
           setIsLoading(false)
         }
@@ -242,7 +260,8 @@ export function TimelineFeed({
               posts: updatedPosts,
               page: nextPage,
               hasMore: newHasMore,
-              initialized: true
+              initialized: true,
+              isFollowingAnyone: result.isFollowingAnyone
             })
           } else {
             feedState.updateState(activeTab, {
@@ -303,7 +322,8 @@ export function TimelineFeed({
         posts: newPosts,
         page: 1,
         hasMore: newHasMore,
-        initialized: true
+        initialized: true,
+        isFollowingAnyone: result.isFollowingAnyone
       })
     } catch (error) {
       console.error('[TimelineFeed] Error refreshing posts:', error)
@@ -356,9 +376,62 @@ export function TimelineFeed({
 
 
   // Show loading skeleton only on initial load when we have no posts AND we're loading
-  if (currentMainContent === "timeline" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
+  // Don't show skeleton for explore tab as it has its own loading state
+  if (currentMainContent === "timeline" && activeTab !== "explore" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
     return (
       <div className={cn("space-y-6", className)}>
+        {/* Create Post - Show even during loading */}
+        {user && <MemoizedCreatePost onSuccess={handleRefresh} />}
+        
+        {/* Feed Tabs */}
+        <div className="w-full mb-6">
+          <div className={cn(
+            "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
+            "opacity-50 pointer-events-none"
+          )}>
+            <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
+              <Button
+                disabled
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
+                  activeTab === "for-you"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400"
+                )}
+              >
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Para você</span>
+                <span className="sm:hidden">Todos</span>
+              </Button>
+              <Button
+                disabled
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
+                  activeTab === "following"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400"
+                )}
+              >
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Seguindo
+              </Button>
+              <Button
+                disabled
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
+                  activeTab === "explore"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400"
+                )}
+              >
+                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Explorar
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Loading skeletons */}
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 animate-pulse">
             <div className="flex items-start space-x-4 mb-4">
@@ -505,11 +578,12 @@ export function TimelineFeed({
               onClick={() => {
                 if (activeTab !== "for-you") {
                   setIsChangingTab(true)
+                  setIsLoading(false) // Clear any stuck loading state
                   onTabChange?.("for-you")
                   setTimeout(() => setIsChangingTab(false), 300)
                 }
               }}
-              disabled={isChangingTab}
+              disabled={isChangingTab || isLoading}
               className={cn(
                 "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "for-you"
@@ -519,17 +593,18 @@ export function TimelineFeed({
             >
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Para você</span>
-              <span className="sm:hidden">Você</span>
+              <span className="sm:hidden">Todos</span>
             </Button>
             <Button
               onClick={() => {
                 if (activeTab !== "following") {
                   setIsChangingTab(true)
+                  setIsLoading(false) // Clear any stuck loading state
                   onTabChange?.("following")
                   setTimeout(() => setIsChangingTab(false), 300)
                 }
               }}
-              disabled={isChangingTab}
+              disabled={isChangingTab || isLoading}
               className={cn(
                 "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
                 activeTab === "following"
@@ -544,13 +619,14 @@ export function TimelineFeed({
               onClick={() => {
                 if (activeTab !== "explore") {
                   setIsChangingTab(true)
+                  setIsLoading(false) // Clear any stuck loading state
                   onTabChange?.("explore")
                   setTimeout(() => setIsChangingTab(false), 300)
                 }
               }}
-              disabled={isChangingTab}
+              disabled={isChangingTab || isLoading}
               className={cn(
-                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
+                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:px-2.5 transition-all",
                 activeTab === "explore"
                   ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
                   : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
@@ -642,33 +718,51 @@ export function TimelineFeed({
               className="flex flex-col items-center justify-center py-16 text-center"
             >
               <div className="w-24 h-24 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-full flex items-center justify-center mb-6">
-                <span className="text-4xl">🔥</span>
+                <span className="text-4xl">
+                  {activeTab === "following" && isFollowingAnyone === false ? "👥" : "🔥"}
+                </span>
               </div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                Ops! Parece que faltou sacanagem por aqui rs
+                {activeTab === "following" && isFollowingAnyone === false
+                  ? "Comece seguindo pessoas interessantes!"
+                  : "Ops! Parece que faltou sacanagem por aqui rs"}
               </h3>
               <p className="text-gray-500 dark:text-white/60 mb-6 max-w-md">
                 {activeTab === "for-you" && "Seja o primeiro a postar algo picante!"}
-                {activeTab === "following" && "As pessoas que você segue ainda não postaram nada hoje. Que tal dar o exemplo?"}
+                {activeTab === "following" && (
+                  isFollowingAnyone === false 
+                    ? "Você ainda não segue ninguém! Explore perfis e comece a seguir pessoas interessantes."
+                    : "As pessoas que você segue ainda não postaram nada hoje. Que tal dar o exemplo?"
+                )}
                 {activeTab === "explore" && "Explore novos perfis ou seja o primeiro a criar conteúdo quente!"}
               </p>
-              <Button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
-              >
-                {isRefreshing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Tentar novamente
-                  </>
-                )}
-              </Button>
+              {activeTab === "following" && isFollowingAnyone === false ? (
+                <Button
+                  onClick={() => onViewChange?.("explore")}
+                  className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                >
+                  <Compass className="w-4 h-4 mr-2" />
+                  Explorar Perfis
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Atualizando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Tentar novamente
+                    </>
+                  )}
+                </Button>
+              )}
             </motion.div>
           )}
           

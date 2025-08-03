@@ -72,9 +72,21 @@ export async function GET(request: NextRequest) {
         `)
         .neq('id', currentUser.id)
 
-      // Apply filters
+      // Apply filters - map frontend gender values to database enum values
       if (filters.gender.length > 0) {
-        query = query.in('gender', filters.gender)
+        // Map frontend gender values to database enum values
+        const mappedGenders = filters.gender.map(g => {
+          switch(g) {
+            case 'man': return 'male'
+            case 'woman': return 'female'
+            case 'trans': return 'trans'
+            case 'couple_mw': return 'couple_mf'
+            case 'couple_mm': return 'couple_mm'
+            case 'couple_ww': return 'couple_ff'
+            default: return g
+          }
+        })
+        query = query.in('gender', mappedGenders)
       }
 
       if (filters.verification_required) {
@@ -105,9 +117,42 @@ export async function GET(request: NextRequest) {
         query = query.gte('birth_date', minBirthDate.toISOString())
       }
 
+      // Debug: Check total users before filtering
+      const { count: totalUsers } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .neq('id', currentUser.id)
+      
+      console.log('📊 Total users available:', totalUsers)
+      
+      // Debug: Check gender distribution in database
+      const { data: genderDistribution } = await supabase
+        .from('users')
+        .select('gender')
+        .neq('id', currentUser.id)
+      
+      if (genderDistribution) {
+        const genderCounts = genderDistribution.reduce((acc, user) => {
+          acc[user.gender || 'null'] = (acc[user.gender || 'null'] || 0) + 1
+          return acc
+        }, {})
+        console.log('📊 Gender distribution in DB:', genderCounts)
+      }
+      
       // Execute query
       console.log('🔍 Explore API - Executing query with filters:', {
         gender: filters.gender,
+        mappedGenders: filters.gender.map(g => {
+          switch(g) {
+            case 'man': return 'male'
+            case 'woman': return 'female'
+            case 'trans': return 'trans'
+            case 'couple_mw': return 'couple_mf'
+            case 'couple_mm': return 'couple_mm'
+            case 'couple_ww': return 'couple_ff'
+            default: return g
+          }
+        }),
         verification_required: filters.verification_required,
         online_only: filters.online_only,
         premium_only: filters.premium_only,
@@ -130,10 +175,20 @@ export async function GET(request: NextRequest) {
       }
 
       console.log('✅ Explore API - Found profiles:', profiles?.length || 0)
+      
+      // Debug: Show gender distribution in results
       if (profiles && profiles.length > 0) {
+        const genderStats = profiles.reduce((acc, p) => {
+          acc[p.gender || 'unknown'] = (acc[p.gender || 'unknown'] || 0) + 1
+          return acc
+        }, {})
+        console.log('📊 Gender distribution in results:', genderStats)
+        
         console.log('📊 First profile sample:', {
           id: profiles[0].id,
           username: profiles[0].username,
+          gender: profiles[0].gender,
+          hasAvatar: !!profiles[0].avatar_url,
           hasLocation: !!profiles[0].location,
           birthDate: profiles[0].birth_date
         })

@@ -43,17 +43,19 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         user:users(id, username, full_name, name, avatar_url, premium_type, is_verified, location),
-        media:post_media(id, url, type, thumbnail_url, duration),
-        poll:post_polls(
+        likes:post_likes(
           id,
-          question,
-          expires_at,
-          options:poll_options(id, text, votes_count)
+          user_id,
+          created_at,
+          user:users(id, username, name, avatar_url)
         ),
-        likes:post_likes(count),
-        comments:post_comments(count),
-        shares:post_shares(count),
-        saves:post_saves(count)
+        comments(
+          id,
+          content,
+          created_at,
+          user_id,
+          user:users(id, username, name, avatar_url)
+        )
       `)
       .order("created_at", { ascending: false })
       .limit(limit)
@@ -85,31 +87,40 @@ export async function GET(request: NextRequest) {
     const { data: posts, error } = await query
 
     if (error) {
+      console.error("[GET POSTS] Database error:", error)
       return NextResponse.json(
         { error: error.message, success: false },
         { status: 400 }
       )
     }
 
+    // Debug log to check what's being returned
+    if (posts && posts.length > 0) {
+      console.log("[GET POSTS] Sample post data:", {
+        hasComments: !!posts[0].comments,
+        commentsLength: posts[0].comments?.length,
+        firstComment: posts[0].comments?.[0]
+      })
+    }
+
     // Format response
-    const formattedPosts = posts?.map((post: any) => ({
-      ...post,
-      media_urls: post.media?.map((m: any) => m.url) || [],
-      media_types: post.media?.map((m: any) => m.type) || [],
-      audio_url: post.media?.find((m: any) => m.type === "audio")?.url,
-      audio_duration: post.media?.find((m: any) => m.type === "audio")?.duration,
-      audio_title: post.content?.split('\n')[0]?.substring(0, 50) || "Áudio",
-      poll: post.poll ? {
-        ...post.poll,
-        user_vote: null // TODO: Buscar voto do usuário
-      } : null,
-      is_liked: user ? post.is_liked?.some((like: any) => like.user_id === user.id) : false,
-      is_saved: user ? post.is_saved?.some((save: any) => save.user_id === user.id) : false,
-      likes_count: post.likes?.[0]?.count || 0,
-      comments_count: post.comments?.[0]?.count || 0,
-      shares_count: post.shares?.[0]?.count || 0,
-      saves_count: post.saves?.[0]?.count || 0,
-    }))
+    const formattedPosts = posts?.map((post: any) => {
+      // Check if current user liked this post
+      const isLiked = user && post.likes?.some((like: any) => like.user_id === user.id)
+      
+      return {
+        ...post,
+        media_urls: post.media_urls || [],
+        is_liked: isLiked,
+        is_saved: false, // TODO: implement saves
+        likes_count: post.likes_count || post.likes?.length || 0,
+        comments_count: post.comments_count || post.comments?.length || 0,
+        shares_count: post.shares_count || 0,
+        saves_count: post.saves_count || 0,
+        likes: post.likes || [],
+        comments: post.comments || [],
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -402,13 +413,26 @@ export async function POST(request: NextRequest) {
     const mediaFiles: File[] = []
     let audioFile: File | null = null
     
+    console.log("[POST CREATE] Processing FormData entries...")
     for (const [key, value] of formData.entries()) {
+      console.log(`[POST CREATE] FormData entry: ${key} = ${value instanceof File ? `File(${value.name})` : value}`)
+      
       if (key.startsWith("media_") && value instanceof File) {
         mediaFiles.push(value)
-        console.log("[POST CREATE] Media file:", { name: value.name, type: value.type, size: value.size })
+        console.log("[POST CREATE] Media file detected:", { 
+          key,
+          name: value.name, 
+          type: value.type, 
+          size: value.size,
+          isVideo: value.type.startsWith("video/")
+        })
       } else if (key === "audio" && value instanceof File) {
         audioFile = value
-        console.log("[POST CREATE] Audio file:", { name: value.name, type: value.type, size: value.size })
+        console.log("[POST CREATE] Audio file detected:", { 
+          name: value.name, 
+          type: value.type, 
+          size: value.size 
+        })
       }
     }
     
@@ -499,8 +523,8 @@ export async function POST(request: NextRequest) {
     // Skip monthly limits check - columns don't exist
     // TODO: Implement monthly limits when columns are added to database
     
-    // Gold users can't upload videos
-    if (userData.premium_type === "gold") {
+    // Free users can't upload videos (Gold+ can)
+    if (userData.premium_type === "free") {
       const videoFiles = mediaFiles.filter(f => f.type.startsWith("video/"))
       if (videoFiles.length > 0) {
         return NextResponse.json(
@@ -511,7 +535,7 @@ export async function POST(request: NextRequest) {
             metadata: {
               timestamp: new Date().toISOString(),
               version: "1.0",
-              required_plan: "diamond",
+              required_plan: "gold",
               feature: "video_upload"
             }
           },
@@ -588,10 +612,22 @@ export async function POST(request: NextRequest) {
       const fileName = `posts/${user.id}/${post.id}/${randomUUID()}.${fileExt}`
       const isVideo = file.type.startsWith("video/")
       
+      // Handle MOV files with video/quicktime MIME type
+      let uploadFile: File | Blob = file
+      let contentType = file.type
+      
+      if (file.type === "video/quicktime" || (fileExt?.toLowerCase() === "mov" && isVideo)) {
+        console.log("[POST CREATE] Converting quicktime file to mp4 blob for upload")
+        // Convert the file to a blob with mp4 content type
+        const arrayBuffer = await file.arrayBuffer()
+        uploadFile = new Blob([arrayBuffer], { type: "video/mp4" })
+        contentType = "video/mp4"
+      }
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("media")
-        .upload(fileName, file, {
-          contentType: file.type,
+        .upload(fileName, uploadFile, {
+          contentType: contentType,
           upsert: false
         })
 

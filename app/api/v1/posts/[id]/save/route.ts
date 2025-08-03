@@ -4,17 +4,16 @@ import { getCurrentUser } from '@/lib/auth/auth-utils'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    const postId = params.id
     const { collection_id = null } = await request.json()
 
     // Verificar se o post existe
@@ -103,17 +102,16 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: postId } = await params
     const supabase = await createServerClient()
     const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
-
-    const postId = params.id
 
     // Buscar o save para obter a collection_id antes de deletar
     const { data: existingSave } = await supabase

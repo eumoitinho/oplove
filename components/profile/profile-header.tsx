@@ -94,7 +94,7 @@ export function ProfileHeader({
           {/* Avatar */}
           <div className="flex-shrink-0">
             <Avatar className="w-24 h-24 border-4 border-white dark:border-gray-800 shadow-lg">
-              <AvatarImage src={user.avatar_url || "/default-avatar.png"} alt={user.name} />
+              <AvatarImage src={user.avatar_url || "/placeholder-user.jpg"} alt={user.name} />
               <AvatarFallback className="text-2xl">
                 {user.name?.charAt(0) || user.username?.charAt(0) || "U"}
               </AvatarFallback>

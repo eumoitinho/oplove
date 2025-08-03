@@ -42,6 +42,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
     handleSave: onSave,
     handleShare: onShare,
     handleComment,
+    incrementCommentCount,
   } = usePostInteractions({
     postId: post.id,
     initialLiked: post.is_liked || false,
@@ -144,7 +145,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
             <div className="flex-grow min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold truncate text-gray-900 dark:text-white">
-                  {post.user?.name || post.user?.username || "Usuário"}
+                  {post.user?.username || "Usuário"}
                 </span>
                 {post.user?.is_verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
                 <PlanBadge plan={post.user?.premium_type || "free"} />
@@ -192,7 +193,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
               <AudioPlayer
                 src={post.audio_url}
                 title={post.audio_title}
-                artist={post.user?.name || post.user?.username}
+                artist={post.user?.username}
                 className="my-3"
               />
             )}
@@ -393,6 +394,10 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           postId={post.id}
           isOpen={showComments}
           onClose={() => setShowComments(false)}
+          onCommentAdded={() => {
+            // Update comment count when a new comment is added
+            incrementCommentCount()
+          }}
         />
       )}
       
@@ -410,7 +415,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           isOpen={showMediaViewer}
           onClose={() => setShowMediaViewer(false)}
           postAuthor={{
-            name: post.user?.name || 'Usuário',
+            name: post.user?.username || 'Usuário',
             username: post.user?.username || 'usuario',
             avatar_url: post.user?.avatar_url
           }}

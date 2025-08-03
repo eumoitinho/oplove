@@ -216,13 +216,13 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
           <div className="flex items-center justify-between p-2 rounded-xl bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 transition-colors">{/* Reduced padding and border radius */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <Avatar className="w-8 h-8 ring-2 ring-gray-200 dark:ring-white/10">{/* Reduced avatar size */}
-                <AvatarImage src={user?.avatar_url || "/default-avatar.png"} alt={user?.name || user?.username} />
+                <AvatarImage src={user?.avatar_url || "/placeholder-user.jpg"} alt={user?.username} />
                 <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                  {user?.name?.charAt(0) || user?.username?.charAt(0) || "U"}
+                  {user?.username?.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <h2 className="font-bold text-xs truncate">{user?.name || user?.username || "Usuário"}</h2>
+                <h2 className="font-bold text-xs truncate">{user?.username || "Usuário"}</h2>
                 <p className="text-xs text-gray-500 dark:text-white/60 truncate">@{user?.username || "username"}</p>
               </div>
             </div>

@@ -80,6 +80,7 @@ export function ExploreView() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [dailyViewCount, setDailyViewCount] = useState(0)
+  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set())
   
   // Memoize initial filters to prevent re-creation
   const initialFilters = useMemo(() => ({
@@ -217,6 +218,35 @@ export function ExploreView() {
     setProfiles(scrollProfiles)
   }, [scrollProfiles, loading])
 
+  // Load initial following state
+  useEffect(() => {
+    if (!user || profiles.length === 0) return
+
+    const loadFollowingState = async () => {
+      try {
+        const profileIds = profiles.map(p => p.id)
+        const response = await fetch(`/api/v1/users/${user.id}/following`, {
+          method: 'GET',
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            const followingIds = result.data
+              .filter((follow: any) => profileIds.includes(follow.following_id))
+              .map((follow: any) => follow.following_id)
+            
+            setFollowingUsers(new Set(followingIds))
+          }
+        }
+      } catch (error) {
+        console.error('Error loading following state:', error)
+      }
+    }
+
+    loadFollowingState()
+  }, [user, profiles])
+
   const handleFilterChange = useCallback((key: keyof ExploreFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }))
   }, [])
@@ -243,6 +273,60 @@ export function ExploreView() {
     if (distance < 1) return `${Math.round(distance * 1000)}m`
     return `${distance.toFixed(1)}km`
   }, [])
+
+  // Handle follow/like action
+  const handleLikeProfile = useCallback(async (profileId: string) => {
+    if (!user) {
+      showToast({
+        title: "Login necessário",
+        description: "Faça login para seguir pessoas",
+        type: "warning"
+      })
+      return
+    }
+
+    if (followingUsers.has(profileId)) {
+      showToast({
+        title: "Já está seguindo",
+        description: "Você já está seguindo esta pessoa",
+        type: "info"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/v1/users/${profileId}/follow`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setFollowingUsers(prev => new Set(prev).add(profileId))
+        showToast({
+          title: "Sucesso!",
+          description: "Agora você está seguindo esta pessoa",
+          type: "success"
+        })
+      } else {
+        showToast({
+          title: "Erro",
+          description: result.error || "Erro ao seguir pessoa",
+          type: "error"
+        })
+      }
+    } catch (error) {
+      console.error('Error following user:', error)
+      showToast({
+        title: "Erro",
+        description: "Erro de conexão",
+        type: "error"
+      })
+    }
+  }, [user, followingUsers, showToast])
 
   if (!user) {
     return (
@@ -580,9 +664,20 @@ export function ExploreView() {
                         <span>({profile.review_count || 0})</span>
                       </div>
                       
-                      <Button size="sm" className="rounded-full">
-                        <Heart className="w-4 h-4 mr-1" />
-                        Curtir
+                      <Button 
+                        size="sm" 
+                        className={`rounded-full ${
+                          followingUsers.has(profile.id) 
+                            ? "bg-pink-500 text-white" 
+                            : ""
+                        }`}
+                        onClick={() => handleLikeProfile(profile.id)}
+                        disabled={followingUsers.has(profile.id)}
+                      >
+                        <Heart className={`w-4 h-4 mr-1 ${
+                          followingUsers.has(profile.id) ? "fill-white" : ""
+                        }`} />
+                        {followingUsers.has(profile.id) ? "Seguindo" : "Curtir"}
                       </Button>
                     </div>
                   </div>

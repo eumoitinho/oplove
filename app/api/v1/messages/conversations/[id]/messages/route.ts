@@ -13,9 +13,10 @@ const sendMessageSchema = z.object({
 // GET /api/v1/messages/conversations/[id]/messages - Get messages from a conversation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
+    const { id: id } = await params
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get("limit") || "50")
     const offset = parseInt(searchParams.get("offset") || "0")
@@ -34,7 +35,7 @@ export async function GET(
     const { data: participant } = await supabase
       .from("conversation_participants")
       .select("user_id")
-      .eq("conversation_id", params.id)
+      .eq("conversation_id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -52,7 +53,7 @@ export async function GET(
         *,
         sender:users(id, username, name, avatar_url, premium_type, is_verified)
       `)
-      .eq("conversation_id", params.id)
+      .eq("conversation_id", id)
       .order("created_at", { ascending: false })
       .limit(limit)
       .offset(offset)
@@ -68,7 +69,7 @@ export async function GET(
     await supabase
       .from("messages")
       .update({ read_at: new Date().toISOString() })
-      .eq("conversation_id", params.id)
+      .eq("conversation_id", id)
       .neq("sender_id", user.id)
       .is("read_at", null)
 
@@ -92,9 +93,10 @@ export async function GET(
 // POST /api/v1/messages/conversations/[id]/messages - Send a message
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string  }> }
 ) {
   try {
+    const { id: id } = await params
     const supabase = createServerClient()
     
     const { data: { user } } = await supabase.auth.getUser()
@@ -123,7 +125,7 @@ export async function POST(
     const { data: participant } = await supabase
       .from("conversation_participants")
       .select("user_id")
-      .eq("conversation_id", params.id)
+      .eq("conversation_id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -138,7 +140,7 @@ export async function POST(
     const { data: conversation } = await supabase
       .from("conversations")
       .select("initiated_by, initiated_by_premium")
-      .eq("id", params.id)
+      .eq("id", id)
       .single()
 
     if (!conversation) {
@@ -174,7 +176,7 @@ export async function POST(
     const { data: message, error } = await supabase
       .from("messages")
       .insert({
-        conversation_id: params.id,
+        conversation_id: id,
         sender_id: user.id,
         content,
         media: media || [],
@@ -200,7 +202,7 @@ export async function POST(
         updated_at: new Date().toISOString(),
         last_message_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", id)
 
     // Update daily message count for Gold users
     if (profile.premium_type === "gold") {

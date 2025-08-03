@@ -4,13 +4,18 @@ import type { NotificationData, User } from '@/types/common'
 
 // Extended notification interface with more details
 export interface Notification extends NotificationData {
-  user_id: string
-  from_user_id?: string
-  from_user?: User
+  recipient_id: string
+  sender_id?: string
+  sender?: User
   entity_id?: string // ID of the related entity (post, comment, etc)
   entity_type?: 'post' | 'comment' | 'message' | 'follow'
   action_taken?: boolean // For follow notifications - if user followed back
   metadata?: Record<string, any>
+  is_read?: boolean
+  read_at?: string | null
+  content?: string
+  message?: string
+  related_data?: Record<string, any>
 }
 
 export interface NotificationFilters {
@@ -38,11 +43,13 @@ class NotificationsService {
     filters?: NotificationFilters
   ) {
     try {
+      console.log('🔔 NotificationsService - getNotifications called:', { userId, page, limit, filters })
+      
       let query = this.supabase
         .from('notifications')
         .select(`
           *,
-          from_user:users(
+          sender:users!sender_id(
             id,
             username,
             name,
@@ -51,7 +58,7 @@ class NotificationsService {
             premium_type
           )
         `)
-        .eq('user_id', userId)
+        .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -60,7 +67,7 @@ class NotificationsService {
       }
 
       if (filters?.read !== undefined && filters.read !== 'all') {
-        query = query.eq('read', filters.read)
+        query = query.eq('is_read', filters.read)
       }
 
       if (filters?.dateRange) {
@@ -76,7 +83,20 @@ class NotificationsService {
 
       const { data, error, count } = await query
 
-      if (error) throw error
+      console.log('🔔 NotificationsService - Query result:', { 
+        dataLength: data?.length, 
+        count,
+        error: error?.message,
+        firstNotification: data?.[0]
+      })
+
+      if (error) {
+        console.error('🔔 NotificationsService - Error getting notifications:', error)
+        throw error
+      }
+
+      console.log('🔔 NotificationsService - Success:', { count, dataLength: data?.length })
+      console.log('🔔 NotificationsService - First 3 notifications:', data?.slice(0, 3))
 
       return {
         notifications: data as Notification[],
@@ -86,6 +106,7 @@ class NotificationsService {
         hasMore: (count || 0) > page * limit
       }
     } catch (error) {
+      console.error('🔔 NotificationsService - Catch error:', error)
       throw error
     }
   }
@@ -93,15 +114,23 @@ class NotificationsService {
   // Get unread notification count
   async getUnreadCount(userId: string): Promise<number> {
     try {
+      console.log('🔔 NotificationsService - getUnreadCount called:', { userId })
+      
       const { count, error } = await this.supabase
         .from('notifications')
         .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('read', false)
+        .eq('recipient_id', userId)
+        .eq('is_read', false)
 
-      if (error) throw error
+      if (error) {
+        console.error('🔔 NotificationsService - getUnreadCount error:', error)
+        throw error
+      }
+      
+      console.log('🔔 NotificationsService - getUnreadCount success:', { count })
       return count || 0
     } catch (error) {
+      console.error('🔔 NotificationsService - getUnreadCount catch:', error)
       return 0
     }
   }
@@ -111,7 +140,7 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ is_read: true })
         .eq('id', notificationId)
 
       if (error) throw error
@@ -125,9 +154,9 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ read: true })
-        .eq('user_id', userId)
-        .eq('read', false)
+        .update({ is_read: true })
+        .eq('recipient_id', userId)
+        .eq('is_read', false)
 
       if (error) throw error
     } catch (error) {
@@ -167,7 +196,7 @@ class NotificationsService {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${userId}`
+          filter: `recipient_id=eq.${userId}`
         },
         async (payload) => {
           // Fetch complete notification data with relations
@@ -175,10 +204,10 @@ class NotificationsService {
             .from('notifications')
             .select(`
               *,
-              from_user:users!notifications_from_user_id_fkey(
+              sender:users!sender_id(
                 id,
                 username,
-                full_name,
+                name,
                 avatar_url,
                 is_verified,
                 premium_type

@@ -30,7 +30,20 @@ interface Comment {
   id: string
   content: string
   created_at: string
-  user: {
+  user_id?: string
+  post_id?: string
+  parent_id?: string | null
+  media_urls?: string[]
+  stats?: {
+    likes: number
+    replies: number
+  }
+  is_reported?: boolean
+  is_hidden?: boolean
+  is_edited?: boolean
+  edited_at?: string | null
+  updated_at?: string
+  user?: {
     id: string
     username: string
     name?: string
@@ -38,8 +51,8 @@ interface Comment {
     premium_type?: string
     is_verified?: boolean
   }
-  likes_count: number
-  is_liked: boolean
+  likes_count?: number
+  is_liked?: boolean
   replies?: Comment[]
 }
 
@@ -47,9 +60,10 @@ interface CommentsModalProps {
   isOpen: boolean
   onClose: () => void
   postId: string
+  onCommentAdded?: () => void
 }
 
-export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
+export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: CommentsModalProps) {
   const { user } = useAuth()
   const features = usePremiumFeatures()
   const [comments, setComments] = useState<Comment[]>([])
@@ -59,10 +73,13 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  
+  console.log('[CommentsModal] Component rendered with postId:', postId, 'isOpen:', isOpen)
 
   // Load comments
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && postId) {
+      console.log('[CommentsModal] Modal opened for post:', postId)
       loadComments()
     }
   }, [isOpen, postId])
@@ -70,15 +87,44 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
   const loadComments = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/v1/posts/${postId}/comments?limit=20&offset=0`)
-      const data = await response.json()
+      console.log('[CommentsModal] Loading comments for post:', postId)
+      const url = `/api/v1/posts/${postId}/comments?limit=20&offset=0`
+      console.log('[CommentsModal] Fetching from URL:', url)
       
-      if (data.success) {
-        setComments(data.data)
-        setHasMore(data.pagination.hasMore)
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (!response.ok) {
+        console.error('[CommentsModal] Response not OK:', response.status, response.statusText)
+      }
+      
+      const data = await response.json()
+      console.log('[CommentsModal] Response data:', data)
+      
+      if (data.success && data.data) {
+        console.log('[CommentsModal] Setting comments:', data.data)
+        // Ensure data is an array
+        const commentsArray = Array.isArray(data.data) ? data.data : []
+        console.log('[CommentsModal] Comments array to set:', commentsArray)
+        setComments(commentsArray)
+        setHasMore(data.pagination?.hasMore || false)
+        
+        // Log if no comments found
+        if (commentsArray.length === 0) {
+          console.log('[CommentsModal] No comments found for this post')
+        }
+      } else {
+        console.error('[CommentsModal] Error or no data in response:', data)
+        setComments([])
       }
     } catch (error) {
+      console.error('[CommentsModal] Error loading comments:', error)
       toast.error("Erro ao carregar comentários")
+      setComments([])
     } finally {
       setLoading(false)
     }
@@ -104,6 +150,7 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
       const response = await fetch(`/api/v1/posts/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           content: content.trim(),
           parent_id: replyingTo,
@@ -130,6 +177,16 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
         setContent("")
         setReplyingTo(null)
         toast.success("Comentário adicionado!")
+        
+        // Notify parent component
+        if (onCommentAdded) {
+          onCommentAdded()
+        }
+        
+        // Also trigger a full reload to ensure consistency
+        setTimeout(() => {
+          loadComments()
+        }, 500)
       } else {
         toast.error(data.error || "Erro ao adicionar comentário")
       }
@@ -158,16 +215,18 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
     }
   }
 
-  const CommentItem = ({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) => (
+  const CommentItem = ({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) => {
+    console.log('[CommentItem] Rendering comment:', comment)
+    return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn("flex gap-3", isReply && "ml-12 mt-3")}
     >
       <Avatar className="w-10 h-10">
-        <AvatarImage src={comment.user.avatar_url} />
+        <AvatarImage src={comment.user?.avatar_url} />
         <AvatarFallback>
-          {comment.user.username.charAt(0)}
+          {(comment.user?.username || 'U').charAt(0)}
         </AvatarFallback>
       </Avatar>
 
@@ -176,9 +235,9 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">
-                {comment.user.username}
+                {comment.user?.username || 'Usuário'}
               </span>
-              {comment.user.is_verified && (
+              {comment.user?.is_verified && (
                 <Badge variant="secondary" className="text-xs">
                   Verificado
                 </Badge>
@@ -214,7 +273,7 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
         <div className="flex items-center gap-4 mt-2 text-xs">
           <button className="flex items-center gap-1 text-gray-500 hover:text-red-500">
             <Heart className={cn("h-3 w-3", comment.is_liked && "fill-current text-red-500")} />
-            {comment.likes_count > 0 && comment.likes_count}
+            {((comment.stats?.likes || comment.likes_count || 0) > 0) && (comment.stats?.likes || comment.likes_count)}
           </button>
           
           {!isReply && (
@@ -237,13 +296,17 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
         )}
       </div>
     </motion.div>
-  )
+    )
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col" aria-describedby="comments-dialog-description">
         <DialogHeader>
           <DialogTitle>Comentários</DialogTitle>
+          <span id="comments-dialog-description" className="sr-only">
+            Visualize e adicione comentários neste post
+          </span>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-4">
@@ -252,14 +315,20 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto" />
             </div>
           ) : comments.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              Nenhum comentário ainda. Seja o primeiro!
-            </p>
+            <div className="text-center py-8">
+              <p className="text-gray-500">
+                Nenhum comentário ainda. Seja o primeiro!
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Post ID: {postId}
+              </p>
+            </div>
           ) : (
             <AnimatePresence>
-              {comments.map(comment => (
-                <CommentItem key={comment.id} comment={comment} />
-              ))}
+              {comments.map((comment, index) => {
+                console.log(`[CommentsModal] Rendering comment ${index}:`, comment)
+                return <CommentItem key={comment.id} comment={comment} />
+              })}
             </AnimatePresence>
           )}
         </div>

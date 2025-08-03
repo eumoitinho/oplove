@@ -7,18 +7,31 @@ export class UserService {
   // Get user profile by ID
   static async getUserProfile(userId: string): Promise<{ data: User | null; error: string | null }> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      console.log('[UserService] Fetching user profile for ID:', userId)
+      
+      // Use the API endpoint for proper data formatting
+      const response = await fetch(`/api/v1/users/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      })
 
-      if (error) {
-        console.error('Error fetching user profile:', error)
-        return { data: null, error: error.message }
+      const result = await response.json()
+      
+      console.log('[UserService] User profile API response:', { 
+        success: result.success, 
+        hasData: !!result.data,
+        error: result.error 
+      })
+
+      if (!response.ok || !result.success) {
+        console.error('Error fetching user profile from API:', result.error)
+        return { data: null, error: result.error || 'Erro ao buscar perfil' }
       }
 
-      return { data: data as User, error: null }
+      return { data: result.data as User, error: null }
     } catch (error) {
       console.error('Error in getUserProfile:', error)
       return { data: null, error: (error as Error).message }
@@ -113,53 +126,31 @@ export class UserService {
     error: string | null
   }> {
     try {
-      // Get posts count
-      const { count: postsCount, error: postsError } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-
-      if (postsError) {
-        console.error('Error fetching posts count:', postsError)
-        return { data: null, error: postsError.message }
-      }
-
-      // Get followers count
-      const { count: followersCount, error: followersError } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', userId)
-
-      // Get following count
-      const { count: followingCount, error: followingError } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_id', userId)
-
-      // Get total likes received (from post_reactions table)
-      const { count: likesCount, error: likesError } = await supabase
-        .from('post_reactions')
-        .select('posts!inner(*)', { count: 'exact', head: true })
-        .eq('posts.user_id', userId)
-        .eq('reaction_type', 'like')
-
-      // Get profile seals count
-      const { count: sealsCount, error: sealsError } = await supabase
-        .from('user_profile_seals')
-        .select('*', { count: 'exact', head: true })
-        .eq('recipient_id', userId)
-
-      return {
-        data: {
-          posts: postsCount || 0,
-          followers: followersCount || 0,
-          following: followingCount || 0,
-          likes: likesCount || 0,
-          seals: sealsCount || 0
+      console.log('[UserService] Fetching stats for user ID:', userId)
+      
+      // Use the API endpoint for stats
+      const response = await fetch(`/api/v1/users/${userId}/stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        error: null
+        credentials: 'include', // Include cookies for authentication
+      })
+
+      const result = await response.json()
+      
+      console.log('[UserService] User stats API response:', { 
+        success: result.success, 
+        stats: result.data,
+        error: result.error 
+      })
+
+      if (!response.ok || !result.success) {
+        console.error('Error fetching user stats from API:', result.error)
+        return { data: null, error: result.error || 'Erro ao buscar estatísticas' }
       }
+
+      return { data: result.data, error: null }
     } catch (error) {
       console.error('Error in getUserStats:', error)
       return { data: null, error: (error as Error).message }
@@ -172,23 +163,31 @@ export class UserService {
     error: string | null
   }> {
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          user:users(*)
-        `)
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+      console.log('[UserService] Fetching posts for user ID:', userId, 'limit:', limit, 'offset:', offset)
+      
+      // Use the API endpoint for posts
+      const response = await fetch(`/api/v1/users/${userId}/posts?limit=${limit}&offset=${offset}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      })
 
-      if (error) {
-        console.error('Error fetching user posts:', error)
-        return { data: null, error: error.message }
+      const result = await response.json()
+      
+      console.log('[UserService] User posts API response:', { 
+        success: result.success, 
+        postsCount: result.data?.length || 0,
+        error: result.error 
+      })
+
+      if (!response.ok || !result.success) {
+        console.error('Error fetching user posts from API:', result.error)
+        return { data: null, error: result.error || 'Erro ao buscar posts' }
       }
 
-      return { data, error: null }
+      return { data: result.data || [], error: null }
     } catch (error) {
       console.error('Error in getUserPosts:', error)
       return { data: null, error: (error as Error).message }
@@ -220,7 +219,13 @@ export class UserService {
     error: string | null
   }> {
     try {
-      const response = await fetch(`/api/v1/users/${userId}/seals`)
+      const response = await fetch(`/api/v1/users/${userId}/seals`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      })
       
       if (!response.ok) {
         const errorData = await response.json()
@@ -288,40 +293,38 @@ export class UserService {
     error: string | null
   }> {
     try {
-      let query = supabase
-        .from('posts')
-        .select(`
-          id,
-          content,
-          media_urls,
-          media_types,
-          created_at,
-          like_count,
-          comment_count
-        `)
-        .eq('user_id', userId)
-        .eq('is_deleted', false)
-        .not('media_urls', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(limit)
-
-      // Filter by media type if specified
+      console.log('[UserService] Fetching media for user ID:', userId, 'type:', mediaType, 'limit:', limit)
+      
+      // Build query parameters
+      const params = new URLSearchParams({ limit: limit.toString() })
       if (mediaType) {
-        if (mediaType === 'photo') {
-          query = query.contains('media_types', ['image'])
-        } else if (mediaType === 'video') {
-          query = query.contains('media_types', ['video'])
-        }
+        params.append('type', mediaType)
+      }
+      
+      // Use the API endpoint for media
+      const response = await fetch(`/api/v1/users/${userId}/media?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      })
+
+      const result = await response.json()
+      
+      console.log('[UserService] User media API response:', { 
+        success: result.success, 
+        mediaCount: result.data?.length || 0,
+        error: result.error,
+        details: result.details 
+      })
+
+      if (!response.ok || !result.success) {
+        console.error('Error fetching user media from API:', result.error, 'Details:', result.details)
+        return { data: null, error: result.error || 'Erro ao buscar mídia' }
       }
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching user media:', error)
-        return { data: null, error: error.message }
-      }
-
-      return { data, error: null }
+      return { data: result.data || [], error: null }
     } catch (error) {
       console.error('Error in getUserMedia:', error)
       return { data: null, error: (error as Error).message }

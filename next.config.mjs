@@ -21,7 +21,7 @@ const nextConfig = {
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
+  }
 }
 
 export default nextConfig

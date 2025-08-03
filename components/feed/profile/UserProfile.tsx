@@ -58,7 +58,9 @@ import {
   TrendingUp,
   Gift,
   Zap,
-  Target
+  Target,
+  Ban,
+  Lock
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
@@ -71,6 +73,15 @@ import { UserService } from "@/lib/services/user-service"
 import { EditProfileModal } from "@/components/profile/EditProfileModal"
 import { OptimizedImage } from "@/components/common/OptimizedImage"
 import { MediaViewer } from "@/components/common/MediaViewer"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface UserProfileProps {
   userId?: string
@@ -80,22 +91,30 @@ export function UserProfile({ userId }: UserProfileProps) {
   const { user: currentUser } = useAuth()
   const { features } = usePremiumFeatures()
   const { credits } = useUserCredits()
+  const { toast } = useToast()
+  const router = useRouter()
+  
+  // Debug logs
+  console.log('[UserProfile] INIT - userId:', userId, 'currentUser:', currentUser?.id, 'currentUser full:', currentUser)
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [mediaItems, setMediaItems] = useState<any[]>([])
   const [userStories, setUserStories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [mediaLoading, setMediaLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [mediaFilter, setMediaFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [isFollowing, setIsFollowing] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
-  const [stats, setStats] = useState({
+  const [isMutualFollow, setIsMutualFollow] = useState(false)
+  const [isFollowedBy, setIsFollowedBy] = useState(false)
+  const [stats, setStats] = useState<any>({
     posts: 0,
     followers: 0,
     following: 0,
-    likes: 0,
-    seals: 0
+    likes_received: 0,
+    profile_seals: 0
   })
   const [interests, setInterests] = useState<string[]>([])
   const [profileSeals, setProfileSeals] = useState<any[]>([])
@@ -167,33 +186,16 @@ export function UserProfile({ userId }: UserProfileProps) {
     }
   }, [userId, currentUser?.id])
 
-  useEffect(() => {
-    loadUserProfile()
-    loadUserPosts()
-  }, [userId, currentUser?.id])
-
-  // Load media when media tab is selected
-  useEffect(() => {
-    if (activeTab === "media") {
-      const mediaType = mediaFilter === 'all' ? undefined : (mediaFilter === 'photos' ? 'photo' : 'video')
-      loadUserMedia(mediaType)
-    }
-  }, [activeTab, mediaFilter, loadUserMedia])
-
-  useEffect(() => {
-    if (user && isOwnProfile) {
-      setEditData({
-        bio: user.bio || "",
-        location: user.location || "",
-        website: user.website || ""
-      })
-    }
-  }, [user?.id, isOwnProfile])
-
   const loadUserProfile = useCallback(async () => {
     try {
+      setProfileLoading(true)
+      console.log('[UserProfile] loadUserProfile called')
       const targetUserId = userId || currentUser?.id
-      if (!targetUserId) return
+      if (!targetUserId) {
+        console.log('[UserProfile] No target user ID in loadUserProfile')
+        setProfileLoading(false)
+        return
+      }
 
       let profileUser: User | null = null
 
@@ -205,6 +207,7 @@ export function UserProfile({ userId }: UserProfileProps) {
         const { data: fetchedUser, error } = await UserService.getUserProfile(userId)
         if (error) {
           console.error('Error loading user profile:', error)
+          setProfileLoading(false)
           return
         }
         profileUser = fetchedUser
@@ -244,8 +247,8 @@ export function UserProfile({ userId }: UserProfileProps) {
             posts: 0,
             followers: 0,
             following: 0,
-            likes: 0,
-            seals: 0
+            likes_received: 0,
+            profile_seals: 0
           })
         }
 
@@ -276,11 +279,32 @@ export function UserProfile({ userId }: UserProfileProps) {
         } else {
           setUserStories([])
         }
-      }
 
-      setIsFollowing(false)
+        // Check follow status if not own profile
+        if (!isOwnProfile && currentUser && targetUserId) {
+          try {
+            const response = await fetch(`/api/v1/users/${targetUserId}/follow`, {
+              method: 'GET',
+              credentials: 'include'
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              if (result.success && result.data) {
+                setIsFollowing(result.data.following)
+                setIsFollowedBy(result.data.followedBy)
+                setIsMutualFollow(result.data.mutual)
+              }
+            }
+          } catch (error) {
+            console.error('Error checking follow status:', error)
+          }
+        }
+      }
     } catch (error) {
       console.error("Error loading profile:", error)
+    } finally {
+      setProfileLoading(false)
     }
   }, [userId, currentUser, isOwnProfile])
 
@@ -515,7 +539,37 @@ export function UserProfile({ userId }: UserProfileProps) {
     }
   }, [])
 
-  if (!user) return <PostSkeleton />
+  // Load profile data on component mount
+  useEffect(() => {
+    console.log('[UserProfile] Component mounted, currentUser:', currentUser?.id, 'userId:', userId)
+    if (currentUser || userId) {
+      console.log('[UserProfile] Loading profile data')
+      loadUserProfile()
+    } else {
+      console.log('[UserProfile] No user available, waiting...')
+    }
+  }, [loadUserProfile, currentUser, userId])
+
+  // Load posts when activeTab changes to posts
+  useEffect(() => {
+    if (activeTab === 'posts' && (currentUser || userId)) {
+      console.log('[UserProfile] Posts tab activated, loading posts')
+      loadUserPosts()
+    }
+  }, [activeTab, loadUserPosts, currentUser, userId])
+
+  // Load media when activeTab changes to media or mediaFilter changes
+  useEffect(() => {
+    if (activeTab === 'media' && (currentUser || userId)) {
+      console.log('[UserProfile] Media tab activated, loading media with filter:', mediaFilter)
+      const mediaType = mediaFilter === 'all' ? undefined : 
+                        mediaFilter === 'photos' ? 'photo' : 
+                        mediaFilter === 'videos' ? 'video' : undefined
+      loadUserMedia(mediaType)
+    }
+  }, [activeTab, mediaFilter, loadUserMedia, currentUser, userId])
+
+  if (profileLoading || !user) return <PostSkeleton />
 
   return (
     <div className="space-y-6">
@@ -835,12 +889,12 @@ export function UserProfile({ userId }: UserProfileProps) {
                   <p className="text-sm text-gray-500 dark:text-white/60">Seguindo</p>
                 </button>
                 <div className="text-center">
-                  <p className="font-bold text-xl">{stats.likes.toLocaleString()}</p>
+                  <p className="font-bold text-xl">{(stats.likes_received || stats.likes || 0).toLocaleString()}</p>
                   <p className="text-sm text-gray-500 dark:text-white/60">Curtidas</p>
                 </div>
-                {stats.seals > 0 && (
+                {(stats.profile_seals || stats.seals || 0) > 0 && (
                   <div className="text-center">
-                    <p className="font-bold text-xl text-gradient-to-r from-yellow-500 to-orange-500">{stats.seals}</p>
+                    <p className="font-bold text-xl text-gradient-to-r from-yellow-500 to-orange-500">{stats.profile_seals || stats.seals || 0}</p>
                     <p className="text-sm text-gray-500 dark:text-white/60">Seals</p>
                   </div>
                 )}

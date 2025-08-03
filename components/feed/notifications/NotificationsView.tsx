@@ -107,12 +107,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
   // Mark as read
   const handleMarkAsRead = async (notification: Notification) => {
-    if (notification.read) return
+    if (notification.is_read) return
 
     try {
       await notificationsService.markAsRead(notification.id)
       setNotifications(prev =>
-        prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
       )
     } catch (error) {
       showToast('Erro ao marcar como lida', 'error')
@@ -125,7 +125,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
     try {
       await notificationsService.markAllAsRead(user.id)
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
       showToast('Todas as notificações foram marcadas como lidas', 'success')
     } catch (error) {
       showToast('Erro ao marcar todas como lidas', 'error')
@@ -156,8 +156,8 @@ export function NotificationsView({ className }: NotificationsViewProps) {
         }
         break
       case 'follow':
-        if (notification.from_user_id) {
-          router.push(`/profile/${notification.from_user?.username}`)
+        if (notification.sender_id) {
+          router.push(`/profile/${notification.sender?.username}`)
         }
         break
       case 'message':
@@ -173,7 +173,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
   // Quick action: Follow back
   const handleFollowBack = async (notification: Notification) => {
-    if (!notification.from_user_id) return
+    if (!notification.sender_id) return
 
     try {
       await notificationsService.performQuickAction(notification.id, 'follow_back')
@@ -207,11 +207,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
   return (
     <div className={cn("space-y-4", className)}>
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Notificações</h1>
         <div className="flex items-center gap-2">
-          {notifications.some(n => !n.read) && (
+          {notifications.some(n => !n.is_read) && (
             <button
               onClick={handleMarkAllAsRead}
               className="text-sm text-purple-600 hover:text-purple-700 font-medium"
@@ -312,7 +313,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
                 exit={{ opacity: 0, y: -20 }}
                 className={cn(
                   "bg-white rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md",
-                  !notification.read && "bg-purple-50 border-purple-200"
+                  !notification.is_read && "bg-purple-50 border-purple-200"
                 )}
                 onClick={() => handleNotificationClick(notification)}
               >
@@ -326,11 +327,11 @@ export function NotificationsView({ className }: NotificationsViewProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-3">
                       {/* User Avatar */}
-                      {notification.from_user && (
+                      {notification.sender && (
                         <div className="flex-shrink-0">
                           <Image
-                            src={notification.from_user.avatar_url || '/default-avatar.png'}
-                            alt={notification.from_user.username}
+                            src={notification.sender.avatar_url || '/placeholder-user.jpg'}
+                            alt={notification.sender.username}
                             width={40}
                             height={40}
                             className="rounded-full"
@@ -341,9 +342,9 @@ export function NotificationsView({ className }: NotificationsViewProps) {
                       {/* Text Content */}
                       <div className="flex-1">
                         <p className="text-sm">
-                          {notification.from_user && (
+                          {notification.sender && (
                             <span className="font-semibold mr-1">
-                              {notification.from_user.full_name || notification.from_user.username}
+                              {notification.sender.name || notification.sender.username}
                             </span>
                           )}
                           <span className="text-gray-700">{notification.message}</span>
@@ -373,7 +374,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    {!notification.read && (
+                    {!notification.is_read && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()

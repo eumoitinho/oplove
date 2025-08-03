@@ -126,6 +126,16 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
         formData.append('audio_duration', audioDuration.toString())
       }
 
+      // Debug: Log FormData contents
+      console.log("[CREATE POST] FormData being sent:")
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`  ${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`)
+        } else {
+          console.log(`  ${key}: ${value}`)
+        }
+      }
+      
       const response = await fetch('/api/v1/posts', {
         method: 'POST',
         body: formData,

@@ -174,7 +174,7 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
           {/* User avatar */}
           <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white dark:border-slate-950">
             <Image
-              src={story.user.avatarUrl || '/default-avatar.png'}
+              src={story.user.avatarUrl || '/placeholder-user.jpg'}
               alt={story.user.name}
               fill
               className="object-cover"
