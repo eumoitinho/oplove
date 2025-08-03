@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
+import { useRouter } from 'next/navigation'
 
 interface StoriesCarouselProps {
   className?: string
@@ -20,6 +21,7 @@ interface StoriesCarouselProps {
 
 export default function StoriesCarousel({ className }: StoriesCarouselProps) {
   const { user } = useAuth()
+  const router = useRouter()
   const { canPostStories, getStoryLimit } = usePremiumFeatures()
   
   const [stories, setStories] = useState<Story[]>([])

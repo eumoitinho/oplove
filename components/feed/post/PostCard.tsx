@@ -15,6 +15,7 @@ import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
 import { PostPoll } from "./PostPoll"
 import { useRestrictionModal } from "@/components/common/RestrictionModal"
 import { MediaViewer } from "@/components/common/MediaViewer"
+import { useRouter } from "next/navigation"
 
 interface PostCardProps {
   post: Post
@@ -23,12 +24,19 @@ interface PostCardProps {
 
 export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   const { user } = useAuth()
+  const router = useRouter()
   const [post] = useState(initialPost)
   const [isLikeAnimating, setIsLikeAnimating] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showMediaViewer, setShowMediaViewer] = useState(false)
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const { showRestriction } = useRestrictionModal()
+  
+  const handleUserClick = () => {
+    if (post.user?.id) {
+      router.push(`/feed?view=user-profile&userId=${post.user.id}`)
+    }
+  }
   
   const {
     isLiked,
@@ -135,7 +143,8 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           user={post.user}
           size="lg"
           showPlanBadge={true}
-          className="flex-shrink-0 group-hover:ring-purple-300 dark:group-hover:ring-purple-400/30 transition-all duration-300 row-span-full"
+          className="flex-shrink-0 group-hover:ring-purple-300 dark:group-hover:ring-purple-400/30 transition-all duration-300 row-span-full cursor-pointer"
+          onClick={handleUserClick}
         />
 
         {/* Conteúdo na segunda coluna */}
@@ -144,12 +153,20 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           <div className="flex justify-between items-start">
             <div className="flex-grow min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold truncate text-gray-900 dark:text-white">
+                <span 
+                  className="font-bold truncate text-gray-900 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  onClick={handleUserClick}
+                >
                   {post.user?.username || "Usuário"}
                 </span>
                 {post.user?.is_verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
                 <PlanBadge plan={post.user?.premium_type || "free"} />
-                <span className="text-gray-500 dark:text-white/60 truncate">@{post.user?.username || "usuario"}</span>
+                <span 
+                  className="text-gray-500 dark:text-white/60 truncate cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  onClick={handleUserClick}
+                >
+                  @{post.user?.username || "usuario"}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-white/60 mt-1">
                 <span>{timeAgo}</span>

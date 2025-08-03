@@ -40,6 +40,7 @@ import { notification } from "@/lib/services/notification-service"
 import { createClient } from "@/app/lib/supabase-browser"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { NewConversationModal } from "./NewConversationModal"
 // import EmojiPicker from 'emoji-picker-react' // TODO: Install dependency
 
 export function MessagesView() {
@@ -63,6 +64,7 @@ export function MessagesView() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false)
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -902,8 +904,7 @@ export function MessagesView() {
                   if (permissions.isFreePlan) {
                     notification.error('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
                   } else {
-                    // TODO: Implement new conversation modal
-                    notification.info('Em breve: Nova conversa')
+                    setShowNewConversationModal(true)
                   }
                 }}
                 disabled={permissions.isFreePlan}
@@ -995,6 +996,18 @@ export function MessagesView() {
           </ScrollArea>
         </div>
       </div>
+
+      {/* New Conversation Modal */}
+      <NewConversationModal
+        isOpen={showNewConversationModal}
+        onClose={() => setShowNewConversationModal(false)}
+        onConversationCreated={(conversationId) => {
+          setSelectedConversation(conversationId)
+          setShowNewConversationModal(false)
+          // Reload conversations to include the new one
+          loadConversations()
+        }}
+      />
     </div>
   )
 }

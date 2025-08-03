@@ -48,7 +48,8 @@
       "Bash(ping:*)",
       "Bash(npm run type-check:*)",
       "Bash(npm run type-check:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(del \"components\\feed\\messages\\NewConversationModal.tsx\")"
     ],
     "deny": []
   }

@@ -544,6 +544,87 @@ class MessagesService {
     return this.sendMediaMessage(conversationId, senderId, file, 'audio')
   }
 
+  // Find existing conversation between two users
+  async findConversation(userId1: string, userId2: string) {
+    // First get all conversations where user1 is a participant
+    const { data: user1Conversations, error: error1 } = await this.supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId1)
+
+    if (error1 || !user1Conversations?.length) return null
+
+    // Then check which of these conversations also has user2
+    const conversationIds = user1Conversations.map(c => c.conversation_id)
+    const { data: sharedConversations, error: error2 } = await this.supabase
+      .from('conversation_participants')
+      .select('conversation_id, conversations!inner(*)')
+      .eq('user_id', userId2)
+      .in('conversation_id', conversationIds)
+      .single()
+
+    if (error2 || !sharedConversations) return null
+
+    // Return the conversation if it's a direct message (not a group)
+    const conversation = sharedConversations.conversations
+    if (conversation.type === 'direct') {
+      return conversation
+    }
+
+    return null
+  }
+
+  // Create a new conversation between two users
+  async createConversation(senderId: string, recipientId: string) {
+    // Check if sender can create conversations
+    const { data: sender, error: senderError } = await this.supabase
+      .from('users')
+      .select('premium_type')
+      .eq('id', senderId)
+      .single()
+
+    if (senderError || !sender) throw new Error('Erro ao verificar usuário')
+
+    // Free users cannot create conversations
+    if (!sender.premium_type || sender.premium_type === 'free') {
+      throw new PlanLimitError('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
+    }
+
+    // Create the conversation
+    const { data: conversation, error: convError } = await this.supabase
+      .from('conversations')
+      .insert({
+        type: 'direct',
+        initiated_by: senderId,
+        initiated_by_premium: true
+      })
+      .select()
+      .single()
+
+    if (convError) throw convError
+
+    // Add both participants
+    const participants = [
+      { conversation_id: conversation.id, user_id: senderId },
+      { conversation_id: conversation.id, user_id: recipientId }
+    ]
+
+    const { error: participantsError } = await this.supabase
+      .from('conversation_participants')
+      .insert(participants)
+
+    if (participantsError) {
+      // Rollback conversation creation
+      await this.supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversation.id)
+      throw participantsError
+    }
+
+    return conversation
+  }
+
   // Create group conversation
   async createGroupConversation(name: string, participantIds: string[], avatarUrl?: string) {
     // Check if user can create groups

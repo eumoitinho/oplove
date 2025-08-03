@@ -22,7 +22,7 @@ import { UserAvatar } from "@/components/common/UserAvatar"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 import { PaymentModal } from "@/components/common/PaymentModal"
-import { useToast } from "@/hooks/useToast"
+import { toast } from "sonner"
 import { exploreService } from "@/lib/services/explore-service"
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
 import type { UserProfile, ExploreFilters, Gender, AdultInterest } from "@/types/adult"
@@ -75,7 +75,7 @@ const ADULT_INTERESTS: { value: AdultInterest; label: string; category: string }
 export function ExploreView() {
   const { user } = useAuth()
   const features = usePremiumFeatures()
-  const { showToast } = useToast()
+  const router = useRouter()
   const [showFilters, setShowFilters] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [profiles, setProfiles] = useState<UserProfile[]>([])
@@ -134,10 +134,8 @@ export function ExploreView() {
     
     // Check explore limits for free users
     if (userPlan === "free" && dailyViewCount >= 20) {
-      showToast({
-        title: "Limite diário atingido",
+      toast.warning("Limite diário atingido", {
         description: "Usuários gratuitos podem explorar até 20 perfis por dia. Faça upgrade para explorar ilimitadamente.",
-        type: "warning"
       })
       setShowPaymentModal(true)
       return { data: [], hasMore: false }
@@ -168,7 +166,7 @@ export function ExploreView() {
       console.warn('Explore profiles fetch failed, returning empty result')
       return { data: [], hasMore: false }
     }
-  }, [userId, filters, userPlan, dailyViewCount, showToast])
+  }, [userId, filters, userPlan, dailyViewCount])
 
   // State for tracking when filters change
   const [isFiltersChanged, setIsFiltersChanged] = useState(false)
@@ -277,19 +275,15 @@ export function ExploreView() {
   // Handle follow/like action
   const handleLikeProfile = useCallback(async (profileId: string) => {
     if (!user) {
-      showToast({
-        title: "Login necessário",
+      toast.warning("Login necessário", {
         description: "Faça login para seguir pessoas",
-        type: "warning"
       })
       return
     }
 
     if (followingUsers.has(profileId)) {
-      showToast({
-        title: "Já está seguindo",
+      toast.info("Já está seguindo", {
         description: "Você já está seguindo esta pessoa",
-        type: "info"
       })
       return
     }
@@ -306,27 +300,26 @@ export function ExploreView() {
 
       if (result.success) {
         setFollowingUsers(prev => new Set(prev).add(profileId))
-        showToast({
-          title: "Sucesso!",
+        toast.success("Sucesso!", {
           description: "Agora você está seguindo esta pessoa",
-          type: "success"
         })
       } else {
-        showToast({
-          title: "Erro",
+        toast.error("Erro", {
           description: result.error || "Erro ao seguir pessoa",
-          type: "error"
         })
       }
     } catch (error) {
       console.error('Error following user:', error)
-      showToast({
-        title: "Erro",
+      toast.error("Erro", {
         description: "Erro de conexão",
-        type: "error"
       })
     }
-  }, [user, followingUsers, showToast])
+  }, [user, followingUsers])
+
+  // Handle clicking on user profile to navigate
+  const handleUserClick = useCallback((userId: string) => {
+    router.push(`/feed?view=user-profile&userId=${userId}`)
+  }, [router])
 
   if (!user) {
     return (
@@ -570,11 +563,14 @@ export function ExploreView() {
                   key={profile.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                  className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 hover:shadow-lg transition-all duration-300 group"
                 >
                   {/* Profile Image */}
                   <div className="relative mb-4">
-                    <div className="w-full h-48 rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/5">
+                    <div 
+                      className="w-full h-48 rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/5 cursor-pointer"
+                      onClick={() => handleUserClick(profile.id)}
+                    >
                       {profile.photos?.[0] ? (
                         <img
                           src={profile.photos[0]}
@@ -619,7 +615,10 @@ export function ExploreView() {
                   {/* Profile Info */}
                   <div className="space-y-3">
                     <div>
-                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                      <h3 
+                        className="font-bold text-lg text-gray-900 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                        onClick={() => handleUserClick(profile.id)}
+                      >
                         {profile.username}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-white/60">

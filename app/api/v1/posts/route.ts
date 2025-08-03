@@ -42,20 +42,7 @@ export async function GET(request: NextRequest) {
       .from("posts")
       .select(`
         *,
-        user:users(id, username, full_name, name, avatar_url, premium_type, is_verified, location),
-        likes:post_likes(
-          id,
-          user_id,
-          created_at,
-          user:users(id, username, name, avatar_url)
-        ),
-        comments(
-          id,
-          content,
-          created_at,
-          user_id,
-          user:users(id, username, name, avatar_url)
-        )
+        user:users(id, username, full_name, name, avatar_url, premium_type, is_verified, location)
       `)
       .order("created_at", { ascending: false })
       .limit(limit)
@@ -96,29 +83,23 @@ export async function GET(request: NextRequest) {
 
     // Debug log to check what's being returned
     if (posts && posts.length > 0) {
-      console.log("[GET POSTS] Sample post data:", {
-        hasComments: !!posts[0].comments,
-        commentsLength: posts[0].comments?.length,
-        firstComment: posts[0].comments?.[0]
-      })
+      console.log("[GET POSTS] Found", posts.length, "posts")
+      console.log("[GET POSTS] Sample post:", posts[0].id, posts[0].content?.substring(0, 50))
     }
 
     // Format response
     const formattedPosts = posts?.map((post: any) => {
-      // Check if current user liked this post
-      const isLiked = user && post.likes?.some((like: any) => like.user_id === user.id)
-      
       return {
         ...post,
         media_urls: post.media_urls || [],
-        is_liked: isLiked,
+        is_liked: false, // TODO: implement likes check
         is_saved: false, // TODO: implement saves
-        likes_count: post.likes_count || post.likes?.length || 0,
-        comments_count: post.comments_count || post.comments?.length || 0,
+        likes_count: post.likes_count || 0,
+        comments_count: post.comments_count || 0,
         shares_count: post.shares_count || 0,
         saves_count: post.saves_count || 0,
-        likes: post.likes || [],
-        comments: post.comments || [],
+        likes: [], // TODO: implement likes
+        comments: [], // TODO: implement comments
       }
     })
 

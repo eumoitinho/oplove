@@ -7,6 +7,73 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased] - 2025-08-03
 
+### ✨ Nova Funcionalidade de Mensagens (2025-08-03)
+
+#### Implementação do Modal de Nova Conversa
+- **ADICIONADO**: Modal para iniciar conversas com pessoas que o usuário segue
+- **FUNCIONALIDADE**: Ao clicar no botão "+" nas mensagens, abre modal com lista de seguidos
+- **FILTROS**: Busca por nome, username ou bio
+- **INTELIGENTE**: Exclui automaticamente usuários que já têm conversas ativas
+
+#### Componentes Criados
+1. **NewConversationModal.tsx**:
+   - Lista pessoas que o usuário segue
+   - Filtra usuários que já têm conversas
+   - Busca em tempo real
+   - Estados de loading e empty state
+   - Integração com badges de plano e verificação
+
+#### Métodos Adicionados ao MessagesService
+1. **findConversation(userId1, userId2)**:
+   - Verifica se já existe conversa entre dois usuários
+   - Retorna apenas conversas diretas (não grupos)
+
+2. **createConversation(senderId, recipientId)**:
+   - Cria nova conversa entre dois usuários
+   - Valida permissões de plano (free não pode iniciar)
+   - Adiciona ambos participantes automaticamente
+
+#### Melhorias na UX
+- **Feedback Visual**: Loading states durante criação de conversa
+- **Mensagens Claras**: Informa quando não há pessoas para conversar
+- **Fluxo Intuitivo**: Após criar conversa, abre automaticamente o chat
+
+#### Correções (Debug Fix)
+- **API Integration**: Mudou de query direta do Supabase para usar API `/api/v1/users/[id]/following`
+- **Error Handling**: Melhor tratamento de erros com logs detalhados
+- **Debug Mode**: Informações de debug visíveis em desenvolvimento
+- **Simplified Logic**: Removeu filtro complexo de conversas existentes temporariamente para debug
+
+### 🐛 Correções de Estado da Timeline (2025-08-03)
+
+#### Problema Identificado
+- **ERRO**: Skeleton loader persistente ao acessar abas "Seguindo" e "Explorar"
+- **ERRO**: Interface travava com skeleton loader indefinidamente
+- **CAUSA**: Estado de loading não era limpo corretamente ao trocar de abas
+
+#### Correções Implementadas
+
+##### 1. Gerenciamento de Estado para Aba Explore
+- **PROBLEMA**: Aba "explore" usa componente ExploreView próprio mas não limpava loading state
+- **SOLUÇÃO**: Adicionado check específico para não carregar dados na aba explore
+- **ARQUIVO**: `components/feed/timeline/TimelineFeed.tsx`
+
+##### 2. Timeout de Loading
+- **ADICIONADO**: Timeout de 10 segundos para prevenir loading infinito
+- **BENEFÍCIO**: Interface não trava mais se houver erro na API
+
+##### 3. Limpeza de Estado ao Trocar Abas
+- **ADICIONADO**: `setIsLoading(false)` ao clicar em qualquer aba
+- **ADICIONADO**: Desabilitar botões durante loading para evitar múltiplos cliques
+
+##### 4. Correção de Referências Undefined
+- **PROBLEMA**: Variável `feedData` não existia
+- **SOLUÇÃO**: Usar desestruturação correta do feedState: `isFollowingAnyone`
+
+##### 5. Melhoria no Skeleton Loader
+- **ADICIONADO**: Exibir tabs e componente CreatePost mesmo durante loading
+- **MELHORADO**: Condição para não mostrar skeleton na aba explore
+
 ### 🐛 Correções de Comentários e Notificações (2025-08-03)
 
 #### Problema Identificado

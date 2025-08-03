@@ -25,6 +25,7 @@ import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface Comment {
   id: string
@@ -65,6 +66,7 @@ interface CommentsModalProps {
 
 export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: CommentsModalProps) {
   const { user } = useAuth()
+  const router = useRouter()
   const features = usePremiumFeatures()
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,6 +75,11 @@ export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: Comme
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  
+  const handleUserClick = (userId: string) => {
+    onClose()
+    router.push(`/feed?view=user-profile&userId=${userId}`)
+  }
   
   console.log('[CommentsModal] Component rendered with postId:', postId, 'isOpen:', isOpen)
 
@@ -223,7 +230,10 @@ export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: Comme
       animate={{ opacity: 1, y: 0 }}
       className={cn("flex gap-3", isReply && "ml-12 mt-3")}
     >
-      <Avatar className="w-10 h-10">
+      <Avatar 
+        className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-purple-400 transition-all"
+        onClick={() => comment.user?.id && handleUserClick(comment.user.id)}
+      >
         <AvatarImage src={comment.user?.avatar_url} />
         <AvatarFallback>
           {(comment.user?.username || 'U').charAt(0)}
@@ -234,7 +244,10 @@ export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: Comme
         <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm">
+              <span 
+                className="font-semibold text-sm cursor-pointer hover:text-purple-600 transition-colors"
+                onClick={() => comment.user?.id && handleUserClick(comment.user.id)}
+              >
                 {comment.user?.username || 'Usuário'}
               </span>
               {comment.user?.is_verified && (

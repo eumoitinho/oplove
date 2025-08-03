@@ -73,7 +73,7 @@ import { UserService } from "@/lib/services/user-service"
 import { EditProfileModal } from "@/components/profile/EditProfileModal"
 import { OptimizedImage } from "@/components/common/OptimizedImage"
 import { MediaViewer } from "@/components/common/MediaViewer"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
@@ -91,7 +91,6 @@ export function UserProfile({ userId }: UserProfileProps) {
   const { user: currentUser } = useAuth()
   const { features } = usePremiumFeatures()
   const { credits } = useUserCredits()
-  const { toast } = useToast()
   const router = useRouter()
   
   // Debug logs
@@ -345,17 +344,43 @@ export function UserProfile({ userId }: UserProfileProps) {
     }
   }, [userId, currentUser?.id])
 
-  const handleFollow = useCallback(async () => {
+  const handleFollowToggle = useCallback(async () => {
+    if (!currentUser || !user) return
+
     try {
-      setIsFollowing(!isFollowing)
-      setStats(prev => ({
-        ...prev,
-        followers: isFollowing ? prev.followers - 1 : prev.followers + 1
-      }))
+      const method = isFollowing ? 'DELETE' : 'POST'
+      const response = await fetch(`/api/v1/users/${user.id}/follow`, {
+        method,
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setIsFollowing(!isFollowing)
+          setStats(prev => ({
+            ...prev,
+            followers: isFollowing ? prev.followers - 1 : prev.followers + 1
+          }))
+          
+          toast.success(
+            isFollowing 
+              ? `Você deixou de seguir @${user.username}` 
+              : `Você está seguindo @${user.username}`
+          )
+
+          // Update mutual follow status
+          if (result.data?.becameFriends) {
+            setIsMutualFollow(true)
+            toast.success("Vocês agora são amigos! Vocês se seguem mutuamente e podem trocar mensagens.")
+          }
+        }
+      }
     } catch (error) {
-      console.error("Error following user:", error)
+      console.error("Error toggling follow:", error)
+      toast.error("Não foi possível processar sua solicitação.")
     }
-  }, [isFollowing])
+  }, [isFollowing, currentUser, user])
 
   const handleBlock = useCallback(async () => {
     try {
@@ -372,10 +397,23 @@ export function UserProfile({ userId }: UserProfileProps) {
     setShowShareModal(true)
   }, [])
 
+  const handleSendMessage = useCallback(async () => {
+    if (!currentUser || !user) return
+
+    // Check if user has permission to send messages
+    if (!features?.canSendMessage) {
+      toast.error("Apenas usuários Gold ou Diamond podem enviar mensagens.")
+      return
+    }
+
+    // Navigate to chat
+    router.push(`/chat/${user.id}`)
+  }, [currentUser, user, features?.canSendMessage, router])
+
   const copyProfileLink = useCallback(async () => {
     const profileUrl = `${window.location.origin}/profile/${user?.username}`
     await navigator.clipboard.writeText(profileUrl)
-    // TODO: Show toast
+    toast.success('Link do perfil copiado!')
     setShowShareModal(false)
   }, [user?.username])
 
@@ -403,11 +441,13 @@ export function UserProfile({ userId }: UserProfileProps) {
 
   const submitReport = useCallback(async (reason: string) => {
     try {
-      // TODO: Implement real report
+      // TODO: Implement real report API call
       console.log("Report user:", user?.id, "Reason:", reason)
       setShowReportModal(false)
+      toast.success("Denúncia enviada! Agradecemos por ajudar a manter a comunidade segura.")
     } catch (error) {
       console.error("Error reporting user:", error)
+      toast.error("Erro ao enviar denúncia. Tente novamente.")
     }
   }, [user?.id])
 
@@ -688,7 +728,7 @@ export function UserProfile({ userId }: UserProfileProps) {
                       {!isBlocked ? (
                         <>
                           <Button 
-                            onClick={handleFollow}
+                            onClick={handleFollowToggle}
                             disabled={isBlocked}
                             className={cn(
                               "rounded-full transition-all",
@@ -699,7 +739,7 @@ export function UserProfile({ userId }: UserProfileProps) {
                           >
                             {isFollowing ? (
                               <>
-                                <Users className="w-4 h-4 mr-2" />
+                                <UserMinus className="w-4 h-4 mr-2" />
                                 Seguindo
                               </>
                             ) : (
@@ -710,8 +750,9 @@ export function UserProfile({ userId }: UserProfileProps) {
                             )}
                           </Button>
                           <Button 
+                            onClick={handleSendMessage}
                             variant="outline"
-                            disabled={isBlocked}
+                            disabled={isBlocked || !features?.canSendMessage}
                             className="rounded-full border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/5"
                           >
                             <MessageCircle className="w-4 h-4 mr-2" />
@@ -868,6 +909,16 @@ export function UserProfile({ userId }: UserProfileProps) {
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
                     Entrou em {new Date(user.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                  </span>
+                </div>
+              )}
+
+              {/* Mutual Follow Badge */}
+              {isMutualFollow && !isOwnProfile && (
+                <div className="mt-4">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm">
+                    <Users className="w-4 h-4" />
+                    Vocês se seguem
                   </span>
                 </div>
               )}
