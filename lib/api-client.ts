@@ -9,6 +9,15 @@ class ApiClient {
 
   private async getAuthHeaders(): Promise<HeadersInit> {
     const supabase = createClient()
+    
+    // First check if user is authenticated
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) {
+      return {}
+    }
+    
+    // Get session for access token
     const { data: { session } } = await supabase.auth.getSession()
     
     if (!session?.access_token) {

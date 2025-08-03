@@ -401,6 +401,83 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Melhorada** performance geral do ExploreView
 - **Mantida** funcionalidade completa sem breaking changes
 
+### 🐛 Correção Skeleton Infinito - ExploreView
+
+#### Problema Identificado
+- **Erro**: Skeleton loading infinito mesmo com dados carregados
+- **Causa**: `useInfiniteScroll` com `dependencies` causava refresh constante
+
+#### Correções Implementadas
+
+##### 1. Controle Manual de Refresh
+- **Problema**: `dependencies: [filtersKey]` fazia refresh automático sempre
+- **Solução**: Removido dependencies e implementado controle manual
+- **Código**:
+  ```typescript
+  // Antes (problemático)
+  dependencies: [filtersKey] // Refresh automático
+
+  // Depois (controlado)
+  dependencies: [] // Sem refresh automático
+  
+  // Controle manual quando filtros mudam
+  useEffect(() => {
+    if (isFiltersChanged && !!userId) {
+      setIsFiltersChanged(false)
+      refresh()
+    }
+  }, [isFiltersChanged, userId, refresh])
+  ```
+
+##### 2. Tracking de Mudanças de Filtros
+- **Implementado** sistema de tracking para detectar mudanças reais nos filtros
+- **Usado** `useRef` para comparar versão anterior dos filtros
+- **Previne** refresh desnecessário durante inicialização
+
+##### 3. Logs de Debug Melhorados
+- **Adicionados** logs detalhados na API `/api/v1/explore/users`
+- **Melhorado** feedback sobre localização do usuário
+- **Tracking** completo do fluxo de dados
+
+##### 4. Otimização da API de Explore
+- **Melhoradas** mensagens de log para debug
+- **Adicionado** fallback para localização padrão (São Paulo)
+- **Logs** detalhados do processamento de perfis
+
+#### Resultado
+- **Eliminado** skeleton infinito
+- **Corrigido** carregamento de perfis no ExploreView
+- **Melhorada** experiência do usuário
+- **Mantida** funcionalidade de infinite scroll
+
+### 🔧 Correção RPC get_personalized_feed
+
+#### Problema Identificado
+- **Erro**: "Error calling get_personalized_feed RPC: {}" na aba "Para você"
+- **Causa**: Função RPC não existe no banco de dados
+
+#### Solução Temporária Implementada
+- **Criado** algoritmo simplificado no cliente até migration ser aplicada
+- **Mantidos** os mesmos pesos e lógica de scoring:
+  - Engajamento: 50% (likes + comentários + shares)
+  - Premium boost: 30% (Couple > Diamond > Gold)
+  - Verificação: 10% (usuários verificados)
+  - Recência: 10% (decay over 7 dias)
+  - Localização: bonus até 20 pontos (raio 50km)
+
+#### Características
+- **Posts dos últimos 7 dias** para conteúdo fresco
+- **Ordenação por score** calculado no cliente
+- **Fallback robusto** em caso de erro
+- **Logs detalhados** para debug
+- **Performance otimizada** com query eficiente
+
+#### Resultado
+- ✅ **Funcionando** algoritmo de recomendação na aba "Para você"
+- ✅ **Priorização** de conteúdo premium e verificado
+- ✅ **Scoring** baseado em engajamento e proximidade
+- ✅ **Preparado** para migração futura da função RPC
+
 ---
 
 ## Como Contribuir

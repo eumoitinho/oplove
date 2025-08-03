@@ -38,12 +38,18 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (!userData?.location || !userData.location.latitude || !userData.location.longitude) {
-        console.warn('User location not found for:', currentUser.id)
+        console.log('ℹ️ User location not found for:', currentUser.id, '- using default São Paulo location')
         // Use default location (São Paulo) if user has no location
         userData.location = {
           latitude: -23.5505,
           longitude: -46.6333
         }
+      } else {
+        console.log('📍 User location found:', {
+          userId: currentUser.id,
+          lat: userData.location.latitude,
+          lng: userData.location.longitude
+        })
       }
 
       // Build query
@@ -124,6 +130,14 @@ export async function GET(request: NextRequest) {
       }
 
       console.log('✅ Explore API - Found profiles:', profiles?.length || 0)
+      if (profiles && profiles.length > 0) {
+        console.log('📊 First profile sample:', {
+          id: profiles[0].id,
+          username: profiles[0].username,
+          hasLocation: !!profiles[0].location,
+          birthDate: profiles[0].birth_date
+        })
+      }
 
       // Calculate age and distance for each profile
       const profilesWithDetails = profiles?.map(profile => {
@@ -131,13 +145,16 @@ export async function GET(request: NextRequest) {
         const birthDate = new Date(profile.birth_date)
         const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
 
-        // Calculate distance
-        const distance = calculateDistance(
-          userData.location.latitude,
-          userData.location.longitude,
-          profile.location?.latitude || 0,
-          profile.location?.longitude || 0
-        )
+        // Calculate distance - if profile has no location, use a default distance
+        let distance = 999 // Default high distance for profiles without location
+        if (profile.location?.latitude && profile.location?.longitude) {
+          distance = calculateDistance(
+            userData.location.latitude,
+            userData.location.longitude,
+            profile.location.latitude,
+            profile.location.longitude
+          )
+        }
 
         // Format photos array - for now just use avatar_url
         const photos = profile.avatar_url ? [profile.avatar_url] : []
@@ -152,10 +169,23 @@ export async function GET(request: NextRequest) {
         }
       }) || []
 
-      // Filter by distance
+      // Filter by distance - include profiles without location but with lower priority
       const filteredProfiles = profilesWithDetails
-        .filter(profile => profile.distance <= filters.distance_km)
-        .sort((a, b) => a.distance - b.distance)
+        .filter(profile => {
+          // Always include profiles within distance range
+          if (profile.distance <= filters.distance_km) return true
+          // Include profiles without location (distance = 999) if they have other good qualities
+          if (profile.distance === 999) {
+            return profile.is_verified || profile.premium_type !== 'free' || profile.avatar_url
+          }
+          return false
+        })
+        .sort((a, b) => {
+          // Sort by distance, but put profiles with location first
+          if (a.distance === 999 && b.distance !== 999) return 1
+          if (a.distance !== 999 && b.distance === 999) return -1
+          return a.distance - b.distance
+        })
 
       // Filter by interests if specified
       const finalProfiles = filters.interests.length > 0
@@ -163,6 +193,17 @@ export async function GET(request: NextRequest) {
             profile.interests?.some((interest: string) => filters.interests.includes(interest))
           )
         : filteredProfiles
+
+      console.log('🎯 Explore API - Final result:', {
+        success: true,
+        profilesCount: finalProfiles.length,
+        hasMore: finalProfiles.length === limit,
+        sampleProfile: finalProfiles[0] ? {
+          id: finalProfiles[0].id,
+          distance: finalProfiles[0].distance,
+          age: finalProfiles[0].age
+        } : null
+      })
 
       return {
         success: true,

@@ -77,12 +77,12 @@ export function WhoToFollowCard({ onViewChange }: WhoToFollowCardProps) {
             <Avatar className="w-12 h-12 ring-2 ring-gray-200 dark:ring-white/10 flex-shrink-0">
               <AvatarImage src={user.avatar || "/placeholder.svg"} />
               <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                {user.name.charAt(0)}
+                {user.username.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-grow min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-gray-900 dark:text-white truncate">{user.name}</span>
+                <span className="font-semibold text-gray-900 dark:text-white truncate">{user.username}</span>
                 {user.verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
                 <PlanBadge plan={user.plan} />
               </div>

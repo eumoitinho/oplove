@@ -13,8 +13,14 @@ export function useAuthToken() {
       return session.access_token
     }
     
-    // Otherwise, get from Supabase
+    // Otherwise, verify user and get session
     const supabase = createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) {
+      return null
+    }
+    
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     
     return currentSession?.access_token || null

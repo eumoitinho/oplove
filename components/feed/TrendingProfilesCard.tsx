@@ -104,7 +104,7 @@ export function TrendingProfilesCard({ onViewChange }: TrendingProfilesCardProps
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1 mb-1">
                   <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                    {profile.name || profile.username}
+                    {profile.username}
                   </span>
                   {profile.is_verified && (
                     <Verified className="w-3 h-3 text-blue-500 fill-blue-500 flex-shrink-0" />

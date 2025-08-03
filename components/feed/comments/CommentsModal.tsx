@@ -167,7 +167,7 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
       <Avatar className="w-10 h-10">
         <AvatarImage src={comment.user.avatar_url} />
         <AvatarFallback>
-          {comment.user.name?.charAt(0) || comment.user.username.charAt(0)}
+          {comment.user.username.charAt(0)}
         </AvatarFallback>
       </Avatar>
 
@@ -176,7 +176,7 @@ export function CommentsModal({ isOpen, onClose, postId }: CommentsModalProps) {
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">
-                {comment.user.name || comment.user.username}
+                {comment.user.username}
               </span>
               {comment.user.is_verified && (
                 <Badge variant="secondary" className="text-xs">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -169,8 +169,20 @@ export function ExploreView() {
     }
   }, [userId, filters, userPlan, dailyViewCount, showToast])
 
+  // State for tracking when filters change
+  const [isFiltersChanged, setIsFiltersChanged] = useState(false)
+  const prevFiltersRef = useRef<string>('')
+  
   // Memoize filters serialization to prevent unnecessary re-renders
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters])
+  
+  // Track filters changes
+  useEffect(() => {
+    if (prevFiltersRef.current !== '' && prevFiltersRef.current !== filtersKey) {
+      setIsFiltersChanged(true)
+    }
+    prevFiltersRef.current = filtersKey
+  }, [filtersKey])
   
   // Infinite scroll
   const {
@@ -183,8 +195,17 @@ export function ExploreView() {
     fetchFn: fetchProfiles,
     limit: 20,
     enabled: !!userId,
-    dependencies: [filtersKey] // Use serialized string instead of object
+    dependencies: [] // Remove dependencies to prevent auto-refresh
   })
+  
+  // Manual refresh when filters change
+  useEffect(() => {
+    if (isFiltersChanged && !!userId) {
+      console.log('🔄 ExploreView - Filters changed, refreshing...')
+      setIsFiltersChanged(false)
+      refresh()
+    }
+  }, [isFiltersChanged, userId, refresh])
 
   // Update local state when scrollProfiles change
   useEffect(() => {
@@ -515,7 +536,7 @@ export function ExploreView() {
                   <div className="space-y-3">
                     <div>
                       <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                        {profile.name || profile.username}
+                        {profile.username}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-white/60">
                         {profile.age} anos • {profile.location?.city}

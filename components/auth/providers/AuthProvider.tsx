@@ -23,21 +23,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user: authUser }, error } = await supabase.auth.getUser()
       
-      if (session?.user) {
+      if (error) {
+        console.error("Auth error:", error)
+        clearUser()
+        return
+      }
+      
+      if (authUser) {
         const { data: profile } = await supabase
           .from("users")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", authUser.id)
           .single()
         
         if (profile) {
           setUser(profile as User)
-          setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token
-          })
+          // Get session for tokens
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            })
+          }
         }
       } else {
         clearUser()
@@ -57,21 +67,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       try {
         setLoading(true)
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user: authUser }, error } = await supabase.auth.getUser()
         
-        if (session?.user && mounted) {
+        if (error) {
+          console.warn("Auth initialization - no valid session:", error.message)
+          if (mounted) {
+            clearUser()
+          }
+          return
+        }
+        
+        if (authUser && mounted) {
           const { data: profile } = await supabase
             .from("users")
             .select("*")
-            .eq("id", session.user.id)
+            .eq("id", authUser.id)
             .single()
           
           if (profile && mounted) {
             setUser(profile as User)
-            setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            })
+            // Get session for tokens
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+              setSession({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token
+              })
+            }
           }
         } else if (mounted) {
           clearUser()

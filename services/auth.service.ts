@@ -172,9 +172,10 @@ export class AuthService {
    */
   async getSession(): Promise<ApiResponse<{ user: User; session: any } | null>> {
     try {
-      const { data: { session }, error } = await this.supabase.auth.getSession()
+      // First check if user is authenticated
+      const { data: { user }, error } = await this.supabase.auth.getUser()
 
-      if (error || !session) {
+      if (error || !user) {
         return {
           data: null,
           error: null,
@@ -183,7 +184,10 @@ export class AuthService {
         }
       }
 
-      const userProfile = await this.getUserProfile(session.user.id)
+      // Get session for token data
+      const { data: { session } } = await this.supabase.auth.getSession()
+      
+      const userProfile = await this.getUserProfile(user.id)
 
       return {
         data: {

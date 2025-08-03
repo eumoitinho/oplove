@@ -44,7 +44,7 @@ export function SecurityWatermark({ className = "", style = {} }: SecurityWaterm
             }
           },
           (error) => {
-            console.error("Geolocation error:", error)
+            // Silently handle geolocation errors (user denied permission, etc.)
             setUserLocation("Localização indisponível")
           },
           {

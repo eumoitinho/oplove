@@ -3,11 +3,12 @@ import { createClient } from '@/app/lib/supabase-server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createClient()
-    const userId = params.id
+    const resolvedParams = await params
+    const userId = resolvedParams.id
 
     // Get current user to check permissions
     const { data: { user }, error: authError } = await supabase.auth.getUser()

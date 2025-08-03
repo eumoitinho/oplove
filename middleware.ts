@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
   // Protected routes
   const protectedRoutes = ['/feed', '/profile', '/messages', '/settings']
@@ -115,7 +115,7 @@ export async function middleware(request: NextRequest) {
     const rateLimitResult = await rateLimit(request, {
       ...rateLimitConfig,
       identifier: request.nextUrl.pathname,
-      byIP: !session?.user
+      byIP: !user
     })
 
     if (!rateLimitResult.success) {
@@ -144,13 +144,13 @@ export async function middleware(request: NextRequest) {
     response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.reset).toISOString())
   }
 
-  // Redirect to login if accessing protected route without session
-  if (isProtectedRoute && !session) {
+  // Redirect to login if accessing protected route without authenticated user
+  if (isProtectedRoute && (!user || error)) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect to feed if accessing auth route with session
-  if (isAuthRoute && session) {
+  // Redirect to feed if accessing auth route with authenticated user
+  if (isAuthRoute && user && !error) {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 

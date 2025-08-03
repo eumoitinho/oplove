@@ -179,28 +179,96 @@ class FeedAlgorithmService {
     const offset = (page - 1) * limit
 
     try {
-      // Extrair coordenadas da localização do usuário se disponível
-      const userLat = userProfile.location?.latitude || null
-      const userLng = userProfile.location?.longitude || null
+      // Implementação simplificada até a função RPC estar disponível
+      console.log('🧠 FeedAlgorithm - Using simplified algorithm for user:', userProfile.id)
+      
+      // Buscar posts dos últimos 7 dias
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      // Chamar função RPC para obter feed personalizado
       const { data: posts, error } = await this.supabase
-        .rpc('get_personalized_feed', {
-          p_user_id: userProfile.id,
-          p_user_lat: userLat,
-          p_user_lng: userLng,
-          p_limit: limit,
-          p_offset: offset
-        })
+        .from('posts')
+        .select(`
+          id,
+          content,
+          created_at,
+          updated_at,
+          user_id,
+          likes_count,
+          comments_count,
+          shares_count,
+          media_urls,
+          media_types,
+          visibility,
+          users (
+            id,
+            username,
+            name,
+            avatar_url,
+            is_verified,
+            premium_type,
+            location
+          )
+        `)
+        .eq('visibility', 'public')
+        .neq('user_id', userProfile.id)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
 
       if (error) {
-        console.error('Error calling get_personalized_feed RPC:', error)
-        // Fallback para posts simples se a função RPC falhar
+        console.error('Error fetching posts for algorithm:', error)
         return this.getFallbackPosts(offset, limit)
       }
 
-      // Formatar posts para corresponder ao formato esperado
-      return posts?.map(post => ({
+      // Aplicar algoritmo simplificado no cliente
+      const postsWithScores = posts?.map(post => {
+        let score = 0
+        
+        // Engajamento (50%)
+        const engagement = (post.likes_count || 0) + (post.comments_count || 0) * 2 + (post.shares_count || 0) * 3
+        score += engagement * 0.5
+
+        // Premium boost (30%)
+        if (post.users?.premium_type === 'couple') {
+          score += 30
+        } else if (post.users?.premium_type === 'diamond') {
+          score += 20
+        } else if (post.users?.premium_type === 'gold') {
+          score += 15
+        }
+
+        // Verificação boost (10%)
+        if (post.users?.is_verified) {
+          score += 10
+        }
+
+        // Recência boost (10%)
+        const hoursAgo = (Date.now() - new Date(post.created_at).getTime()) / (1000 * 60 * 60)
+        score += Math.max(0, 10 * (1 - hoursAgo / 168)) // Decay over 7 days
+
+        // Localização boost se disponível
+        if (userProfile.location?.latitude && userProfile.location?.longitude && 
+            post.users?.location?.latitude && post.users?.location?.longitude) {
+          const distance = this.calculateDistance(
+            userProfile.location.latitude,
+            userProfile.location.longitude,
+            post.users.location.latitude,
+            post.users.location.longitude
+          )
+          if (distance <= 50) {
+            score += Math.max(0, 20 * (1 - distance / 50))
+          }
+        }
+
+        return { ...post, algorithm_score: score }
+      }) || []
+
+      // Ordenar por score
+      postsWithScores.sort((a, b) => b.algorithm_score - a.algorithm_score)
+
+      // Formatar resposta
+      return postsWithScores.map(post => ({
         id: post.id,
         content: post.content,
         created_at: post.created_at,
@@ -213,14 +281,15 @@ class FeedAlgorithmService {
         media_types: post.media_types,
         visibility: post.visibility,
         user: {
-          id: post.user_id,
-          username: post.username,
-          name: post.name,
-          avatar_url: post.avatar_url,
-          is_verified: post.is_verified,
-          premium_type: post.premium_type
+          id: post.users.id,
+          username: post.users.username,
+          name: post.users.name,
+          avatar_url: post.users.avatar_url,
+          is_verified: post.users.is_verified,
+          premium_type: post.users.premium_type
         }
-      })) || []
+      }))
+
     } catch (error) {
       console.error('Error in getPostsWithScores:', error)
       // Usar fallback em caso de erro

@@ -134,12 +134,23 @@ export function UserProfile({ userId }: UserProfileProps) {
     try {
       setMediaLoading(true)
       const targetUserId = userId || currentUser?.id
+      console.log('[UserProfile] Loading media for user:', targetUserId, 'type:', type)
+      
       if (!targetUserId) {
+        console.log('[UserProfile] No target user ID for media, setting empty')
         setMediaItems([])
         return
       }
 
       const { data: mediaData, error } = await UserService.getUserMedia(targetUserId, type, 30)
+      
+      console.log('[UserProfile] Media API response:', { 
+        mediaCount: mediaData?.length || 0, 
+        error,
+        userId: targetUserId,
+        type 
+      })
+      
       if (error) {
         console.error('Error loading user media:', error)
         setMediaItems([])
@@ -147,6 +158,7 @@ export function UserProfile({ userId }: UserProfileProps) {
       }
 
       setMediaItems(mediaData || [])
+      console.log('[UserProfile] Media set to state:', mediaData?.length || 0)
     } catch (error) {
       console.error('Error loading user media:', error)
       setMediaItems([])
@@ -277,12 +289,21 @@ export function UserProfile({ userId }: UserProfileProps) {
       setLoading(true)
       
       const targetUserId = userId || currentUser?.id
+      console.log('[UserProfile] Loading posts for user:', targetUserId)
+      
       if (!targetUserId) {
+        console.log('[UserProfile] No target user ID, setting empty posts')
         setPosts([])
         return
       }
       
       const { data: userPosts, error } = await UserService.getUserPosts(targetUserId, 20)
+      
+      console.log('[UserProfile] Posts API response:', { 
+        postsCount: userPosts?.length || 0, 
+        error,
+        userId: targetUserId 
+      })
       
       if (error) {
         console.error('Error loading user posts:', error)
@@ -291,6 +312,7 @@ export function UserProfile({ userId }: UserProfileProps) {
       }
       
       setPosts(userPosts || [])
+      console.log('[UserProfile] Posts set to state:', userPosts?.length || 0)
     } catch (error) {
       console.error("Error loading posts:", error)
       setPosts([])
@@ -965,6 +987,10 @@ export function UserProfile({ userId }: UserProfileProps) {
         </TabsList>
 
         <TabsContent value="posts" className="mt-6 space-y-6">
+          {(() => {
+            console.log('[UserProfile] Posts tab render:', { loading, postsCount: posts.length, posts: posts.slice(0, 2) })
+            return null
+          })()}
           {loading ? (
             <>
               <PostSkeleton />
@@ -1000,6 +1026,15 @@ export function UserProfile({ userId }: UserProfileProps) {
         </TabsContent>
 
         <TabsContent value="media" className="mt-6">
+          {(() => {
+            console.log('[UserProfile] Media tab render:', { 
+              mediaLoading, 
+              mediaItemsCount: mediaItems.length, 
+              mediaFilter,
+              mediaItems: mediaItems.slice(0, 2) 
+            })
+            return null
+          })()}
           {/* Media Filter */}
           <div className="flex items-center justify-between mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl">
             <div className="flex items-center gap-2">
