@@ -447,6 +447,12 @@ export function TimelineFeed({
     }
   }, [user?.id, feedState])
 
+  // Handle plans redirect - MUST be before any conditional returns
+  useEffect(() => {
+    if (currentMainContent === "plans") {
+      router.push("/plans")
+    }
+  }, [currentMainContent, router])
 
   // Show loading skeleton only on initial load when we have no posts AND we're loading
   // Don't show skeleton for explore tab as it has its own loading state
@@ -851,15 +857,9 @@ export function TimelineFeed({
     isFollowingAnyone,
     onViewChange,
     loadMoreRef,
-    userId
+    userId,
+    isAuthenticated
   ])
-
-  // Handle plans redirect
-  useEffect(() => {
-    if (currentMainContent === "plans") {
-      router.push("/plans")
-    }
-  }, [currentMainContent, router])
 
   // Render views using ViewManager
   return <ViewManager views={allViews} activeView={currentMainContent} />
