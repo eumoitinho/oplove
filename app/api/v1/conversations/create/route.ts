@@ -79,74 +79,51 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 CREATE CONVERSATION API - User can create conversation, proceeding...')
 
-    // Create conversation using direct database API call to avoid RLS issues
-    const conversationId = crypto.randomUUID()
-    
-    // Insert conversation record directly
-    const conversationResponse = await fetch(`${process.env.SUPABASE_URL}/rest/v1/conversations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
-        id: conversationId,
+    // Create conversation using Supabase client with proper RLS
+    const { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
+      .insert({
         type: 'direct',
         initiated_by: user.id,
-        initiated_by_premium: true
+        initiated_by_premium: sender.premium_type !== 'free'
       })
-    })
+      .select()
+      .single()
 
-    if (!conversationResponse.ok) {
-      const errorText = await conversationResponse.text()
-      console.error('🔍 CREATE CONVERSATION API - Conversation creation failed:', errorText)
-      throw new Error(`Failed to create conversation: ${errorText}`)
+    if (conversationError) {
+      console.error('🔍 CREATE CONVERSATION API - Conversation creation failed:', conversationError)
+      throw new Error(`Failed to create conversation: ${conversationError.message}`)
     }
 
-    const conversation = await conversationResponse.json()
     console.log('🔍 CREATE CONVERSATION API - Conversation created:', conversation)
 
-    // Add participants using direct API call
-    const participantsResponse = await fetch(`${process.env.SUPABASE_URL}/rest/v1/conversation_participants`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify([
-        { conversation_id: conversationId, user_id: user.id, role: 'member' },
-        { conversation_id: conversationId, user_id: recipientId, role: 'member' }
+    // Add participants using Supabase client
+    const { error: participantsError } = await supabase
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: conversation.id, user_id: user.id, role: 'member' },
+        { conversation_id: conversation.id, user_id: recipientId, role: 'member' }
       ])
-    })
 
-    if (!participantsResponse.ok) {
-      const errorText = await participantsResponse.text()
-      console.error('🔍 CREATE CONVERSATION API - Participants creation failed:', errorText)
+    if (participantsError) {
+      console.error('🔍 CREATE CONVERSATION API - Participants creation failed:', participantsError)
       
       // Rollback conversation
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/conversations?id=eq.${conversationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY
-        }
-      })
+      await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversation.id)
       
-      throw new Error(`Failed to add participants: ${errorText}`)
+      throw new Error(`Failed to add participants: ${participantsError.message}`)
     }
 
-    const participants = await participantsResponse.json()
-    console.log('🔍 CREATE CONVERSATION API - Participants added:', participants)
+    console.log('🔍 CREATE CONVERSATION API - Participants added successfully')
     
-    console.log('🔍 CREATE CONVERSATION API - Conversation created successfully:', conversationId)
+    console.log('🔍 CREATE CONVERSATION API - Conversation created successfully:', conversation.id)
 
     return NextResponse.json({
       success: true,
-      data: conversation[0] || { id: conversationId },
+      data: conversation,
       message: "Conversa criada com sucesso"
     })
 

@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!userData || userData.premium_type === 'free') {
+    if (!userData || (userData.premium_type !== 'diamond' && userData.premium_type !== 'couple')) {
       return NextResponse.json(
-        { error: 'Video calls require Gold, Diamond or Couple plan', code: 'UPGRADE_REQUIRED' },
+        { error: 'Chamadas de voz/vídeo estão disponíveis apenas para planos Diamond ou Dupla Hot', code: 'UPGRADE_REQUIRED' },
         { status: 403 }
       )
     }

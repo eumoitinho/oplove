@@ -44,29 +44,27 @@ class NotificationsService {
     filters?: NotificationFilters
   ) {
     try {
-      // Query notifications with sender info
+      console.log('[NotificationsService] Starting query for userId:', userId)
+      
+      // First try simple query without joins
       let query = this.supabase
         .from('notifications')
-        .select(`
-          *,
-          sender:users!sender_id(
-            id,
-            username,
-            name,
-            avatar_url,
-            is_verified,
-            premium_type
-          )
-        `)
+        .select('*')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .limit(Math.min(limit, 20))
       
-      // Simple query without timeout race condition
+      console.log('[NotificationsService] Executing simple query...')
       const { data, error, count } = await query
 
       if (error) {
-        console.error('NotificationsService - Error getting notifications:', error)
+        console.error('NotificationsService - Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        })
         
         // Return empty data if query fails
         return {
@@ -78,16 +76,59 @@ class NotificationsService {
         }
       }
 
+      console.log('[NotificationsService] Query success! Found', data?.length, 'notifications')
+      
+      // If we have data, try to populate sender info separately
+      const notificationsWithSender = await this.populateSenderInfo(data || [])
+      
       return {
-        notifications: data as Notification[],
-        total: count || 0,
+        notifications: notificationsWithSender as Notification[],
+        total: count || data?.length || 0,
         page,
         limit,
-        hasMore: (count || 0) > page * limit
+        hasMore: false // Simplified for now
       }
     } catch (error) {
       console.error('NotificationsService - Catch error:', error)
-      throw error
+      return {
+        notifications: [],
+        total: 0,
+        page,
+        limit,
+        hasMore: false
+      }
+    }
+  }
+  
+  // Helper method to populate sender info separately
+  private async populateSenderInfo(notifications: any[]) {
+    if (!notifications.length) return notifications
+    
+    // Get unique sender IDs
+    const senderIds = [...new Set(
+      notifications
+        .map(n => n.sender_id)
+        .filter(id => id)
+    )]
+    
+    if (!senderIds.length) return notifications
+    
+    try {
+      // Fetch sender info separately
+      const { data: users } = await this.supabase
+        .from('users')
+        .select('id, username, name, avatar_url, is_verified, premium_type')
+        .in('id', senderIds)
+      
+      // Map sender info to notifications
+      return notifications.map(notification => ({
+        ...notification,
+        sender: users?.find(user => user.id === notification.sender_id) || null
+      }))
+    } catch (error) {
+      console.error('Error fetching sender info:', error)
+      // Return notifications without sender info if population fails
+      return notifications
     }
   }
 

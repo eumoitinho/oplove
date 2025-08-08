@@ -105,7 +105,7 @@ export function MessagesView() {
       } else {
         console.warn('⚠️ Selected conversation not found:', selectedConversation)
         setMessages([]) // Clear messages for non-existent conversation
-        setSelectedConversation(null) // Deselect invalid conversation
+        // Don't deselect, wait for conversations to load
         return
       }
       
@@ -132,8 +132,10 @@ export function MessagesView() {
         supabase.removeChannel(updateChannel)
         supabase.removeChannel(typingChannel)
       }
+    } else {
+      setMessages([])
     }
-  }, [selectedConversation])
+  }, [selectedConversation, conversations])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -259,6 +261,7 @@ export function MessagesView() {
         user.id,
         messageInput.trim()
       )
+      // Message will be added via real-time subscription
       setMessageInput("")
       removeTypingIndicator()
       
@@ -459,7 +462,7 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification.error('Apenas usuários Gold+ podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Diamond ou Dupla Hot podem fazer chamadas. Faça upgrade!')
       return
     }
 
@@ -510,7 +513,7 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification.error('Apenas usuários Gold+ podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Diamond ou Dupla Hot podem fazer chamadas. Faça upgrade!')
       return
     }
 
@@ -597,7 +600,7 @@ export function MessagesView() {
       <div className="flex h-full">
         {/* Chat Area - Shows on desktop always, on mobile only when conversation selected */}
         <div className={`${selectedConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
-          {selectedConversation && otherParticipant ? (
+          {selectedConversation ? (
             <>
               {/* Chat Header */}
               <div className="p-4 border-b border-gray-200 dark:border-white/10">
@@ -612,28 +615,42 @@ export function MessagesView() {
                       <ArrowLeft className="w-5 h-5" />
                     </Button>
                     
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={otherParticipant.avatar_url || ""} />
-                      <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                        {otherParticipant.full_name?.charAt(0) || otherParticipant.username.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {otherParticipant.full_name || otherParticipant.username}
-                        </h3>
-                        {otherParticipant.is_verified && (
-                          <CheckCircle className="w-4 h-4 text-blue-500" />
-                        )}
-                        {getPlanBadge(otherParticipant.premium_type)}
+                    {otherParticipant ? (
+                      <>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={otherParticipant.avatar_url || ""} />
+                          <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                            {otherParticipant.full_name?.charAt(0) || otherParticipant.username.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {otherParticipant.full_name || otherParticipant.username}
+                            </h3>
+                            {otherParticipant.is_verified && (
+                              <CheckCircle className="w-4 h-4 text-blue-500" />
+                            )}
+                            {getPlanBadge(otherParticipant.premium_type)}
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-white/60">
+                            {typingUsers.has(otherParticipant.id) ? "Digitando..." : 
+                             otherParticipant.last_seen ? `Visto por último ${format(new Date(otherParticipant.last_seen), "HH:mm", { locale: ptBR })}` : "Online"}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="animate-pulse">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          <div>
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-white/60">
-                        {typingUsers.has(otherParticipant.id) ? "Digitando..." : 
-                         otherParticipant.last_seen ? `Visto por último ${format(new Date(otherParticipant.last_seen), "HH:mm", { locale: ptBR })}` : "Online"}
-                      </p>
-                    </div>
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
@@ -642,7 +659,7 @@ export function MessagesView() {
                       size="icon"
                       className="rounded-full hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handleVoiceCall}
-                      disabled={!permissions.canMakeCalls()}
+                      disabled={!permissions.canMakeCalls() || !otherParticipant}
                       title={!permissions.canMakeCalls() ? "Apenas Diamond e Couple podem fazer chamadas" : "Chamada de voz"}
                     >
                       <Phone className="w-5 h-5" />
@@ -652,7 +669,7 @@ export function MessagesView() {
                       size="icon"
                       className="rounded-full hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handleVideoCall}
-                      disabled={!permissions.canMakeCalls()}
+                      disabled={!permissions.canMakeCalls() || !otherParticipant}
                       title={!permissions.canMakeCalls() ? "Apenas Diamond e Couple podem fazer chamadas" : "Chamada de vídeo"}
                     >
                       <Video className="w-5 h-5" />
@@ -674,8 +691,18 @@ export function MessagesView() {
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'} group`}
                     >
+                      {/* Sender Avatar (only for other users) */}
+                      {message.sender_id !== user?.id && message.sender && (
+                        <Avatar className="w-8 h-8 mr-2 flex-shrink-0">
+                          <AvatarImage src={message.sender.avatar_url || ""} />
+                          <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs">
+                            {message.sender.name?.charAt(0) || message.sender.username?.charAt(0) || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      
                       <div className={`max-w-[70%] ${message.sender_id === user?.id ? 'order-2' : 'order-1'}`}>
                         {/* Message content based on type */}
                         {message.type === 'text' ? (
@@ -884,15 +911,19 @@ export function MessagesView() {
                     </Button>
                     
                     <Input
-                      placeholder={permissions.isFreePlan ? "Usuários gratuitos não podem enviar mensagens" : "Digite uma mensagem..."}
+                      placeholder={
+                        permissions.isFreePlan && !conversations.find(c => c.id === selectedConversation)?.initiated_by_premium 
+                          ? "Usuários gratuitos não podem iniciar conversas" 
+                          : "Digite uma mensagem..."
+                      }
                       value={messageInput}
                       onChange={(e) => {
                         setMessageInput(e.target.value)
                         handleTyping()
                       }}
                       onKeyPress={handleKeyPress}
-                      disabled={permissions.isFreePlan && !conversations.find(c => c.id === selectedConversation)?.initiated_by_premium}
-                      className="flex-1 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={false} // Sempre permitir digitar, a validação será feita no envio
+                      className="flex-1 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-600 dark:focus:ring-pink-400 rounded-full"
                     />
                     
                     <Button 
@@ -935,7 +966,7 @@ export function MessagesView() {
                     <div className="inline-flex justify-center items-center gap-2 bg-gradient-to-r from-pink-600 via-rose-600 to-purple-600 dark:from-pink-500 dark:via-rose-500 dark:to-purple-500 p-[1px] rounded-full group hover:scale-105 transition-all duration-300 hover:shadow-xl">
                       <Button
                         onClick={handleSendMessage}
-                        disabled={!messageInput.trim() || (permissions.isFreePlan && !conversations.find(c => c.id === selectedConversation)?.initiated_by_premium)}
+                        disabled={!messageInput.trim()}
                         size="icon"
                         className="rounded-full bg-white dark:bg-black text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1113,11 +1144,14 @@ export function MessagesView() {
       <NewConversationModal
         isOpen={showNewConversationModal}
         onClose={() => setShowNewConversationModal(false)}
-        onConversationCreated={(conversationId) => {
-          setSelectedConversation(conversationId)
+        onConversationCreated={async (conversationId) => {
           setShowNewConversationModal(false)
-          // Reload conversations to include the new one
-          loadConversations()
+          // First reload conversations to include the new one
+          await loadConversations()
+          // Small delay to ensure data propagation
+          setTimeout(() => {
+            setSelectedConversation(conversationId)
+          }, 100)
         }}
       />
     </div>

@@ -425,6 +425,84 @@ export class MessageService {
   }
 
   /**
+   * Create a group conversation
+   */
+  async createGroupConversation(
+    userId: string,
+    name: string,
+    participantIds: string[],
+    description?: string
+  ): Promise<Conversation> {
+    try {
+      // Check if user can create group conversation
+      const { data: user } = await this.supabase
+        .from('users')
+        .select('premium_type')
+        .eq('id', userId)
+        .single()
+
+      if (!user) {
+        throw new Error('User not found')
+      }
+
+      // Only Diamond and Couple users can create group conversations
+      if (user.premium_type !== 'diamond' && user.premium_type !== 'couple') {
+        throw new Error('Only Diamond and Couple users can create group conversations')
+      }
+
+      // Create the conversation
+      const { data: conversation, error: convError } = await this.supabase
+        .from('conversations')
+        .insert({
+          type: 'group',
+          name,
+          description,
+          created_by: userId,
+          initiated_by: userId,
+          initiated_by_premium: true,
+          group_type: 'user_created',
+          max_participants: 50
+        })
+        .select()
+        .single()
+
+      if (convError) throw convError
+
+      // Add all participants including creator
+      const allParticipantIds = [...new Set([userId, ...participantIds])]
+      const participantInserts = allParticipantIds.map(id => ({
+        conversation_id: conversation.id,
+        user_id: id,
+        role: id === userId ? 'admin' : 'member',
+        joined_at: new Date().toISOString()
+      }))
+
+      const { error: participantError } = await this.supabase
+        .from('conversation_participants')
+        .insert(participantInserts)
+
+      if (participantError) {
+        // Rollback conversation creation if participants fail
+        await this.supabase
+          .from('conversations')
+          .delete()
+          .eq('id', conversation.id)
+        throw participantError
+      }
+
+      // Invalidate cache for all participants
+      for (const participantId of allParticipantIds) {
+        await this.cacheService.invalidateUserConversations(participantId)
+      }
+
+      return conversation
+    } catch (error) {
+      console.error('Error creating group conversation:', error)
+      throw error
+    }
+  }
+
+  /**
    * Create or get direct conversation
    */
   async createOrGetDirectConversation(

@@ -10,12 +10,14 @@ export function useMessagePermissions() {
 
     const limits = CONTENT_LIMITS[user.premium_type || 'free']
 
-    // Free users cannot send messages without verification
+    // Free users cannot initiate messages but can reply
     if (user.premium_type === 'free') {
-      // But can reply if a premium user initiated the conversation
-      if (conversation?.initiated_by_premium && conversation.initiated_by !== user.id) {
+      // Free users can reply if a premium user initiated the conversation
+      // The logic is: if conversation was initiated by someone else AND that someone was premium
+      if (conversation?.initiated_by_premium && conversation.initiated_by && conversation.initiated_by !== user.id) {
         return true
       }
+      // Free users cannot initiate new conversations or send messages in their own initiated conversations
       return false
     }
 

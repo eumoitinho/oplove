@@ -22,7 +22,7 @@ import { TrendingTopicsCard } from "../TrendingTopicsCard"
 import { UpcomingEventsCard } from "../UpcomingEventsCard"
 import { UserProfile } from "../profile/UserProfile"
 import { SettingsPage } from "../settings/SettingsPage"
-import { MessagesView } from "../messages/MessagesView"
+import { MessagesViewResponsive } from "../messages/MessagesViewResponsive"
 import { NotificationsView } from "../notifications/NotificationsView"
 import { EventsView } from "../events/EventsView"
 import { CommunitiesView } from "../communities/CommunitiesView"
@@ -528,7 +528,7 @@ export function TimelineFeed({
   if (currentMainContent !== "timeline") {
     switch (currentMainContent) {
       case "messages":
-        return <MessagesView />
+        return <MessagesViewResponsive />
       case "notifications":
         return <NotificationsView />
       case "events":

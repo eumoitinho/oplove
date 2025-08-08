@@ -23,11 +23,39 @@ export interface Message {
   edited_at?: string
   created_at: string
   updated_at: string
+  sender?: {
+    id: string
+    username: string
+    name?: string
+    avatar_url?: string | null
+    premium_type?: string
+    is_verified?: boolean
+  }
+}
+
+export interface ConversationParticipant {
+  conversation_id: string
+  user_id: string
+  role: 'member' | 'admin'
+  joined_at: string
+  left_at?: string | null
+  last_read_at?: string
+  notifications_enabled?: boolean
+  user?: {
+    id: string
+    username: string
+    name?: string
+    full_name?: string
+    avatar_url?: string | null
+    premium_type?: string
+    is_verified?: boolean
+    last_seen?: string
+  }
 }
 
 export interface Conversation {
   id: string
-  participants: string[]
+  participants?: ConversationParticipant[]
   type: 'direct' | 'group'
   name?: string
   avatar_url?: string
@@ -39,15 +67,6 @@ export interface Conversation {
   group_type?: 'user_created' | 'event' | 'community'
   created_at: string
   updated_at: string
-}
-
-export interface ConversationParticipant {
-  conversation_id: string
-  user_id: string
-  role: 'member' | 'admin'
-  joined_at: string
-  last_read_at?: string
-  notifications_enabled: boolean
 }
 
 export class PlanLimitError extends Error {
@@ -190,9 +209,38 @@ class MessagesService {
       throw error
     }
 
-    // Get last message for each conversation
+    // Get last message and participants for each conversation
     if (conversations && conversations.length > 0) {
       const conversationIds = conversations.map(c => c.id)
+      
+      // Get participants with user data
+      const { data: participants, error: participantsError } = await this.supabase
+        .from('conversation_participants')
+        .select(`
+          conversation_id,
+          user_id,
+          role,
+          joined_at,
+          left_at,
+          user:users!user_id (
+            id,
+            username,
+            name,
+            full_name,
+            avatar_url,
+            premium_type,
+            is_verified,
+            last_seen
+          )
+        `)
+        .in('conversation_id', conversationIds)
+        .is('left_at', null)
+
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError)
+      } else {
+        console.log('🔍 Participants loaded:', participants)
+      }
       
       const { data: lastMessages, error: messagesError } = await this.supabase
         .from('messages')
@@ -211,13 +259,21 @@ class MessagesService {
           return acc
         }, {})
 
-        // Add last message to each conversation
+        // Add last message and participants to each conversation
         conversations.forEach(conv => {
           conv.last_message = messagesByConversation?.[conv.id] || null
           conv.unread_count = 0 // TODO: Calculate unread count properly
           
-          // For now, add empty participants array (we'll populate this later if needed)
-          conv.participants = []
+          // Add participants data with proper mapping
+          const convParticipants = participants?.filter(p => p.conversation_id === conv.id) || []
+          conv.participants = convParticipants.map(p => ({
+            conversation_id: p.conversation_id,
+            user_id: p.user_id,
+            role: p.role,
+            joined_at: p.joined_at,
+            left_at: p.left_at,
+            user: p.user
+          }))
         })
       }
     }
@@ -293,7 +349,7 @@ class MessagesService {
       .from('messages')
       .select(`
         *,
-        sender:users(*)
+        sender:users!sender_id(id, username, name, avatar_url, premium_type, is_verified)
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
@@ -334,7 +390,10 @@ class MessagesService {
         content,
         type: 'text'
       })
-      .select()
+      .select(`
+        *,
+        sender:users!sender_id(id, username, name, avatar_url, premium_type, is_verified)
+      `)
       .single()
 
     if (error) throw error
@@ -430,7 +489,10 @@ class MessagesService {
         media_url: publicUrl,
         media_metadata: metadata
       })
-      .select()
+      .select(`
+        *,
+        sender:users!sender_id(id, username, name, avatar_url, premium_type, is_verified)
+      `)
       .single()
 
     if (error) throw error
@@ -530,8 +592,23 @@ class MessagesService {
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`
         },
-        (payload) => {
-          callback(payload.new as Message)
+        async (payload) => {
+          // Fetch complete message with sender info
+          const { data } = await this.supabase
+            .from('messages')
+            .select(`
+              *,
+              sender:users!sender_id(id, username, name, avatar_url, premium_type, is_verified)
+            `)
+            .eq('id', payload.new.id)
+            .single()
+          
+          if (data) {
+            callback(data as Message)
+          } else {
+            // Fallback to payload if fetch fails
+            callback(payload.new as Message)
+          }
         }
       )
       .subscribe()

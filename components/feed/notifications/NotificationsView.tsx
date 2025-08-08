@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { notificationsService, type Notification, type NotificationFilters } from '@/lib/services/notifications-service'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
 import type { Notification as NotificationType } from '@/types/database.types'
+import { useNotificationsCache } from '@/lib/stores/notifications-cache'
 
 interface NotificationsViewProps {
   className?: string
@@ -32,13 +33,31 @@ interface NotificationsViewProps {
 export function NotificationsView({ className }: NotificationsViewProps) {
   const router = useRouter()
   const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<NotificationFilters>({
-    type: 'all',
-    read: 'all'
-  })
+  const {
+    notifications,
+    filters,
+    hasInitialLoad,
+    setNotifications,
+    updateNotification,
+    removeNotification,
+    addNotification,
+    setFilters: setCacheFilters,
+    setHasInitialLoad,
+    isStale,
+    clearCache
+  } = useNotificationsCache()
+  
+  const [loading, setLoading] = useState(!hasInitialLoad)
   const [showFilters, setShowFilters] = useState(false)
+  
+  // Local wrapper for filters to update both local state and cache
+  const setFilters = (newFilters: NotificationFilters | ((prev: NotificationFilters) => NotificationFilters)) => {
+    if (typeof newFilters === 'function') {
+      setCacheFilters(newFilters(filters))
+    } else {
+      setCacheFilters(newFilters)
+    }
+  }
 
 
   // Subscribe to real-time notifications
@@ -48,23 +67,34 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     const unsubscribe = notificationsService.subscribeToNotifications(
       user.id,
       (notification) => {
-        setNotifications(prev => [notification, ...prev])
+        addNotification(notification)
         toast.info(notification.content || notification.message || 'Nova notificação')
       }
     )
 
     return unsubscribe
-  }, [user])
+  }, [user, addNotification])
 
   // Direct fetch function (simplified)
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (forceRefresh = false) => {
     if (!user) {
       setNotifications([])
+      setLoading(false)
+      setHasInitialLoad(true)
+      return
+    }
+
+    // Skip fetch if we have cached data and it's not stale
+    if (!forceRefresh && hasInitialLoad && !isStale()) {
       setLoading(false)
       return
     }
 
-    setLoading(true)
+    // Only show loading on initial load or when forcing refresh
+    if (!hasInitialLoad || forceRefresh) {
+      setLoading(true)
+    }
+    
     try {
       console.log('[NotificationsView] Fetching notifications for user:', user.id)
       const result = await notificationsService.getNotifications(
@@ -76,6 +106,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
       
       console.log('[NotificationsView] Result:', result)
       setNotifications(result.notifications || [])
+      setHasInitialLoad(true)
     } catch (error) {
       console.error('[NotificationsView] Error fetching notifications:', error)
       toast.error('Erro ao carregar notificações')
@@ -83,12 +114,22 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     } finally {
       setLoading(false)
     }
-  }, [user, filters])
+  }, [user, filters, hasInitialLoad, isStale, setNotifications, setHasInitialLoad])
 
   // Load notifications on mount and filter changes
   useEffect(() => {
     fetchNotifications()
   }, [fetchNotifications])
+  
+  // Clear cache when user changes
+  useEffect(() => {
+    return () => {
+      // Don't clear cache on unmount if user is still logged in
+      if (!user) {
+        clearCache()
+      }
+    }
+  }, [user, clearCache])
 
   // Mark as read
   const handleMarkAsRead = async (notification: Notification) => {
@@ -96,9 +137,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
     try {
       await notificationsService.markAsRead(notification.id)
-      setNotifications(prev =>
-        prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
-      )
+      updateNotification(notification.id, { is_read: true })
     } catch (error) {
       toast.error('Erro ao marcar como lida')
     }
@@ -110,7 +149,11 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
     try {
       await notificationsService.markAllAsRead(user.id)
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      notifications.forEach(n => {
+        if (!n.is_read) {
+          updateNotification(n.id, { is_read: true })
+        }
+      })
       toast.success('Todas as notificações foram marcadas como lidas')
     } catch (error) {
       toast.error('Erro ao marcar todas como lidas')
@@ -121,7 +164,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
   const handleDelete = async (notificationId: string) => {
     try {
       await notificationsService.deleteNotification(notificationId)
-      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      removeNotification(notificationId)
       toast.success('Notificação removida')
     } catch (error) {
       toast.error('Erro ao remover notificação')
@@ -180,16 +223,14 @@ export function NotificationsView({ className }: NotificationsViewProps) {
       await notificationsService.performQuickAction(notification.id, 'follow_back')
       // TODO: Call follow API
       toast.success('Seguindo de volta!')
-      setNotifications(prev =>
-        prev.map(n => n.id === notification.id ? { ...n, action_taken: true } : n)
-      )
+      updateNotification(notification.id, { action_taken: true })
     } catch (error) {
       toast.error('Erro ao seguir de volta')
     }
   }
 
   // Get icon for notification type
-  const getNotificationIcon = (type: NotificationData['type']) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'like':
         return <Heart className="h-5 w-5 text-pink-500 fill-pink-500" />
@@ -297,7 +338,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
 
       {/* Notifications List */}
       <div className="space-y-2">
-        {loading && notifications.length === 0 ? (
+        {loading && !hasInitialLoad ? (
           Array.from({ length: 5 }).map((_, i) => (
             <PostSkeleton key={i} />
           ))
