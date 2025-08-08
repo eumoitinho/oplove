@@ -57,7 +57,7 @@ class AbacatePayService {
    */
   async createPixPayment(data: CreatePixPaymentRequest): Promise<CreatePixPaymentResponse> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/payments/pix`, {
+      const response = await fetch(`${this.config.baseUrl}/v1/payments/pix`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -109,7 +109,7 @@ class AbacatePayService {
    */
   async getPaymentStatus(paymentId: string): Promise<CreatePixPaymentResponse> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/payments/${paymentId}`, {
+      const response = await fetch(`${this.config.baseUrl}/v1/payments/${paymentId}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${this.config.apiKey}`,
@@ -148,7 +148,7 @@ class AbacatePayService {
    */
   async cancelPayment(paymentId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/payments/${paymentId}/cancel`, {
+      const response = await fetch(`${this.config.baseUrl}/v1/payments/${paymentId}/cancel`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.config.apiKey}`,
@@ -229,7 +229,7 @@ export const getAbacatePayService = (): AbacatePayService => {
   if (!abacatePayService) {
     const config: AbacatePayConfig = {
       apiKey: process.env.ABACATEPAY_API_KEY!,
-      baseUrl: process.env.ABACATEPAY_BASE_URL || "https://api.abacatepay.com/v1",
+      baseUrl: process.env.ABACATEPAY_BASE_URL || "https://api.abacatepay.com",
       webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL}/api/v1/payments/webhook/abacatepay`,
     }
 

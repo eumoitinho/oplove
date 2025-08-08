@@ -1,8 +1,9 @@
 import { createServerClient as createSSRClient } from "@supabase/ssr"
+import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/database"
 
-export async function createServerClient() {
+export async function createClient() {
   const cookieStore = await cookies()
   
   return createSSRClient<Database>(
@@ -33,3 +34,20 @@ export async function createServerClient() {
     }
   )
 }
+
+// Server-side service role client for privileged operations
+export function createServiceClient() {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
+}
+
+// Legacy export
+export const createServerClient = createClient

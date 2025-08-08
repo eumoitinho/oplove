@@ -51,7 +51,7 @@ export async function POST(
         user_id: user.id,
         share_type: shareType,
         message,
-        shared_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       })
 
     if (shareError) {
@@ -59,24 +59,26 @@ export async function POST(
       return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
-    // Atualizar contador de compartilhamentos
-    const { error: updateError } = await supabase
-      .rpc('increment_post_shares', { post_id: postId })
-
-    if (updateError) {
-      console.error('Erro ao atualizar contador:', updateError)
-    }
-
     // Criar notificação para o autor (se não for ele mesmo)
     if (post.user_id !== user.id) {
+      // Get username of the user who shared
+      const { data: sharerUser } = await supabase
+        .from("users")
+        .select("username, name")
+        .eq("id", user.id)
+        .single()
+      
       await supabase
         .from('notifications')
         .insert({
-          recipient_id: post.user_id,
-          sender_id: user.id,
-          type: 'post_share',
-          content: `compartilhou seu post`,
-          reference_id: postId,
+          user_id: post.user_id,
+          from_user_id: user.id,
+          type: 'share',
+          title: `${sharerUser?.username || sharerUser?.name || 'Alguém'} compartilhou seu post`,
+          message: 'Seu post foi compartilhado!',
+          entity_id: postId,
+          entity_type: 'post',
+          is_read: false,
           created_at: new Date().toISOString()
         })
     }
@@ -90,7 +92,10 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      shares_count: updatedPost?.shares_count || 0
+      data: {
+        shares_count: updatedPost?.shares_count || 0,
+        is_shared: true
+      }
     })
 
   } catch (error) {
@@ -124,14 +129,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
-    // Decrementar contador
-    const { error: updateError } = await supabase
-      .rpc('decrement_post_shares', { post_id: postId })
-
-    if (updateError) {
-      console.error('Erro ao atualizar contador:', updateError)
-    }
-
     // Buscar contador atualizado
     const { data: updatedPost } = await supabase
       .from('posts')
@@ -141,7 +138,10 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      shares_count: updatedPost?.shares_count || 0
+      data: {
+        shares_count: updatedPost?.shares_count || 0,
+        is_shared: false
+      }
     })
 
   } catch (error) {
@@ -170,7 +170,7 @@ export async function GET(
       .select(`
         id,
         message,
-        shared_at,
+        created_at,
         share_type,
         user:users(
           id,
@@ -182,7 +182,7 @@ export async function GET(
       `)
       .eq('post_id', postId)
       .eq('share_type', 'public')
-      .order('shared_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     if (error) {

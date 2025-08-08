@@ -3,10 +3,16 @@
  */
 
 import type { User } from "./user.types"
+import type { 
+  PostInteractionCounters, 
+  UserPostInteractions,
+  PostComment,
+  PostLike,
+  PostShare,
+  PostSave
+} from "./interactions.types"
 
-export interface Post {
-  is_saved: boolean
-  is_liked: boolean
+export interface Post extends Partial<PostInteractionCounters>, Partial<UserPostInteractions> {
   id: string
   user_id: string
   couple_id?: string | null
@@ -44,13 +50,12 @@ export interface Post {
   // Audio Features
   audio_duration?: number | null
   
-  // Statistics & Counters (from DB)
+  // Statistics & Counters (from DB) - inherited from PostInteractionCounters
   stats?: any // JSONB field
-  likes_count: number
-  comments_count: number
-  shares_count: number
-  saves_count: number
   
+  // Legacy support (deprecated, use user_liked and user_saved from UserPostInteractions)
+  is_saved?: boolean
+  is_liked?: boolean
   // Reaction Counters (from DB)
   like_count?: number
   love_count?: number
@@ -71,7 +76,10 @@ export interface Post {
   // Relations (optional, populated by API)
   user?: User
   users?: User // Supabase returns 'users' from join, not 'user'
-  comments?: Comment[]
+  comments?: PostComment[]
+  likes?: PostLike[]
+  shares?: PostShare[]
+  saves?: PostSave[]
   poll?: PostPoll | null
   user_interaction?: PostUserInteraction | null
 }

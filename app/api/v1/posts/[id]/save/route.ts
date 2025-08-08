@@ -60,20 +60,12 @@ export async function POST(
         post_id: postId,
         user_id: user.id,
         collection_id,
-        saved_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       })
 
     if (saveError) {
       console.error('Erro ao salvar post:', saveError)
       return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
-    }
-
-    // Atualizar contador de saves
-    const { error: updateError } = await supabase
-      .rpc('increment_post_saves', { post_id: postId })
-
-    if (updateError) {
-      console.error('Erro ao atualizar contador:', updateError)
     }
 
     // Se foi salvo em uma collection, atualizar contador da collection
@@ -91,7 +83,10 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      saves_count: updatedPost?.saves_count || 0
+      data: {
+        saves_count: updatedPost?.saves_count || 0,
+        is_saved: true
+      }
     })
 
   } catch (error) {
@@ -133,14 +128,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
-    // Decrementar contador de saves
-    const { error: updateError } = await supabase
-      .rpc('decrement_post_saves', { post_id: postId })
-
-    if (updateError) {
-      console.error('Erro ao atualizar contador:', updateError)
-    }
-
     // Se estava em uma collection, decrementar contador da collection
     if (existingSave?.collection_id) {
       await supabase
@@ -156,7 +143,10 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      saves_count: updatedPost?.saves_count || 0
+      data: {
+        saves_count: updatedPost?.saves_count || 0,
+        is_saved: false
+      }
     })
 
   } catch (error) {

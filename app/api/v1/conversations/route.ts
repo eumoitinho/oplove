@@ -1,55 +1,126 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { MessageService } from '@/lib/services/message.service'
+import { z } from 'zod'
+
+// Validation schemas
+const createConversationSchema = z.object({
+  type: z.enum(['direct', 'group']).default('direct'),
+  participantIds: z.array(z.string().uuid()),
+  name: z.string().optional(),
+  description: z.string().optional(),
+})
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerClient()
-    
-    // Get authenticated user
+    const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
     if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    const messageService = new MessageService()
+    const conversations = await messageService.getUserConversations(
+      user.id,
+      limit,
+      offset
+    )
+
+    return NextResponse.json({
+      conversations,
+      pagination: {
+        limit,
+        offset,
+        hasMore: conversations.length === limit
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching conversations:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch conversations' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const validation = createConversationSchema.safeParse(body)
+    
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Não autorizado", success: false },
-        { status: 401 }
+        { error: 'Invalid request data', details: validation.error.errors },
+        { status: 400 }
       )
     }
 
-    console.log('🔍 GET CONVERSATIONS API - Fetching for user:', user.id)
+    const { type, participantIds, name, description } = validation.data
+    const messageService = new MessageService()
 
-    // Get conversations using direct API call to avoid RLS issues
-    const conversationsResponse = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/conversations?select=id,type,name,avatar_url,last_message_at,created_at,updated_at,initiated_by,initiated_by_premium,group_type,participants:conversation_participants!inner(user_id,role,joined_at,last_read_at,notifications_enabled,user:users(id,username,name,avatar_url,is_verified,premium_type))&conversation_participants.user_id=eq.${user.id}&order=last_message_at.desc.nullslast`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Content-Type': 'application/json'
-        }
+    let conversation
+
+    if (type === 'direct') {
+      if (participantIds.length !== 1) {
+        return NextResponse.json(
+          { error: 'Direct conversations require exactly one other participant' },
+          { status: 400 }
+        )
       }
-    )
 
-    if (!conversationsResponse.ok) {
-      const errorText = await conversationsResponse.text()
-      console.error('🔍 GET CONVERSATIONS API - Error:', errorText)
-      throw new Error(`Failed to fetch conversations: ${errorText}`)
+      conversation = await messageService.createOrGetDirectConversation(
+        user.id,
+        participantIds[0]
+      )
+    } else {
+      if (!name) {
+        return NextResponse.json(
+          { error: 'Group conversations require a name' },
+          { status: 400 }
+        )
+      }
+
+      conversation = await messageService.createGroupConversation(
+        user.id,
+        name,
+        participantIds,
+        description
+      )
     }
 
-    const conversations = await conversationsResponse.json()
-    console.log('🔍 GET CONVERSATIONS API - Found conversations:', conversations?.length || 0)
+    return NextResponse.json({ conversation })
+  } catch (error: any) {
+    console.error('Error creating conversation:', error)
+    
+    // Handle specific business rule errors
+    if (error.message?.includes('Free users cannot initiate')) {
+      return NextResponse.json(
+        { error: error.message, code: 'UPGRADE_REQUIRED' },
+        { status: 403 }
+      )
+    }
+    
+    if (error.message?.includes('Only Diamond users')) {
+      return NextResponse.json(
+        { error: error.message, code: 'DIAMOND_REQUIRED' },
+        { status: 403 }
+      )
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: conversations || [],
-      count: conversations?.length || 0
-    })
-
-  } catch (error) {
-    console.error('🔍 GET CONVERSATIONS API - Fatal error:', error)
     return NextResponse.json(
-      { 
-        error: error.message, 
-        success: false
-      },
+      { error: 'Failed to create conversation' },
       { status: 500 }
     )
   }

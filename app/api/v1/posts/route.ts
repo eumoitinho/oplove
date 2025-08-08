@@ -431,9 +431,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Format poll data if exists
-    let pollData = null
+    let newPostPollData = null
     if (newPost.poll_question && newPost.poll_options) {
-      pollData = {
+      newPostPollData = {
         id: `${newPost.id}_poll`,
         question: newPost.poll_question,
         options: newPost.poll_options.map((option: string, index: number) => ({
@@ -455,7 +455,7 @@ export async function POST(request: NextRequest) {
       ...newPost,
       user: newPost.users,
       media_urls: newPost.media_urls || [],
-      poll: pollData,
+      poll: newPostPollData,
       is_liked: false,
       is_saved: false,
       likes_count: 0,
