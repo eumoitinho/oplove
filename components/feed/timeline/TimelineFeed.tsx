@@ -33,14 +33,14 @@ import { ViewManager } from "../ViewManager"
 import { StoriesCarousel } from "../../stories"
 
 // Memoized CreatePost wrapper to prevent re-renders
-const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: (newPost: any) => void }) => (
+const MemoizedCreatePost = memo(({ onSuccess, isMobile }: { onSuccess: (newPost: any) => void; isMobile?: boolean }) => (
   <motion.div
     initial={{ opacity: 0, y: -20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="mb-6"
+    className={isMobile ? "" : "mb-6"}
     data-create-post
   >
-    <CreatePost onSuccess={onSuccess} />
+    <CreatePost onSuccess={onSuccess} isMobile={isMobile} />
   </motion.div>
 ))
 
@@ -85,7 +85,6 @@ export function TimelineFeed({
   
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [newPostsCount, setNewPostsCount] = useState(0)
   const [isChangingTab, setIsChangingTab] = useState(false)
   
   // Get current state from feed state manager
@@ -341,7 +340,6 @@ export function TimelineFeed({
     
     console.log('[TimelineFeed] Refreshing posts for tab:', activeTab)
     setIsRefreshing(true)
-    setNewPostsCount(0)
     
     // Clear the cache for this tab to force fresh data
     feedState.clearState(activeTab)
@@ -392,16 +390,6 @@ export function TimelineFeed({
     }
   }, [isAuthenticated, effectiveUserId, activeTab, feedState])
 
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        setNewPostsCount((prev: number) => prev + 1)
-      }
-    }, 30000) // Check every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [])
 
   // Insert ads based on user's plan and frequency
   const postsWithAds = useMemo(() => {
@@ -447,90 +435,12 @@ export function TimelineFeed({
     }
   }, [user?.id, feedState])
 
-  // Handle plans redirect - MUST be before any conditional returns
+  // Handle plans redirect
   useEffect(() => {
     if (currentMainContent === "plans") {
       router.push("/plans")
     }
   }, [currentMainContent, router])
-
-  // Show loading skeleton only on initial load when we have no posts AND we're loading
-  // Don't show skeleton for explore tab as it has its own loading state
-  if (currentMainContent === "timeline" && activeTab !== "explore" && !initialized && posts.length === 0 && isLoading && isAuthenticated) {
-    return (
-      <div className={cn("space-y-6", className)}>
-        {/* Create Post - Show even during loading */}
-        {user && <MemoizedCreatePost onSuccess={handleNewPost} />}
-        
-        {/* Feed Tabs */}
-        <div className="w-full mb-6">
-          <div className={cn(
-            "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
-            "opacity-50 pointer-events-none"
-          )}>
-            <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
-              <Button
-                disabled
-                className={cn(
-                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
-                  activeTab === "for-you"
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                    : "bg-transparent text-gray-600 dark:text-gray-400"
-                )}
-              >
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Para você</span>
-                <span className="sm:hidden">Todos</span>
-              </Button>
-              <Button
-                disabled
-                className={cn(
-                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
-                  activeTab === "following"
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                    : "bg-transparent text-gray-600 dark:text-gray-400"
-                )}
-              >
-                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Seguindo
-              </Button>
-              <Button
-                disabled
-                className={cn(
-                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5",
-                  activeTab === "explore"
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                    : "bg-transparent text-gray-600 dark:text-gray-400"
-                )}
-              >
-                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Explorar
-              </Button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Loading skeletons */}
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 animate-pulse">
-            <div className="flex items-start space-x-4 mb-4">
-              <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
-                <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
-              </div>
-            </div>
-            <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10 mb-4" />
-            <div className="flex space-x-6">
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-              <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
 
   // Define all available views
   const allViews = useMemo(() => ({
@@ -538,7 +448,16 @@ export function TimelineFeed({
       <div className={cn("space-y-6", className)}>
         {/* Create Post - Outside of tab content to prevent re-renders */}
         {user ? (
-          <MemoizedCreatePost onSuccess={handleNewPost} />
+          <>
+            {/* Desktop CreatePost */}
+            <div className="hidden lg:block">
+              <MemoizedCreatePost onSuccess={handleNewPost} />
+            </div>
+            {/* Mobile Floating Button */}
+            <div className="lg:hidden">
+              <MemoizedCreatePost onSuccess={handleNewPost} isMobile={true} />
+            </div>
+          </>
         ) : (
           <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
             <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>
@@ -644,36 +563,31 @@ export function TimelineFeed({
               )}
             </AnimatePresence>
 
-            {/* New Posts Toast - Twitter Style */}
-            <AnimatePresence>
-              {newPostsCount > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -50, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -50, scale: 0.95 }}
-                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
-                >
-                  <Button
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
-                  >
-                    <div className="flex -space-x-2">
-                      {/* Mock avatars */}
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 border-2 border-white dark:border-black"></div>
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 border-2 border-white dark:border-black"></div>
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-yellow-400 border-2 border-white dark:border-black"></div>
-                    </div>
-                    <span className="font-medium">
-                      {newPostsCount} {newPostsCount === 1 ? "novo post" : "novos posts"}
-                    </span>
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Posts with smooth transition */}
-            {postsWithAds.length > 0 ? (
+            {/* Show loading skeleton on initial load */}
+            {!initialized && posts.length === 0 && isLoading && isAuthenticated ? (
+              /* Loading skeletons */
+              <>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 animate-pulse">
+                    <div className="flex items-start space-x-4 mb-4">
+                      <Skeleton className="h-12 w-12 rounded-full bg-gray-200 dark:bg-white/10" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-32 bg-gray-200 dark:bg-white/10" />
+                        <Skeleton className="h-3 w-24 bg-gray-200 dark:bg-white/10" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-24 w-full bg-gray-200 dark:bg-white/10 mb-4" />
+                    <div className="flex space-x-6">
+                      <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
+                      <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
+                      <Skeleton className="h-8 w-20 bg-gray-200 dark:bg-white/10" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : postsWithAds.length > 0 ? (
               <AnimatePresence>
                 {postsWithAds.map((item: any, index: number) => (
                   <motion.div
@@ -849,7 +763,6 @@ export function TimelineFeed({
     onTabChange,
     isChangingTab,
     posts.length,
-    newPostsCount,
     handleRefresh,
     isRefreshing,
     postsWithAds,

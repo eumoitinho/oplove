@@ -57,21 +57,6 @@ export default function StoryViewer({
   const { user } = useAuth()
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   
-  // Debug logging (development only)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('StoryViewer rendered:', { 
-      storiesLength: stories.length, 
-      initialIndex, 
-      currentIndex,
-      currentStory: currentStory ? {
-        id: currentStory.id,
-        mediaUrl: currentStory.mediaUrl,
-        mediaType: currentStory.mediaType,
-        userId: currentStory.userId,
-        user: currentStory.user
-      } : null
-    })
-  }
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [showReplyInput, setShowReplyInput] = useState(false)
@@ -87,6 +72,22 @@ export default function StoryViewer({
   
   const currentStory = stories[currentIndex]
   const isOwnStory = currentStory?.userId === user?.id
+
+  // Debug logging (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('StoryViewer rendered:', { 
+      storiesLength: stories.length, 
+      initialIndex, 
+      currentIndex,
+      currentStory: currentStory ? {
+        id: currentStory.id,
+        mediaUrl: currentStory.mediaUrl,
+        mediaType: currentStory.mediaType,
+        userId: currentStory.userId,
+        user: currentStory.user
+      } : null
+    })
+  }
   
   if (process.env.NODE_ENV === 'development') {
     console.log('Current story:', currentStory)
@@ -498,26 +499,26 @@ export default function StoryViewer({
         {/* Actions */}
         <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 z-20">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="flex items-center space-x-4 sm:space-x-6">
               <button
-                className="text-white touch-manipulation"
+                className="text-white touch-manipulation p-2 rounded-full hover:bg-white/10 transition-colors min-w-[48px] min-h-[48px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
                 onClick={() => setShowReactions(!showReactions)}
               >
                 {currentStory.reaction ? (
-                  <span className="text-xl sm:text-2xl">
+                  <span className="text-2xl sm:text-xl">
                     {REACTIONS.find(r => r.type === currentStory.reaction)?.icon}
                   </span>
                 ) : (
-                  <Heart className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <Heart className="w-7 h-7 sm:w-6 sm:h-6" />
                 )}
               </button>
               
               {!isOwnStory && (
                 <button
-                  className="text-white touch-manipulation"
+                  className="text-white touch-manipulation p-2 rounded-full hover:bg-white/10 transition-colors min-w-[48px] min-h-[48px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
                   onClick={() => setShowReplyInput(!showReplyInput)}
                 >
-                  <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <MessageCircle className="w-7 h-7 sm:w-6 sm:h-6" />
                 </button>
               )}
             </div>
@@ -527,16 +528,16 @@ export default function StoryViewer({
           <AnimatePresence>
             {showReactions && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 rounded-full shadow-lg p-2 flex space-x-2"
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="absolute bottom-full mb-3 left-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-full shadow-lg p-2 sm:p-1.5 flex space-x-1 sm:space-x-1"
               >
                 {REACTIONS.map((reaction) => (
                   <button
                     key={reaction.type}
                     onClick={() => handleReaction(reaction.type)}
-                    className="text-2xl hover:scale-125 transition-transform"
+                    className="text-3xl sm:text-2xl hover:scale-110 active:scale-95 transition-transform p-2 sm:p-1 rounded-full hover:bg-gray-100/20 touch-manipulation min-w-[48px] min-h-[48px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center"
                   >
                     {reaction.icon}
                   </button>
@@ -553,16 +554,21 @@ export default function StoryViewer({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 onSubmit={handleReply}
-                className="mt-4 flex space-x-2"
+                className="mt-4 flex space-x-2 sm:space-x-3"
               >
                 <Input
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
                   placeholder="Enviar mensagem..."
-                  className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[48px] sm:min-h-[40px] text-base sm:text-sm rounded-full px-4"
                 />
-                <Button type="submit" size="icon" variant="ghost" className="text-white">
-                  <Send className="w-5 h-5" />
+                <Button 
+                  type="submit" 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-white hover:bg-white/10 min-w-[48px] min-h-[48px] sm:min-w-[40px] sm:min-h-[40px] rounded-full touch-manipulation"
+                >
+                  <Send className="w-6 h-6 sm:w-5 sm:h-5" />
                 </Button>
               </motion.form>
             )}

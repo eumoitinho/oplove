@@ -70,6 +70,50 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     if (error) throw error
 
+    // Find or create DM conversation with story owner
+    let conversation = null
+    
+    // Try to find existing conversation between the two users
+    const { data: existingConv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('type', 'direct')
+      .or(`and(user1_id.eq.${user.id},user2_id.eq.${story.user_id}),and(user1_id.eq.${story.user_id},user2_id.eq.${user.id})`)
+      .single()
+
+    if (existingConv) {
+      conversation = existingConv
+    } else {
+      // Create new conversation
+      const { data: newConv } = await supabase
+        .from('conversations')
+        .insert({
+          type: 'direct',
+          user1_id: user.id,
+          user2_id: story.user_id,
+          initiated_by: user.id,
+          initiated_by_premium: true // Assume premium for story replies
+        })
+        .select('id')
+        .single()
+      
+      conversation = newConv
+    }
+
+    if (conversation) {
+      // Send message to DM conversation
+      const messageText = `📩 Respondeu ao seu story: ${validatedData.message}`
+      
+      await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_id: user.id,
+          message: messageText,
+          message_type: 'text'
+        })
+    }
+
     // Update reply count
     await supabase.rpc('increment', {
       table_name: 'stories',

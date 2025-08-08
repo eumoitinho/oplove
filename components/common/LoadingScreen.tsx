@@ -12,7 +12,7 @@ export function LoadingScreen({
   fullScreen = true 
 }: LoadingScreenProps) {
   const containerClass = fullScreen 
-    ? "min-h-screen flex items-center justify-center bg-white dark:bg-gray-900"
+    ? "min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"
     : "flex items-center justify-center p-8"
 
   return (

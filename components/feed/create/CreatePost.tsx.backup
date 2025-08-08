@@ -426,6 +426,37 @@ export function CreatePost({ onSuccess, isMobile = false }: CreatePostProps) {
     )
   }
 
+  const handlePremiumFeatureClick = (requiredPlan: "gold" | "diamond" | "couple" = "gold") => {
+    setSelectedPlan(requiredPlan)
+    setShowPaymentModal(true)
+  }
+
+  const handleAudioReady = (file: File, duration: number) => {
+    setAudioFile(file)
+    setAudioDuration(duration)
+    setShowAudioRecorder(false) // Close after adding to post
+  }
+
+  const handleMediaChange = (files: File[]) => {
+    setMediaFiles(files)
+  }
+
+  const handleShowAudioRecorder = () => {
+    if (!features.canUploadImages) {
+      handlePremiumFeatureClick("gold")
+      return
+    }
+    setShowAudioRecorder(true)
+  }
+
+  const handleShowMediaUploader = () => {
+    if (!features.canUploadImages) {
+      handlePremiumFeatureClick("gold")
+      return
+    }
+    setShowMediaUploader(true)
+  }
+
   const handlePublish = async () => {
     console.log("[CREATE POST] Attempting to publish:", { 
       contentLength: postContent.trim().length,

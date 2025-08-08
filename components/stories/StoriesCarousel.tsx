@@ -174,7 +174,7 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
           </div>
           
           {/* User avatar */}
-          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white dark:border-slate-950">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-white dark:border-slate-950">
             <Image
               src={story.user?.avatarUrl || '/placeholder-user.jpg'}
               alt={story.user?.name || 'User'}
@@ -184,15 +184,15 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
             
             {/* Boost indicator */}
             {story.isBoosted && (
-              <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-0.5 sm:p-1">
-                <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-black" />
+              <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-0.5 sm:p-1 lg:p-1.5">
+                <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 lg:w-4 lg:h-4 text-black" />
               </div>
             )}
           </div>
         </div>
         
         {/* Username */}
-        <p className="text-[10px] sm:text-xs text-center mt-1 truncate w-14 sm:w-16">
+        <p className="text-[10px] sm:text-xs text-center mt-1 truncate w-20 sm:w-24">
           {isOwnStory ? 'Seu story' : story.user.username}
         </p>
       </motion.div>
@@ -206,8 +206,8 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
           <div className="flex space-x-4">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="flex-shrink-0">
-                <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
-                <div className="w-14 h-3 bg-gray-200 dark:bg-gray-800 rounded mt-2 mx-auto animate-pulse" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
+                <div className="w-16 sm:w-20 h-3 bg-gray-200 dark:bg-gray-800 rounded mt-2 mx-auto animate-pulse" />
               </div>
             ))}
           </div>
@@ -263,13 +263,13 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
             >
               <button
                 onClick={handleCreateStory}
-                className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center group"
+                className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center group"
                 disabled={!canPostStories}
               >
                 {/* Story ring */}
                 <div className="absolute inset-0 rounded-full p-[2px] bg-gradient-to-r from-purple-500 to-pink-500">
                   <div className="w-full h-full bg-white dark:bg-slate-950 rounded-full flex items-center justify-center">
-                    <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
+                    <Plus className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
                 
@@ -282,7 +282,7 @@ export default function StoriesCarousel({ className }: StoriesCarouselProps) {
                   </div>
                 )}
               </button>
-              <p className="text-[10px] sm:text-xs text-center mt-1">Adicionar</p>
+              <p className="text-[10px] sm:text-xs text-center mt-1 w-20 sm:w-24">Adicionar</p>
             </motion.div>
 
             {/* Boosted stories section */}

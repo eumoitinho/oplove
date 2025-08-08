@@ -295,6 +295,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                         headers: {
                           'Content-Type': 'application/json',
                         },
+                        credentials: 'include',
                         body: JSON.stringify({ option_id: optionId }),
                       })
 

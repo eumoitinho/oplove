@@ -331,27 +331,19 @@ export function MessagesTwitter() {
   })
 
   return (
-    <div className="h-full flex bg-white dark:bg-black">
-      {/* DESKTOP: 2 cols lista + 4 cols chat = 6 cols total */}
-      {/* MOBILE: Full width alternating */}
-      
-      {/* Conversations List - Desktop: 2 cols, Mobile: full or hidden */}
-      <div className={`
-        ${selectedConversationId ? 'hidden lg:flex' : 'flex'}
-        w-full lg:w-2/6 xl:w-2/6
-        flex-col
-        border-r border-gray-200 dark:border-gray-800
-      `}>
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+    <div className="h-[calc(100vh-5rem)] lg:h-full flex bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
+      {/* Conversations List - Twitter DM Style */}
+      <div className={`${selectedConversationId ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 xl:w-96 flex-col border-r border-gray-200 dark:border-white/10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm`}>
+        {/* Header Fixo */}
+        <div className="sticky top-0 z-20 p-4 border-b border-gray-200 dark:border-white/10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold">Mensagens</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mensagens</h1>
             <Button
               size="icon"
               variant="ghost"
               onClick={() => setShowNewConversationModal(true)}
               disabled={permissions.isFreePlan}
-              className="hover:bg-gray-100 dark:hover:bg-gray-900"
+              className="rounded-full hover:bg-purple-50 dark:hover:bg-purple-500/10 text-purple-600 dark:text-purple-400"
             >
               <Plus className="w-5 h-5" />
             </Button>
@@ -359,18 +351,18 @@ export function MessagesTwitter() {
           
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
             <Input
               placeholder="Buscar conversas"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+              className="pl-9 rounded-xl bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:ring-purple-500"
             />
           </div>
         </div>
 
-        {/* Conversations */}
-        <ScrollArea className="flex-1">
+        {/* Lista de Conversas */}
+        <div className="flex-1 overflow-y-auto">
           {conversationsLoading ? (
             <div className="p-4 text-center text-gray-500">
               Carregando...
@@ -391,12 +383,7 @@ export function MessagesTwitter() {
                 <button
                   key={conv.id}
                   onClick={() => setSelectedConversationId(conv.id)}
-                  className={`
-                    w-full p-4 flex items-center gap-3
-                    hover:bg-gray-50 dark:hover:bg-gray-900
-                    transition-colors
-                    ${selectedConversationId === conv.id ? 'bg-gray-50 dark:bg-gray-900' : ''}
-                  `}
+                  className={`w-full p-4 flex items-center gap-3 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-200 ${selectedConversationId === conv.id ? 'bg-purple-50 dark:bg-purple-500/10 border-r-2 border-purple-500' : 'border-r-2 border-transparent'}`}
                 >
                   <Avatar className="w-12 h-12">
                     <AvatarImage src={participant.avatar_url || ""} />
@@ -435,18 +422,14 @@ export function MessagesTwitter() {
               )
             })
           )}
-        </ScrollArea>
+        </div>
       </div>
 
-      {/* Chat Area - Desktop: 4 cols, Mobile: full or hidden */}
+      {/* Chat Area - Mobile Full Height, Desktop Flex */}
       {selectedConversationId ? (
-        <div className={`
-          ${selectedConversationId ? 'flex' : 'hidden lg:flex'}
-          flex-1 lg:w-4/6 xl:w-4/6
-          flex-col
-        `}>
-          {/* Chat Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <div className="flex-1 flex flex-col h-full">
+          {/* Chat Header - Fixo no Topo */}
+          <div className="sticky top-0 z-20 p-3 sm:p-4 border-b border-gray-200 dark:border-white/10 bg-white/98 dark:bg-gray-900/98 backdrop-blur-md flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
@@ -467,14 +450,14 @@ export function MessagesTwitter() {
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="font-semibold">
+                      <h2 className="font-semibold text-gray-900 dark:text-white">
                         {otherParticipant.full_name || otherParticipant.username}
                       </h2>
                       {otherParticipant.is_verified && (
                         <CheckCircle className="w-4 h-4 text-blue-500" />
                       )}
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {typingUsers.has(otherParticipant.id) ? "Digitando..." : "Online"}
                     </p>
                   </div>
@@ -482,31 +465,33 @@ export function MessagesTwitter() {
               )}
             </div>
             
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleVoiceCall}
                 disabled={!permissions.canMakeCalls()}
+                className="rounded-full hover:bg-purple-50 dark:hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 w-10 h-10 sm:w-8 sm:h-8 touch-manipulation"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleVideoCall}
                 disabled={!permissions.canMakeCalls()}
+                className="rounded-full hover:bg-purple-50 dark:hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 w-10 h-10 sm:w-8 sm:h-8 touch-manipulation"
               >
-                <Video className="w-4 h-4" />
+                <Video className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
-              <Button variant="ghost" size="icon">
-                <Info className="w-4 h-4" />
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100 dark:hover:bg-white/10 w-10 h-10 sm:w-8 sm:h-8 touch-manipulation">
+                <Info className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
             </div>
           </div>
 
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
+          {/* Messages Area - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-4 min-h-0">
             <div className="space-y-4">
               {messages.map((msg) => (
                 <div
@@ -524,16 +509,10 @@ export function MessagesTwitter() {
                     )}
                     
                     <div>
-                      <div className={`
-                        px-4 py-2 rounded-2xl
-                        ${msg.sender_id === user?.id 
-                          ? 'bg-pink-500 text-white' 
-                          : 'bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white'
-                        }
-                      `}>
+                      <div className={`px-4 py-3 rounded-2xl max-w-xs lg:max-w-md ${msg.sender_id === user?.id ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md' : 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white border border-gray-200 dark:border-white/10'}`}>
                         <p className="break-words">{msg.content}</p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 px-1">
+                      <p className={`text-xs mt-1 px-1 ${msg.sender_id === user?.id ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
                         {format(new Date(msg.created_at), 'HH:mm')}
                       </p>
                     </div>
@@ -555,39 +534,43 @@ export function MessagesTwitter() {
               
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
-          {/* Input */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <ImageIcon className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Smile className="w-5 h-5" />
-              </Button>
-              <Input
-                placeholder="Enviar mensagem"
-                value={messageInput}
-                onChange={(e) => {
-                  setMessageInput(e.target.value)
-                  handleTyping()
-                }}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }
-                }}
-                className="flex-1"
-              />
+          {/* Input Area - Fixo no Bottom */}
+          <div className="sticky bottom-0 z-20 p-3 sm:p-4 border-t border-gray-200 dark:border-white/10 bg-white/98 dark:bg-gray-900/98 backdrop-blur-md shadow-sm">
+            <div className="flex items-end gap-2 sm:gap-3">
               <Button 
-                onClick={handleSendMessage}
-                disabled={!messageInput.trim()}
-                className="bg-pink-500 hover:bg-pink-600 text-white"
+                variant="ghost" 
+                size="icon"
+                className="rounded-full hover:bg-purple-50 dark:hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 flex-shrink-0 w-10 h-10 sm:w-8 sm:h-8 touch-manipulation"
               >
-                <Send className="w-4 h-4" />
+                <ImageIcon className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Enviar mensagem..."
+                  value={messageInput}
+                  onChange={(e) => {
+                    setMessageInput(e.target.value)
+                    handleTyping()
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendMessage()
+                    }
+                  }}
+                  className="rounded-xl pr-12 sm:pr-10 bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 focus:ring-purple-500 min-h-[44px] text-base sm:text-sm"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!messageInput.trim() || !permissions.canSendMessage()}
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 touch-manipulation"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>

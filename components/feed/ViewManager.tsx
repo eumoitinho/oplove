@@ -16,7 +16,7 @@ export function ViewManager({ views, activeView, className }: ViewManagerProps) 
   // Mark the active view as loaded
   useEffect(() => {
     loadedViews.current.add(activeView)
-  }, [activeView])
+  }, [activeView, views])
 
   return (
     <div className={cn("relative", className)}>

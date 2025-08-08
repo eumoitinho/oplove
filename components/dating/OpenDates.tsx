@@ -400,34 +400,37 @@ export function OpenDates() {
   const currentPhoto = currentProfile.photos[currentPhotoIndex]
 
   return (
-    <div className="p-4 max-w-sm mx-auto">
-      {/* Header with limits */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Heart className="w-5 h-5 text-pink-500" />
-          <span className="font-semibold">Open Dates</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <Badge variant="outline" className="text-xs">
-            {limits.daily_likes_limit - limits.daily_likes_used} ❤️
-          </Badge>
-          {user?.premium_type === 'diamond' && (
-            <Badge variant="outline" className="text-xs">
-              {limits.daily_super_likes_limit - limits.daily_super_likes_used} ⭐
+    <div className="h-[calc(100vh-5rem)] lg:h-full flex flex-col max-w-md mx-auto bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
+      {/* Header Fixo */}
+      <div className="sticky top-0 z-10 p-4 border-b border-gray-200 dark:border-white/10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Heart className="w-5 h-5 text-pink-500" />
+            <span className="font-semibold text-gray-900 dark:text-white">Open Dates</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Badge variant="outline" className="text-xs border-pink-200 text-pink-600">
+              {limits.daily_likes_limit - limits.daily_likes_used} ❤️
             </Badge>
-          )}
+            {user?.premium_type === 'diamond' && (
+              <Badge variant="outline" className="text-xs border-yellow-200 text-yellow-600">
+                {limits.daily_super_likes_limit - limits.daily_super_likes_used} ⭐
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Profile Card */}
-      <motion.div
-        className="relative w-full h-[500px] cursor-grab active:cursor-grabbing"
-        style={{ x, rotate }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        onPanEnd={handlePanEnd}
-        whileTap={{ scale: 0.95 }}
-      >
+      {/* Profile Card Container */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <motion.div
+          className="relative w-full max-w-sm h-[500px] cursor-grab active:cursor-grabbing"
+          style={{ x, rotate }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          onPanEnd={handlePanEnd}
+          whileTap={{ scale: 0.95 }}
+        >
         <Card className="w-full h-full overflow-hidden shadow-xl">
           <div className="relative h-full">
             {/* Photo */}
@@ -516,54 +519,57 @@ export function OpenDates() {
             </div>
           </div>
         </Card>
-      </motion.div>
+        </motion.div>
+      </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-center items-center gap-4 mt-6">
-        {/* Pass */}
-        <Button
-          onClick={() => handleSwipe('left')}
-          size="lg"
-          variant="outline"
-          className="w-14 h-14 rounded-full border-2 border-gray-300 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
-        >
-          <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
-        </Button>
-
-        {/* Rewind */}
-        {user?.premium_type === 'diamond' && (
+      {/* Action Buttons - Fixos no bottom */}
+      <div className="sticky bottom-0 z-10 p-4 border-t border-gray-200 dark:border-white/10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
+        <div className="flex justify-center items-center gap-4">
+          {/* Pass */}
           <Button
-            onClick={handleRewind}
-            size="sm"
-            variant="outline"
-            className="w-10 h-10 rounded-full border-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
-            disabled={currentIndex === 0 || limits.daily_rewinds_used >= limits.daily_rewinds_limit}
-          >
-            <RotateCcw className="w-4 h-4 text-yellow-600" />
-          </Button>
-        )}
-
-        {/* Super Like */}
-        {user?.premium_type === 'diamond' && (
-          <Button
-            onClick={() => handleSwipe('super')}
+            onClick={() => handleSwipe('left')}
             size="lg"
-            className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-            disabled={limits.daily_super_likes_used >= limits.daily_super_likes_limit}
+            variant="outline"
+            className="w-14 h-14 rounded-full border-2 border-gray-300 dark:border-white/20 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
-            <Star className="w-6 h-6" />
+            <X className="w-6 h-6 text-gray-600 dark:text-gray-400 hover:text-red-500" />
           </Button>
-        )}
 
-        {/* Like */}
-        <Button
-          onClick={() => handleSwipe('right')}
-          size="lg"
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white"
-          disabled={limits.daily_likes_used >= limits.daily_likes_limit}
-        >
-          <Heart className="w-6 h-6" />
-        </Button>
+          {/* Rewind */}
+          {user?.premium_type === 'diamond' && (
+            <Button
+              onClick={handleRewind}
+              size="sm"
+              variant="outline"
+              className="w-10 h-10 rounded-full border-yellow-300 dark:border-yellow-400/30 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+              disabled={currentIndex === 0 || limits.daily_rewinds_used >= limits.daily_rewinds_limit}
+            >
+              <RotateCcw className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </Button>
+          )}
+
+          {/* Super Like */}
+          {user?.premium_type === 'diamond' && (
+            <Button
+              onClick={() => handleSwipe('super')}
+              size="lg"
+              className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg"
+              disabled={limits.daily_super_likes_used >= limits.daily_super_likes_limit}
+            >
+              <Star className="w-6 h-6" />
+            </Button>
+          )}
+
+          {/* Like */}
+          <Button
+            onClick={() => handleSwipe('right')}
+            size="lg"
+            className="w-14 h-14 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white shadow-lg"
+            disabled={limits.daily_likes_used >= limits.daily_likes_limit}
+          >
+            <Heart className="w-6 h-6" />
+          </Button>
+        </div>
       </div>
 
       {/* Match Modal */}

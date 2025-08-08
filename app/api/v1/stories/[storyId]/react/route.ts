@@ -54,6 +54,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           story_id: storyId,
           viewer_id: user.id,
           reaction,
+          viewed_at: new Date().toISOString(),
           reacted_at: new Date().toISOString()
         })
 

@@ -1,5 +1,5 @@
 import { ProtectedRoute } from "@/components/auth/guards/AuthGuard"
-import { IncomingCallModal } from "@/components/calls/IncomingCallModal"
+// import { IncomingCallModal } from "@/components/calls/IncomingCallModal"
 
 export default function MainLayout({
   children,
@@ -8,7 +8,7 @@ export default function MainLayout({
 }) {
   return (
     <ProtectedRoute>
-      <IncomingCallModal />
+      {/* <IncomingCallModal /> */}
       {children}
     </ProtectedRoute>
   )
