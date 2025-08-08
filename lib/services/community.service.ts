@@ -1,15 +1,58 @@
 import { createClient } from "@/app/lib/supabase-browser" 
 import type { 
   Community, 
-  CommunityMember, 
-  CommunityPost, 
-  CreateCommunityPostData,
-  CreateCommunityCommentData,
-  CommunityFilters,
-  JoinCommunityResponse,
-  CommunityStats,
-  CommunityPostComment
-} from '@/types/community.types'
+  CommunityMember
+} from '@/types/database.types'
+
+// TODO: These types should be added to database.types.ts when tables are available
+interface CommunityPost {
+  id: string
+  community_id: string
+  author_id: string
+  title: string
+  content?: string
+  media_url?: string
+  created_at: string
+  updated_at: string
+  likes_count: number
+  comments_count: number
+}
+
+interface CreateCommunityPostData {
+  title: string
+  content?: string
+  media_url?: string
+}
+
+interface CreateCommunityCommentData {
+  content: string
+  media_url?: string
+}
+
+interface CommunityFilters {
+  theme?: string
+  type?: string
+  search?: string
+}
+
+interface JoinCommunityResponse {
+  success: boolean
+  message: string
+}
+
+interface CommunityStats {
+  members_count: number
+  posts_count: number
+  active_members_count: number
+}
+
+interface CommunityPostComment {
+  id: string
+  post_id: string
+  author_id: string
+  content: string
+  created_at: string
+}
 
 export class CommunityService {
   private supabase = createClient()
