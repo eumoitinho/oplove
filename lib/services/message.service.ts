@@ -42,8 +42,7 @@ export class MessageService {
   private cacheService = new ConversationCacheService()
 
   /**
-   * Get user conversations with all metadata in a single optimized query
-   * Fixes N+1 query problem
+   * Get user conversations - simplified version without RPC
    */
   async getUserConversations(
     userId: string,
@@ -52,64 +51,134 @@ export class MessageService {
   ): Promise<ConversationWithMetadata[]> {
     try {
       // Check cache first
-      const cacheKey = `conversations:${userId}:${offset}:${limit}`
-      const cached = await this.cacheService.getConversations(userId)
-      if (cached && offset === 0) {
-        return cached.slice(0, limit)
+      if (offset === 0) {
+        const cached = await this.cacheService.getConversations(userId)
+        if (cached) {
+          return cached.slice(0, limit)
+        }
       }
 
-      // Use the optimized RPC function we created in the migration
-      const { data, error } = await this.supabase
-        .rpc('get_user_conversations', {
-          p_user_id: userId,
-          p_limit: limit,
-          p_offset: offset
+      // Get user's conversations
+      const { data: userConversations, error: convError } = await this.supabase
+        .from('conversation_participants')
+        .select(`
+          conversation_id,
+          conversations!inner(
+            id,
+            type,
+            name,
+            description,
+            avatar_url,
+            created_by,
+            initiated_by,
+            initiated_by_premium,
+            group_type,
+            is_active,
+            message_count,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', userId)
+        .is('left_at', null)
+        .limit(limit)
+        .range(offset, offset + limit - 1)
+
+      if (convError) throw convError
+
+      if (!userConversations || userConversations.length === 0) {
+        return []
+      }
+
+      // Get conversation IDs
+      const conversationIds = userConversations.map(uc => uc.conversation_id)
+
+      // Batch fetch last messages
+      const { data: lastMessages } = await this.supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:users!sender_id(
+            id,
+            username,
+            avatar_url,
+            name
+          )
+        `)
+        .in('conversation_id', conversationIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      // Batch fetch participants
+      const { data: allParticipants } = await this.supabase
+        .from('conversation_participants')
+        .select(`
+          conversation_id,
+          user_id,
+          users!inner(
+            id,
+            username,
+            avatar_url,
+            name,
+            last_seen_at
+          )
+        `)
+        .in('conversation_id', conversationIds)
+        .is('left_at', null)
+
+      // Group data by conversation
+      const lastMessagesByConv = new Map()
+      const participantsByConv = new Map()
+
+      // Group last messages (keep only the most recent per conversation)
+      for (const msg of lastMessages || []) {
+        if (!lastMessagesByConv.has(msg.conversation_id)) {
+          lastMessagesByConv.set(msg.conversation_id, msg)
+        }
+      }
+
+      // Group participants
+      for (const participant of allParticipants || []) {
+        if (!participantsByConv.has(participant.conversation_id)) {
+          participantsByConv.set(participant.conversation_id, [])
+        }
+        participantsByConv.get(participant.conversation_id).push({
+          user_id: participant.user_id,
+          username: participant.users.username,
+          avatar_url: participant.users.avatar_url,
+          display_name: participant.users.name,
+          is_online: this.isRecentlyActive(participant.users.last_seen_at)
         })
+      }
 
-      if (error) throw error
-
-      // Transform RPC result to our interface
-      const conversationIds = data.map((c: any) => c.conversation_id)
-      
-      // Batch fetch participants and additional data
-      const [participantsResult, sendersResult] = await Promise.all([
-        this.batchFetchParticipants(conversationIds),
-        this.batchFetchUsers(data.map((c: any) => c.last_message_sender).filter(Boolean))
-      ])
-
-      const conversations: ConversationWithMetadata[] = data.map((conv: any) => {
-        const participants = participantsResult[conv.conversation_id] || []
-        const lastMessageSender = conv.last_message_sender 
-          ? sendersResult[conv.last_message_sender]
-          : null
+      // Build final conversations
+      const conversations: ConversationWithMetadata[] = userConversations.map(uc => {
+        const conv = uc.conversations
+        const lastMessage = lastMessagesByConv.get(conv.id)
+        const participants = participantsByConv.get(conv.id) || []
 
         return {
-          id: conv.conversation_id,
-          type: conv.type,
-          name: conv.name,
-          created_at: conv.created_at,
-          updated_at: conv.updated_at,
-          initiated_by: conv.initiated_by,
-          initiated_by_premium: conv.initiated_by_premium,
-          group_type: conv.group_type,
-          unread_count: conv.unread_count || 0,
-          participants,
-          is_typing: [],
-          last_message: conv.last_message_id ? {
-            id: conv.last_message_id,
-            content: conv.last_message_content,
-            created_at: conv.last_message_at,
-            sender_id: conv.last_message_sender,
-            conversation_id: conv.conversation_id,
-            message_type: 'text',
-            sender: lastMessageSender || {
-              id: conv.last_message_sender,
+          ...conv,
+          last_message: lastMessage ? {
+            ...lastMessage,
+            sender: lastMessage.sender || {
+              id: lastMessage.sender_id,
               username: 'Unknown',
               avatar_url: null,
-              display_name: null
+              display_name: 'Usuario'
             }
-          } : undefined
+          } : undefined,
+          unread_count: 0, // We'll implement this separately
+          participants,
+          is_typing: []
         }
+      })
+
+      // Sort by last message time
+      conversations.sort((a, b) => {
+        const timeA = a.last_message?.created_at || a.created_at || ''
+        const timeB = b.last_message?.created_at || b.created_at || ''
+        return new Date(timeB).getTime() - new Date(timeA).getTime()
       })
 
       // Cache the results
@@ -125,78 +194,12 @@ export class MessageService {
   }
 
   /**
-   * Batch fetch participants for multiple conversations
+   * Check if user was recently active (last 5 minutes = online)
    */
-  private async batchFetchParticipants(
-    conversationIds: string[]
-  ): Promise<Record<string, any[]>> {
-    if (conversationIds.length === 0) return {}
-
-    const { data, error } = await this.supabase
-      .from('conversation_participants')
-      .select(`
-        conversation_id,
-        user_id,
-        users!inner(
-          id,
-          username,
-          avatar_url,
-          display_name,
-          last_seen_at,
-          is_online
-        )
-      `)
-      .in('conversation_id', conversationIds)
-      .is('left_at', null)
-
-    if (error) {
-      console.error('Error fetching participants:', error)
-      return {}
-    }
-
-    // Group by conversation_id
-    const grouped: Record<string, any[]> = {}
-    for (const participant of data || []) {
-      if (!grouped[participant.conversation_id]) {
-        grouped[participant.conversation_id] = []
-      }
-      grouped[participant.conversation_id].push({
-        user_id: participant.user_id,
-        username: participant.users.username,
-        avatar_url: participant.users.avatar_url,
-        display_name: participant.users.display_name,
-        is_online: participant.users.is_online || false
-      })
-    }
-
-    return grouped
-  }
-
-  /**
-   * Batch fetch user data
-   */
-  private async batchFetchUsers(
-    userIds: string[]
-  ): Promise<Record<string, any>> {
-    if (userIds.length === 0) return {}
-
-    const { data, error } = await this.supabase
-      .from('users')
-      .select('id, username, avatar_url, display_name')
-      .in('id', userIds)
-
-    if (error) {
-      console.error('Error fetching users:', error)
-      return {}
-    }
-
-    // Create lookup map
-    const userMap: Record<string, any> = {}
-    for (const user of data || []) {
-      userMap[user.id] = user
-    }
-
-    return userMap
+  private isRecentlyActive(lastSeenAt: string | null): boolean {
+    if (!lastSeenAt) return false
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+    return new Date(lastSeenAt).getTime() > fiveMinutesAgo
   }
 
   /**
@@ -213,6 +216,19 @@ export class MessageService {
     nextCursor?: string
   }> {
     try {
+      // Check if user is participant
+      const { data: participant } = await this.supabase
+        .from('conversation_participants')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId)
+        .is('left_at', null)
+        .single()
+
+      if (!participant) {
+        throw new Error('You are not a participant in this conversation')
+      }
+
       // Build query
       let query = this.supabase
         .from('messages')
@@ -222,9 +238,8 @@ export class MessageService {
             id,
             username,
             avatar_url,
-            display_name
-          ),
-          message_reads(user_id, read_at)
+            name
+          )
         `)
         .eq('conversation_id', conversationId)
         .is('deleted_at', null)
@@ -250,14 +265,11 @@ export class MessageService {
           id: msg.sender_id,
           username: 'Unknown',
           avatar_url: null,
-          display_name: null
+          display_name: 'Usuario'
         },
-        read_by: msg.message_reads?.map((r: any) => r.user_id) || [],
-        reactions: {} // TODO: Implement reactions
+        read_by: [], // We'll implement read receipts later
+        reactions: {} // We'll implement reactions later
       }))
-
-      // Mark messages as read
-      await this.markMessagesAsRead(conversationId, userId)
 
       return {
         messages: transformedMessages.reverse(), // Return in chronological order
@@ -287,9 +299,6 @@ export class MessageService {
         throw new Error('You do not have permission to send messages in this conversation')
       }
 
-      // Check daily limit for Gold users
-      await this.checkDailyMessageLimit(senderId)
-
       // Insert message
       const { data, error } = await this.supabase
         .from('messages')
@@ -308,11 +317,10 @@ export class MessageService {
       // Update conversation updated_at
       await this.supabase
         .from('conversations')
-        .update({ updated_at: new Date().toISOString() })
+        .update({ 
+          updated_at: new Date().toISOString()
+        })
         .eq('id', conversationId)
-
-      // Increment daily message count
-      await this.incrementDailyMessageCount(senderId)
 
       // Invalidate cache
       await this.cacheService.invalidateConversation(conversationId)
@@ -370,105 +378,11 @@ export class MessageService {
       if (conversation.initiated_by === userId) {
         return false
       }
+
+      return false
     }
 
     return true
-  }
-
-  /**
-   * Check daily message limit for Gold users
-   */
-  private async checkDailyMessageLimit(userId: string): Promise<void> {
-    const { data: user } = await this.supabase
-      .from('users')
-      .select('premium_type, is_verified, daily_message_limit, daily_messages_sent')
-      .eq('id', userId)
-      .single()
-
-    if (!user) throw new Error('User not found')
-
-    // Only check for Gold unverified users
-    if (user.premium_type === 'gold' && !user.is_verified) {
-      const today = new Date().toISOString().split('T')[0]
-      
-      const { data: count } = await this.supabase
-        .from('daily_message_counts')
-        .select('count')
-        .eq('user_id', userId)
-        .eq('date', today)
-        .single()
-
-      const currentCount = count?.count || 0
-      const limit = user.daily_message_limit || 10
-
-      if (currentCount >= limit) {
-        throw new Error(`Daily message limit reached (${limit} messages). Verify your account for unlimited messages.`)
-      }
-    }
-  }
-
-  /**
-   * Increment daily message count
-   */
-  private async incrementDailyMessageCount(userId: string): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
-    
-    await this.supabase
-      .from('daily_message_counts')
-      .upsert({
-        user_id: userId,
-        date: today,
-        count: 1
-      }, {
-        onConflict: 'user_id,date',
-        count: 'increment'
-      })
-  }
-
-  /**
-   * Mark messages as read
-   */
-  async markMessagesAsRead(
-    conversationId: string,
-    userId: string
-  ): Promise<void> {
-    try {
-      // Get unread messages
-      const { data: messages } = await this.supabase
-        .from('messages')
-        .select('id')
-        .eq('conversation_id', conversationId)
-        .neq('sender_id', userId)
-        .is('deleted_at', null)
-
-      if (!messages || messages.length === 0) return
-
-      // Insert read receipts
-      const readReceipts = messages.map(msg => ({
-        message_id: msg.id,
-        user_id: userId,
-        read_at: new Date().toISOString()
-      }))
-
-      await this.supabase
-        .from('message_reads')
-        .upsert(readReceipts, {
-          onConflict: 'message_id,user_id'
-        })
-
-      // Update last read message in participants
-      const lastMessage = messages[messages.length - 1]
-      await this.supabase
-        .from('conversation_participants')
-        .update({ last_read_message_id: lastMessage.id })
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId)
-
-      // Invalidate cache
-      await this.cacheService.invalidateConversation(conversationId)
-    } catch (error) {
-      console.error('Error marking messages as read:', error)
-    }
   }
 
   /**
@@ -481,13 +395,26 @@ export class MessageService {
     try {
       // Check if conversation already exists
       const { data: existing } = await this.supabase
-        .rpc('get_direct_conversation', {
-          user1_id: userId,
-          user2_id: otherUserId
-        })
+        .from('conversations')
+        .select(`
+          *,
+          conversation_participants!inner(user_id)
+        `)
+        .eq('type', 'private')
+        .eq('conversation_participants.user_id', userId)
 
-      if (existing && existing.length > 0) {
-        return existing[0]
+      // Filter for conversations that have both users
+      let existingConv = null
+      for (const conv of existing || []) {
+        const participantIds = conv.conversation_participants?.map((p: any) => p.user_id) || []
+        if (participantIds.includes(otherUserId) && participantIds.length === 2) {
+          existingConv = conv
+          break
+        }
+      }
+
+      if (existingConv) {
+        return existingConv
       }
 
       // Check if user can create conversation
@@ -525,221 +452,6 @@ export class MessageService {
       return conversation
     } catch (error) {
       console.error('Error creating conversation:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Create group conversation (Diamond only)
-   */
-  async createGroupConversation(
-    creatorId: string,
-    name: string,
-    participantIds: string[],
-    description?: string
-  ): Promise<Conversation> {
-    try {
-      // Validate creator is Diamond
-      const { data: creator } = await this.supabase
-        .from('users')
-        .select('premium_type')
-        .eq('id', creatorId)
-        .single()
-
-      if (creator?.premium_type !== 'diamond' && creator?.premium_type !== 'couple') {
-        throw new Error('Only Diamond users can create group chats')
-      }
-
-      // Validate participant count
-      if (participantIds.length > 50) {
-        throw new Error('Groups cannot have more than 50 members')
-      }
-
-      // Create conversation
-      const { data: conversation, error } = await this.supabase
-        .from('conversations')
-        .insert({
-          type: 'group',
-          name,
-          description,
-          created_by: creatorId,
-          group_type: 'user_created'
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Add participants
-      const participants = [creatorId, ...participantIds].map(userId => ({
-        conversation_id: conversation.id,
-        user_id: userId,
-        is_admin: userId === creatorId
-      }))
-
-      await this.supabase
-        .from('conversation_participants')
-        .insert(participants)
-
-      return conversation
-    } catch (error) {
-      console.error('Error creating group:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Get conversation details with participants
-   */
-  async getConversation(
-    conversationId: string,
-    userId: string
-  ): Promise<ConversationWithMetadata | null> {
-    try {
-      // Check if user is participant
-      const { data: participant } = await this.supabase
-        .from('conversation_participants')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId)
-        .is('left_at', null)
-        .single()
-
-      if (!participant) return null
-
-      // Get conversation with participants
-      const { data: conversation, error } = await this.supabase
-        .from('conversations')
-        .select(`
-          *,
-          participants:conversation_participants!inner(
-            user_id,
-            is_admin,
-            users!inner(
-              id,
-              username,
-              avatar_url,
-              display_name,
-              is_online
-            )
-          )
-        `)
-        .eq('id', conversationId)
-        .single()
-
-      if (error) throw error
-
-      // Get last message
-      const { data: lastMessage } = await this.supabase
-        .from('messages')
-        .select(`
-          *,
-          sender:users!sender_id(
-            id,
-            username,
-            avatar_url,
-            display_name
-          )
-        `)
-        .eq('conversation_id', conversationId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      // Get unread count
-      const unreadCount = await this.getUnreadCount(conversationId, userId)
-
-      return {
-        ...conversation,
-        last_message: lastMessage,
-        unread_count: unreadCount,
-        participants: conversation.participants.map((p: any) => ({
-          user_id: p.user_id,
-          username: p.users.username,
-          avatar_url: p.users.avatar_url,
-          display_name: p.users.display_name,
-          is_online: p.users.is_online || false
-        })),
-        is_typing: []
-      }
-    } catch (error) {
-      console.error('Error fetching conversation:', error)
-      return null
-    }
-  }
-
-  /**
-   * Get unread message count for a conversation
-   */
-  private async getUnreadCount(
-    conversationId: string,
-    userId: string
-  ): Promise<number> {
-    const { data, error } = await this.supabase
-      .rpc('get_unread_count', {
-        p_user_id: userId,
-        p_conversation_id: conversationId
-      })
-
-    if (error) {
-      console.error('Error getting unread count:', error)
-      return 0
-    }
-
-    return data || 0
-  }
-
-  /**
-   * Delete message (soft delete)
-   */
-  async deleteMessage(
-    messageId: string,
-    userId: string
-  ): Promise<void> {
-    try {
-      const { error } = await this.supabase
-        .from('messages')
-        .update({ 
-          deleted_at: new Date().toISOString(),
-          is_deleted: true 
-        })
-        .eq('id', messageId)
-        .eq('sender_id', userId)
-
-      if (error) throw error
-    } catch (error) {
-      console.error('Error deleting message:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Edit message
-   */
-  async editMessage(
-    messageId: string,
-    userId: string,
-    newContent: string
-  ): Promise<Message> {
-    try {
-      const { data, error } = await this.supabase
-        .from('messages')
-        .update({ 
-          content: newContent,
-          edited_at: new Date().toISOString(),
-          is_edited: true
-        })
-        .eq('id', messageId)
-        .eq('sender_id', userId)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      return data
-    } catch (error) {
-      console.error('Error editing message:', error)
       throw error
     }
   }
