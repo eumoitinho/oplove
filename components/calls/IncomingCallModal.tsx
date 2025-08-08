@@ -28,13 +28,14 @@ interface IncomingCall {
 
 export function IncomingCallModal() {
   const { user } = useAuth()
-  const supabase = createClient()
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null)
   const [isRinging, setIsRinging] = useState(false)
 
   useEffect(() => {
     if (!user) return
 
+    const supabase = createClient()
+    
     // Subscribe to call notifications
     const channel = supabase
       .channel(`calls:${user.id}`)
@@ -140,6 +141,7 @@ export function IncomingCallModal() {
       }
       
       // Mark notification as read
+      const supabase = createClient()
       await supabase
         .from('notifications')
         .update({ is_read: true })
@@ -159,6 +161,7 @@ export function IncomingCallModal() {
     setIsRinging(false)
     
     // Mark notification as read
+    const supabase = createClient()
     await supabase
       .from('notifications')
       .update({ is_read: true })

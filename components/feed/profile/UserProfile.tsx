@@ -1526,6 +1526,16 @@ export function UserProfile({ userId }: UserProfileProps) {
           onIndexChange={setSelectedMediaIndex}
         />
       )}
+
+      {/* Story Viewer */}
+      {showStoryViewer && userStories.length > 0 && (
+        <StoryViewer
+          stories={userStories}
+          initialIndex={selectedStoryIndex}
+          onClose={() => setShowStoryViewer(false)}
+          onStoriesUpdate={setUserStories}
+        />
+      )}
     </div>
   )
 }
