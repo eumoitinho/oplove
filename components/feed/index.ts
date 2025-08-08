@@ -19,7 +19,7 @@ export { PostMedia } from "./post/PostMedia"
 export { PostPoll } from "./post/PostPoll"
 
 // Create post components
-export { CreatePost } from "./create/CreatePost"
+export { default as CreatePost } from "./create/CreatePost"
 export { LocationPicker } from "./create/LocationPicker"
 export { MediaUploader } from "./create/MediaUploader"
 export { PollCreator } from "./create/PollCreator"
