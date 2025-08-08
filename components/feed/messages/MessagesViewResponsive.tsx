@@ -39,7 +39,7 @@ import { createClient } from '@/app/lib/supabase-browser'
 import { Crown, Gem } from 'lucide-react'
 import { CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/components/ui/use-toast'
 
 interface MessagesViewProps {
   className?: string
