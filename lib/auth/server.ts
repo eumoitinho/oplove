@@ -1,6 +1,6 @@
 import { createServerClient } from '@/app/lib/supabase-server'
 import { NextResponse } from 'next/server'
-import type { User } from '@/types/common'
+import type { User } from '@/types/database.types'
 
 export async function getAuthUser(): Promise<User | null> {
   try {

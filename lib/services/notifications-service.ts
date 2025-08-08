@@ -102,7 +102,13 @@ class NotificationsService {
         .eq('is_read', false)
 
       if (error) {
-        console.error('NotificationsService - getUnreadCount error:', error.message || error)
+        console.error('NotificationsService - getUnreadCount error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        })
         
         // If table doesn't exist, return 0 instead of throwing
         if (error.message?.includes('does not exist') || error.code === '42P01') {
