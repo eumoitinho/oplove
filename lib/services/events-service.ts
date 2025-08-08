@@ -1,5 +1,6 @@
 import { createClient } from "@/app/lib/supabase-browser"
-import type { Event, EventParticipant, ApiResponse, PaginatedResponse, User } from "@/types/common"
+import type { Event, EventParticipant, UserBasic } from "@/types/database.types"
+import type { ApiResponse, PaginatedResponse } from "@/types/common"
 
 export class EventsService {
   private static supabase = createClient()

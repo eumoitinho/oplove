@@ -1,40 +1,17 @@
 import { createSupabaseClient } from '@/lib/supabase/client'
-import { Database } from '@/types/database'
 import { ConversationCacheService } from '@/lib/cache/conversation-cache.service'
+import type { 
+  Conversation, 
+  Message, 
+  ConversationParticipant,
+  UserBasic,
+  ConversationWithParticipants,
+  MessageWithSender
+} from '@/types/database.types'
 
-type Message = Database['public']['Tables']['messages']['Row']
-type Conversation = Database['public']['Tables']['conversations']['Row']
-type ConversationParticipant = Database['public']['Tables']['conversation_participants']['Row']
-
-export interface ConversationWithMetadata extends Conversation {
-  last_message?: Message & {
-    sender: {
-      id: string
-      username: string
-      avatar_url: string | null
-      display_name: string | null
-    }
-  }
-  unread_count: number
-  participants: Array<{
-    user_id: string
-    username: string
-    avatar_url: string | null
-    display_name: string | null
-    is_online: boolean
-  }>
+// Enhanced conversation type with metadata
+export type ConversationWithMetadata = ConversationWithParticipants & {
   is_typing: string[]
-}
-
-export interface MessageWithSender extends Message {
-  sender: {
-    id: string
-    username: string
-    avatar_url: string | null
-    display_name: string | null
-  }
-  read_by: string[]
-  reactions?: Record<string, string[]>
 }
 
 export class MessageService {
@@ -42,7 +19,7 @@ export class MessageService {
   private cacheService = new ConversationCacheService()
 
   /**
-   * Get user conversations - simplified version without RPC
+   * Get user conversations - using SQL function for better performance
    */
   async getUserConversations(
     userId: string,
@@ -58,127 +35,189 @@ export class MessageService {
         }
       }
 
-      // Get user's conversations
-      const { data: userConversations, error: convError } = await this.supabase
+      // Use direct query instead of RPC to avoid RLS issues
+      const { data: userParticipants, error: participantError } = await this.supabase
         .from('conversation_participants')
-        .select(`
-          conversation_id,
-          conversations!inner(
-            id,
-            type,
-            name,
-            description,
-            avatar_url,
-            created_by,
-            initiated_by,
-            initiated_by_premium,
-            group_type,
-            is_active,
-            message_count,
-            created_at,
-            updated_at
-          )
-        `)
+        .select('conversation_id')
         .eq('user_id', userId)
         .is('left_at', null)
         .limit(limit)
         .range(offset, offset + limit - 1)
 
-      if (convError) throw convError
+      if (participantError) {
+        console.error('Participant query error:', participantError)
+        throw participantError
+      }
 
-      if (!userConversations || userConversations.length === 0) {
+      if (!userParticipants || userParticipants.length === 0) {
         return []
       }
 
-      // Get conversation IDs
-      const conversationIds = userConversations.map(uc => uc.conversation_id)
+      const conversationIds = userParticipants.map(p => p.conversation_id)
 
-      // Batch fetch last messages
-      const { data: lastMessages } = await this.supabase
-        .from('messages')
+      // Get conversation details
+      const { data: rawConversations, error } = await this.supabase
+        .from('conversations')
         .select(`
-          *,
-          sender:users!sender_id(
-            id,
-            username,
-            avatar_url,
-            name
-          )
+          id,
+          type,
+          name,
+          description,
+          avatar_url,
+          created_by,
+          initiated_by,
+          initiated_by_premium,
+          group_type,
+          is_active,
+          message_count,
+          last_message_at,
+          last_message_id,
+          created_at,
+          updated_at
         `)
-        .in('conversation_id', conversationIds)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
+        .in('id', conversationIds)
+        .order('updated_at', { ascending: false })
 
-      // Batch fetch participants
+      if (error) throw error
+
+      if (!rawConversations || rawConversations.length === 0) {
+        return []
+      }
+
+      // Batch fetch all participants for these conversations
       const { data: allParticipants } = await this.supabase
         .from('conversation_participants')
         .select(`
           conversation_id,
           user_id,
+          role,
+          joined_at,
+          left_at,
+          is_muted,
+          last_read_at,
           users!inner(
             id,
             username,
-            avatar_url,
             name,
+            avatar_url,
             last_seen_at
           )
         `)
         .in('conversation_id', conversationIds)
         .is('left_at', null)
 
-      // Group data by conversation
-      const lastMessagesByConv = new Map()
-      const participantsByConv = new Map()
+      // Batch fetch last messages
+      const lastMessageIds = rawConversations
+        .map(c => c.last_message_id)
+        .filter(Boolean)
 
-      // Group last messages (keep only the most recent per conversation)
-      for (const msg of lastMessages || []) {
-        if (!lastMessagesByConv.has(msg.conversation_id)) {
-          lastMessagesByConv.set(msg.conversation_id, msg)
-        }
+      let lastMessagesMap = new Map()
+      if (lastMessageIds.length > 0) {
+        const { data: lastMessages } = await this.supabase
+          .from('messages')
+          .select(`
+            *,
+            sender:users!sender_id(
+              id,
+              username,
+              name,
+              avatar_url
+            )
+          `)
+          .in('id', lastMessageIds)
+
+        lastMessages?.forEach(msg => {
+          lastMessagesMap.set(msg.id, msg)
+        })
       }
 
-      // Group participants
-      for (const participant of allParticipants || []) {
+      // Group participants by conversation
+      const participantsByConv = new Map()
+      allParticipants?.forEach(participant => {
         if (!participantsByConv.has(participant.conversation_id)) {
           participantsByConv.set(participant.conversation_id, [])
         }
         participantsByConv.get(participant.conversation_id).push({
+          id: `${participant.conversation_id}_${participant.user_id}`,
+          conversation_id: participant.conversation_id,
           user_id: participant.user_id,
-          username: participant.users.username,
-          avatar_url: participant.users.avatar_url,
-          display_name: participant.users.name,
-          is_online: this.isRecentlyActive(participant.users.last_seen_at)
+          role: participant.role || 'member',
+          joined_at: participant.joined_at,
+          left_at: participant.left_at,
+          is_muted: participant.is_muted || false,
+          last_read_at: participant.last_read_at,
+          user: {
+            id: participant.users.id,
+            username: participant.users.username,
+            name: participant.users.name,
+            avatar_url: participant.users.avatar_url,
+          } as UserBasic,
+          conversation: {} as Conversation
         })
-      }
-
-      // Build final conversations
-      const conversations: ConversationWithMetadata[] = userConversations.map(uc => {
-        const conv = uc.conversations
-        const lastMessage = lastMessagesByConv.get(conv.id)
-        const participants = participantsByConv.get(conv.id) || []
-
-        return {
-          ...conv,
-          last_message: lastMessage ? {
-            ...lastMessage,
-            sender: lastMessage.sender || {
-              id: lastMessage.sender_id,
-              username: 'Unknown',
-              avatar_url: null,
-              display_name: 'Usuario'
-            }
-          } : undefined,
-          unread_count: 0, // We'll implement this separately
-          participants,
-          is_typing: []
-        }
       })
 
-      // Sort by last message time
-      conversations.sort((a, b) => {
-        const timeA = a.last_message?.created_at || a.created_at || ''
-        const timeB = b.last_message?.created_at || b.created_at || ''
-        return new Date(timeB).getTime() - new Date(timeA).getTime()
+      // Map to our custom conversation type
+      const conversations: ConversationWithMetadata[] = rawConversations.map(raw => {
+        const participants = participantsByConv.get(raw.id) || []
+        
+        let lastMessage: Message | null = null
+        if (raw.last_message_id && lastMessagesMap.has(raw.last_message_id)) {
+          const msgData = lastMessagesMap.get(raw.last_message_id)
+          lastMessage = {
+            id: msgData.id,
+            conversation_id: msgData.conversation_id,
+            sender_id: msgData.sender_id,
+            content: msgData.content,
+            media_url: msgData.media_urls?.[0] || null,
+            media_type: msgData.media_type as any,
+            media_size: msgData.media_size,
+            media_duration: msgData.media_duration,
+            reply_to: msgData.reply_to_id,
+            message_type: msgData.type || 'text',
+            system_data: null,
+            call_data: null,
+            is_edited: msgData.is_edited || false,
+            edit_history: [],
+            is_deleted: msgData.is_deleted || false,
+            deleted_at: msgData.deleted_at,
+            reactions_count: 0,
+            created_at: msgData.created_at,
+            updated_at: msgData.created_at,
+            sender: msgData.sender ? {
+              id: msgData.sender.id,
+              username: msgData.sender.username,
+              name: msgData.sender.name,
+              avatar_url: msgData.sender.avatar_url,
+            } as UserBasic : {} as UserBasic,
+            conversation: {} as Conversation,
+            reply_to_message: null,
+            reactions: [],
+            read_receipts: []
+          }
+        }
+
+        return {
+          id: raw.id,
+          title: raw.name,
+          type: raw.type as any,
+          group_type: raw.group_type as any,
+          avatar_url: raw.avatar_url,
+          description: raw.description,
+          created_by: raw.created_by,
+          initiated_by: raw.initiated_by,
+          initiated_by_premium: raw.initiated_by_premium || false,
+          is_archived: false,
+          is_muted: false,
+          last_message_at: raw.last_message_at,
+          unread_count: 0, // TODO: Calculate this
+          created_at: raw.created_at,
+          updated_at: raw.updated_at,
+          participants,
+          messages: [],
+          last_message: lastMessage,
+          creator: {} as UserBasic,
+          is_typing: []
+        } as ConversationWithMetadata
       })
 
       // Cache the results

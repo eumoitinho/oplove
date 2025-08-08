@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/app/lib/supabase-browser"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 
 interface AuthContextType {
   user: User | null

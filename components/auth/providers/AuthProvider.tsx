@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { createClient } from "@/app/lib/supabase-browser"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 import { useRouter } from "next/navigation"
 
 interface AuthContextType {

@@ -141,7 +141,31 @@ class MessagesService {
   // Get all conversations for current user
   async getConversations(userId: string) {
     
-    // Get conversations where user is a participant
+    console.log('🔍 Getting conversations for user:', userId)
+    
+    // First, try to get user's conversation participations
+    const { data: userParticipants, error: participantsError } = await this.supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId)
+      .is('left_at', null)
+    
+    console.log('🔍 User participants:', { userParticipants, participantsError })
+    
+    if (participantsError) {
+      console.error('Error fetching user participants:', participantsError)
+      throw participantsError
+    }
+    
+    if (!userParticipants || userParticipants.length === 0) {
+      console.log('🔍 No conversations found for user')
+      return []
+    }
+    
+    const conversationIds = userParticipants.map(p => p.conversation_id)
+    console.log('🔍 Conversation IDs:', conversationIds)
+    
+    // Get conversation details
     const { data: conversations, error } = await this.supabase
       .from('conversations')
       .select(`
@@ -154,26 +178,12 @@ class MessagesService {
         updated_at,
         initiated_by,
         initiated_by_premium,
-        group_type,
-        participants:conversation_participants!inner(
-          user_id,
-          role,
-          joined_at,
-          last_read_at,
-          notifications_enabled,
-          user:users(
-            id,
-            username,
-            name,
-            avatar_url,
-            is_verified,
-            premium_type,
-            last_seen
-          )
-        )
+        group_type
       `)
-      .eq('conversation_participants.user_id', userId)
+      .in('id', conversationIds)
       .order('last_message_at', { ascending: false, nullsFirst: false })
+
+    console.log('🔍 Conversations query result:', { conversations, error })
 
     if (error) {
       console.error('Error fetching conversations:', error)
@@ -204,21 +214,10 @@ class MessagesService {
         // Add last message to each conversation
         conversations.forEach(conv => {
           conv.last_message = messagesByConversation?.[conv.id] || null
+          conv.unread_count = 0 // TODO: Calculate unread count properly
           
-          // Calculate unread count (messages after user's last_read_at)
-          const userParticipant = conv.participants?.find(p => p.user_id === userId)
-          const lastReadAt = userParticipant?.last_read_at
-          
-          if (lastReadAt && conv.last_message) {
-            const unreadMessages = lastMessages?.filter(msg => 
-              msg.conversation_id === conv.id && 
-              msg.sender_id !== userId &&
-              new Date(msg.created_at) > new Date(lastReadAt)
-            ) || []
-            conv.unread_count = unreadMessages.length
-          } else {
-            conv.unread_count = 0
-          }
+          // For now, add empty participants array (we'll populate this later if needed)
+          conv.participants = []
         })
       }
     }

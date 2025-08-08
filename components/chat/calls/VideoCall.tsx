@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { CallControls } from "./CallControls"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 
 interface VideoCallProps {
   participants: User[]

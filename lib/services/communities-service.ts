@@ -1,6 +1,12 @@
 import { createClient } from "@/app/lib/supabase-browser"
-import type { Community, CommunityMember, CommunityPost, CommunityInvite, CommunityCategory, CommunityType } from "@/types/community"
+import type { Community, CommunityMember } from "@/types/database.types"
 import type { ApiResponse, PaginatedResponse } from "@/types/common"
+
+// TODO: These types should be added to database.types.ts when available
+type CommunityPost = any
+type CommunityInvite = any  
+type CommunityCategory = string
+type CommunityType = string
 
 interface FetchCommunitiesParams {
   page?: number

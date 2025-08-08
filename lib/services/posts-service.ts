@@ -1,4 +1,4 @@
-import { Post } from "@/types/common"
+import type { Post, PostWithDetails } from "@/types/database.types"
 
 interface FetchPostsParams {
   page?: number
@@ -9,7 +9,7 @@ interface FetchPostsParams {
 }
 
 interface PostsResponse {
-  data: Post[]
+  data: PostWithDetails[]
   hasMore: boolean
   total?: number
 }

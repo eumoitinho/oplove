@@ -24,7 +24,7 @@ import { EventsService } from "@/lib/services/events-service"
 import { EventCard } from "./EventCard"
 import { CreateEventModal } from "./CreateEventModal"
 import { EventDetailsModal } from "./EventDetailsModal"
-import type { Event, EventCategory } from "@/types/common"
+import type { Event } from "@/types/database.types"
 import { cn } from "@/lib/utils"
 import { PremiumTooltip } from "@/components/common/PremiumTooltip"
 

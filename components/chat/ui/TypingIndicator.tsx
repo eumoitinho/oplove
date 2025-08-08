@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 
 interface TypingIndicatorProps {
   users: User[]

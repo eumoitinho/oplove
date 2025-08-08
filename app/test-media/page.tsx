@@ -3,7 +3,7 @@
 import { PostCard } from "@/components/feed/post/PostCard"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
-import type { Post } from "@/types/common"
+import type { Post } from "@/types/database.types"
 
 // Mock posts com diferentes tipos de mídia
 const mockPosts: Post[] = [

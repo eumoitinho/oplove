@@ -521,7 +521,6 @@ export type Database = {
           status: Database["public"]["Enums"]["ad_status"] | null
           target_age_max: number | null
           target_age_min: number | null
-          target_genders: Database["public"]["Enums"]["gender_type"][] | null
           target_interests: string[] | null
           target_locations: string[] | null
           title: string
@@ -545,7 +544,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["ad_status"] | null
           target_age_max?: number | null
           target_age_min?: number | null
-          target_genders?: Database["public"]["Enums"]["gender_type"][] | null
           target_interests?: string[] | null
           target_locations?: string[] | null
           title: string
@@ -569,7 +567,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["ad_status"] | null
           target_age_max?: number | null
           target_age_min?: number | null
-          target_genders?: Database["public"]["Enums"]["gender_type"][] | null
           target_interests?: string[] | null
           target_locations?: string[] | null
           title?: string
@@ -587,6 +584,7 @@ export type Database = {
       }
       blocked_users: {
         Row: {
+          blocked_at: string | null
           blocked_id: string | null
           blocker_id: string | null
           created_at: string | null
@@ -594,6 +592,7 @@ export type Database = {
           reason: string | null
         }
         Insert: {
+          blocked_at?: string | null
           blocked_id?: string | null
           blocker_id?: string | null
           created_at?: string | null
@@ -601,6 +600,7 @@ export type Database = {
           reason?: string | null
         }
         Update: {
+          blocked_at?: string | null
           blocked_id?: string | null
           blocker_id?: string | null
           created_at?: string | null
@@ -954,7 +954,50 @@ export type Database = {
             foreignKeyName: "calls_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "conversation_summaries"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "calls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comment_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1012,6 +1055,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
           },
           {
             foreignKeyName: "comments_post_id_fkey"
@@ -1309,9 +1359,12 @@ export type Database = {
         Row: {
           conversation_id: string | null
           id: string
+          is_admin: boolean | null
+          is_muted: boolean | null
           is_pinned: boolean | null
           joined_at: string | null
           last_read_at: string | null
+          last_read_message_id: string | null
           left_at: string | null
           notifications_enabled: boolean | null
           role: string | null
@@ -1322,9 +1375,12 @@ export type Database = {
         Insert: {
           conversation_id?: string | null
           id?: string
+          is_admin?: boolean | null
+          is_muted?: boolean | null
           is_pinned?: boolean | null
           joined_at?: string | null
           last_read_at?: string | null
+          last_read_message_id?: string | null
           left_at?: string | null
           notifications_enabled?: boolean | null
           role?: string | null
@@ -1335,9 +1391,12 @@ export type Database = {
         Update: {
           conversation_id?: string | null
           id?: string
+          is_admin?: boolean | null
+          is_muted?: boolean | null
           is_pinned?: boolean | null
           joined_at?: string | null
           last_read_at?: string | null
+          last_read_message_id?: string | null
           left_at?: string | null
           notifications_enabled?: boolean | null
           role?: string | null
@@ -1350,7 +1409,21 @@ export type Database = {
             foreignKeyName: "conversation_participants_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "conversation_summaries"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -1372,11 +1445,13 @@ export type Database = {
           id: string
           initiated_by: string | null
           initiated_by_premium: boolean | null
+          is_active: boolean | null
           is_archived: boolean | null
           last_message_at: string | null
           last_message_id: string | null
           last_message_preview: string | null
           max_participants: number | null
+          message_count: number | null
           name: string | null
           type: string
           updated_at: string | null
@@ -1390,11 +1465,13 @@ export type Database = {
           id?: string
           initiated_by?: string | null
           initiated_by_premium?: boolean | null
+          is_active?: boolean | null
           is_archived?: boolean | null
           last_message_at?: string | null
           last_message_id?: string | null
           last_message_preview?: string | null
           max_participants?: number | null
+          message_count?: number | null
           name?: string | null
           type: string
           updated_at?: string | null
@@ -1408,11 +1485,13 @@ export type Database = {
           id?: string
           initiated_by?: string | null
           initiated_by_premium?: boolean | null
+          is_active?: boolean | null
           is_archived?: boolean | null
           last_message_at?: string | null
           last_message_id?: string | null
           last_message_preview?: string | null
           max_participants?: number | null
+          message_count?: number | null
           name?: string | null
           type?: string
           updated_at?: string | null
@@ -2237,6 +2316,38 @@ export type Database = {
           },
         ]
       }
+      daily_message_counts: {
+        Row: {
+          count: number | null
+          created_at: string | null
+          date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          count?: number | null
+          created_at?: string | null
+          date?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          count?: number | null
+          created_at?: string | null
+          date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_message_counts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dating_matches: {
         Row: {
           conversation_id: string | null
@@ -2284,6 +2395,13 @@ export type Database = {
           user2_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "dating_matches_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_summaries"
+            referencedColumns: ["conversation_id"]
+          },
           {
             foreignKeyName: "dating_matches_conversation_id_fkey"
             columns: ["conversation_id"]
@@ -2599,7 +2717,6 @@ export type Database = {
           description: string | null
           end_date: string | null
           event_type: Database["public"]["Enums"]["event_type"]
-          gender_restriction: Database["public"]["Enums"]["gender_type"] | null
           id: string
           is_online: boolean | null
           is_paid: boolean | null
@@ -2632,7 +2749,6 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           event_type: Database["public"]["Enums"]["event_type"]
-          gender_restriction?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           is_online?: boolean | null
           is_paid?: boolean | null
@@ -2665,7 +2781,6 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
-          gender_restriction?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           is_online?: boolean | null
           is_paid?: boolean | null
@@ -2896,6 +3011,39 @@ export type Database = {
           },
         ]
       }
+      message_reads: {
+        Row: {
+          message_id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          message_id: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          message_id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string | null
@@ -2908,8 +3056,12 @@ export type Database = {
           is_deleted: boolean | null
           is_edited: boolean | null
           is_read: boolean | null
+          media_duration: number | null
+          media_size: number | null
+          media_type: string | null
           media_urls: string[] | null
           read_count: number | null
+          reply_to: string | null
           reply_to_id: string | null
           sender_id: string | null
           type: Database["public"]["Enums"]["message_type"] | null
@@ -2925,8 +3077,12 @@ export type Database = {
           is_deleted?: boolean | null
           is_edited?: boolean | null
           is_read?: boolean | null
+          media_duration?: number | null
+          media_size?: number | null
+          media_type?: string | null
           media_urls?: string[] | null
           read_count?: number | null
+          reply_to?: string | null
           reply_to_id?: string | null
           sender_id?: string | null
           type?: Database["public"]["Enums"]["message_type"] | null
@@ -2942,8 +3098,12 @@ export type Database = {
           is_deleted?: boolean | null
           is_edited?: boolean | null
           is_read?: boolean | null
+          media_duration?: number | null
+          media_size?: number | null
+          media_type?: string | null
           media_urls?: string[] | null
           read_count?: number | null
+          reply_to?: string | null
           reply_to_id?: string | null
           sender_id?: string | null
           type?: Database["public"]["Enums"]["message_type"] | null
@@ -2953,7 +3113,21 @@ export type Database = {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "conversation_summaries"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -2977,9 +3151,12 @@ export type Database = {
           action_url: string | null
           content: string | null
           created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
           icon: string | null
           id: string
           is_read: boolean | null
+          message: string | null
           read_at: string | null
           recipient_id: string | null
           related_data: Json | null
@@ -2991,9 +3168,12 @@ export type Database = {
           action_url?: string | null
           content?: string | null
           created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           icon?: string | null
           id?: string
           is_read?: boolean | null
+          message?: string | null
           read_at?: string | null
           recipient_id?: string | null
           related_data?: Json | null
@@ -3005,9 +3185,12 @@ export type Database = {
           action_url?: string | null
           content?: string | null
           created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           icon?: string | null
           id?: string
           is_read?: boolean | null
+          message?: string | null
           read_at?: string | null
           recipient_id?: string | null
           related_data?: Json | null
@@ -3263,7 +3446,21 @@ export type Database = {
             foreignKeyName: "poll_votes_poll_id_fkey"
             columns: ["poll_id"]
             isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["poll_id"]
+          },
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
             referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
             referencedColumns: ["id"]
           },
           {
@@ -3346,6 +3543,13 @@ export type Database = {
             foreignKeyName: "post_comments_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
@@ -3382,11 +3586,115 @@ export type Database = {
             foreignKeyName: "post_likes_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_media: {
+        Row: {
+          created_at: string | null
+          duration: number | null
+          file_size: number | null
+          id: string
+          post_id: string
+          thumbnail_url: string | null
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration?: number | null
+          file_size?: number | null
+          id?: string
+          post_id: string
+          thumbnail_url?: string | null
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number | null
+          file_size?: number | null
+          id?: string
+          post_id?: string
+          thumbnail_url?: string | null
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_reactions: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          reaction_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          reaction_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          reaction_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_reactions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -3429,6 +3737,13 @@ export type Database = {
           status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "post_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
           {
             foreignKeyName: "post_reports_post_id_fkey"
             columns: ["post_id"]
@@ -3489,6 +3804,13 @@ export type Database = {
             foreignKeyName: "post_saves_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_saves_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
@@ -3537,6 +3859,13 @@ export type Database = {
             foreignKeyName: "post_shares_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
+          {
+            foreignKeyName: "post_shares_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
@@ -3551,6 +3880,8 @@ export type Database = {
       }
       posts: {
         Row: {
+          angry_count: number | null
+          audio_duration: number | null
           comments_count: number | null
           content: string | null
           couple_id: string | null
@@ -3563,17 +3894,24 @@ export type Database = {
           is_premium_content: boolean | null
           is_reported: boolean | null
           latitude: number | null
+          laugh_count: number | null
+          like_count: number | null
           likes_count: number | null
           location: string | null
           longitude: number | null
+          love_count: number | null
           media_thumbnails: string[] | null
           media_types: string[] | null
           media_urls: string[] | null
           mentions: string[] | null
+          poll_expires_at: string | null
           poll_id: string | null
+          poll_options: string[] | null
+          poll_question: string | null
           post_type: Database["public"]["Enums"]["post_type"] | null
           price: number | null
           report_count: number | null
+          sad_count: number | null
           saves_count: number | null
           shares_count: number | null
           stats: Json | null
@@ -3581,8 +3919,11 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
           visibility: Database["public"]["Enums"]["visibility_type"] | null
+          wow_count: number | null
         }
         Insert: {
+          angry_count?: number | null
+          audio_duration?: number | null
           comments_count?: number | null
           content?: string | null
           couple_id?: string | null
@@ -3595,17 +3936,24 @@ export type Database = {
           is_premium_content?: boolean | null
           is_reported?: boolean | null
           latitude?: number | null
+          laugh_count?: number | null
+          like_count?: number | null
           likes_count?: number | null
           location?: string | null
           longitude?: number | null
+          love_count?: number | null
           media_thumbnails?: string[] | null
           media_types?: string[] | null
           media_urls?: string[] | null
           mentions?: string[] | null
+          poll_expires_at?: string | null
           poll_id?: string | null
+          poll_options?: string[] | null
+          poll_question?: string | null
           post_type?: Database["public"]["Enums"]["post_type"] | null
           price?: number | null
           report_count?: number | null
+          sad_count?: number | null
           saves_count?: number | null
           shares_count?: number | null
           stats?: Json | null
@@ -3613,8 +3961,11 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           visibility?: Database["public"]["Enums"]["visibility_type"] | null
+          wow_count?: number | null
         }
         Update: {
+          angry_count?: number | null
+          audio_duration?: number | null
           comments_count?: number | null
           content?: string | null
           couple_id?: string | null
@@ -3627,17 +3978,24 @@ export type Database = {
           is_premium_content?: boolean | null
           is_reported?: boolean | null
           latitude?: number | null
+          laugh_count?: number | null
+          like_count?: number | null
           likes_count?: number | null
           location?: string | null
           longitude?: number | null
+          love_count?: number | null
           media_thumbnails?: string[] | null
           media_types?: string[] | null
           media_urls?: string[] | null
           mentions?: string[] | null
+          poll_expires_at?: string | null
           poll_id?: string | null
+          poll_options?: string[] | null
+          poll_question?: string | null
           post_type?: Database["public"]["Enums"]["post_type"] | null
           price?: number | null
           report_count?: number | null
+          sad_count?: number | null
           saves_count?: number | null
           shares_count?: number | null
           stats?: Json | null
@@ -3645,6 +4003,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           visibility?: Database["public"]["Enums"]["visibility_type"] | null
+          wow_count?: number | null
         }
         Relationships: [
           {
@@ -3665,7 +4024,21 @@ export type Database = {
             foreignKeyName: "posts_poll_id_fkey"
             columns: ["poll_id"]
             isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["poll_id"]
+          },
+          {
+            foreignKeyName: "posts_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
             referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
             referencedColumns: ["id"]
           },
           {
@@ -3681,6 +4054,7 @@ export type Database = {
         Row: {
           available_until: string | null
           category: string | null
+          color_hex: string | null
           created_at: string | null
           credit_cost: number
           description: string | null
@@ -3689,11 +4063,13 @@ export type Database = {
           id: string
           is_available: boolean | null
           name: string
+          rarity: string | null
           times_gifted: number | null
         }
         Insert: {
           available_until?: string | null
           category?: string | null
+          color_hex?: string | null
           created_at?: string | null
           credit_cost: number
           description?: string | null
@@ -3702,11 +4078,13 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           name: string
+          rarity?: string | null
           times_gifted?: number | null
         }
         Update: {
           available_until?: string | null
           category?: string | null
+          color_hex?: string | null
           created_at?: string | null
           credit_cost?: number
           description?: string | null
@@ -3715,6 +4093,7 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           name?: string
+          rarity?: string | null
           times_gifted?: number | null
         }
         Relationships: []
@@ -3804,6 +4183,7 @@ export type Database = {
       }
       saved_posts: {
         Row: {
+          collection_id: string | null
           created_at: string | null
           folder_name: string | null
           id: string
@@ -3811,6 +4191,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          collection_id?: string | null
           created_at?: string | null
           folder_name?: string | null
           id?: string
@@ -3818,6 +4199,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          collection_id?: string | null
           created_at?: string | null
           folder_name?: string | null
           id?: string
@@ -3825,6 +4207,20 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "saved_posts_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "saved_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_posts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "post_polls"
+            referencedColumns: ["post_id"]
+          },
           {
             foreignKeyName: "saved_posts_post_id_fkey"
             columns: ["post_id"]
@@ -4257,6 +4653,46 @@ export type Database = {
           },
         ]
       }
+      typing_indicators: {
+        Row: {
+          conversation_id: string
+          started_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          started_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          started_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "typing_indicators_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_summaries"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "typing_indicators_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "typing_indicators_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_credit_transactions: {
         Row: {
           amount: number
@@ -4372,6 +4808,7 @@ export type Database = {
           created_at: string | null
           display_order: number | null
           expires_at: string | null
+          gifter_id: string | null
           id: string
           is_displayed: boolean | null
           message: string | null
@@ -4383,6 +4820,7 @@ export type Database = {
           created_at?: string | null
           display_order?: number | null
           expires_at?: string | null
+          gifter_id?: string | null
           id?: string
           is_displayed?: boolean | null
           message?: string | null
@@ -4394,6 +4832,7 @@ export type Database = {
           created_at?: string | null
           display_order?: number | null
           expires_at?: string | null
+          gifter_id?: string | null
           id?: string
           is_displayed?: boolean | null
           message?: string | null
@@ -4402,6 +4841,13 @@ export type Database = {
           sender_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_profile_seals_gifter_id_fkey"
+            columns: ["gifter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_profile_seals_recipient_id_fkey"
             columns: ["recipient_id"]
@@ -4524,18 +4970,14 @@ export type Database = {
           daily_message_limit: number | null
           daily_messages_sent: number | null
           email: string
-          first_name: string | null
           gender: Database["public"]["Enums"]["gender_type"] | null
           id: string
           interests: string[] | null
           is_active: boolean | null
           is_in_couple: boolean | null
-          is_premium: boolean | null
           is_verified: boolean | null
           last_active_at: string | null
-          last_name: string | null
           latitude: number | null
-          location: string | null
           longitude: number | null
           looking_for: string[] | null
           monthly_events_created: number | null
@@ -4552,9 +4994,7 @@ export type Database = {
           profile_type: Database["public"]["Enums"]["profile_type"] | null
           relationship_goals: string[] | null
           role: Database["public"]["Enums"]["user_role"] | null
-          seeking: string[] | null
           social_links: Json | null
-          state: string | null
           stats: Json | null
           status: Database["public"]["Enums"]["user_status"] | null
           stripe_customer_id: string | null
@@ -4581,18 +5021,14 @@ export type Database = {
           daily_message_limit?: number | null
           daily_messages_sent?: number | null
           email: string
-          first_name?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           interests?: string[] | null
           is_active?: boolean | null
           is_in_couple?: boolean | null
-          is_premium?: boolean | null
           is_verified?: boolean | null
           last_active_at?: string | null
-          last_name?: string | null
           latitude?: number | null
-          location?: string | null
           longitude?: number | null
           looking_for?: string[] | null
           monthly_events_created?: number | null
@@ -4609,9 +5045,7 @@ export type Database = {
           profile_type?: Database["public"]["Enums"]["profile_type"] | null
           relationship_goals?: string[] | null
           role?: Database["public"]["Enums"]["user_role"] | null
-          seeking?: string[] | null
           social_links?: Json | null
-          state?: string | null
           stats?: Json | null
           status?: Database["public"]["Enums"]["user_status"] | null
           stripe_customer_id?: string | null
@@ -4638,18 +5072,14 @@ export type Database = {
           daily_message_limit?: number | null
           daily_messages_sent?: number | null
           email?: string
-          first_name?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           interests?: string[] | null
           is_active?: boolean | null
           is_in_couple?: boolean | null
-          is_premium?: boolean | null
           is_verified?: boolean | null
           last_active_at?: string | null
-          last_name?: string | null
           latitude?: number | null
-          location?: string | null
           longitude?: number | null
           looking_for?: string[] | null
           monthly_events_created?: number | null
@@ -4666,9 +5096,7 @@ export type Database = {
           profile_type?: Database["public"]["Enums"]["profile_type"] | null
           relationship_goals?: string[] | null
           role?: Database["public"]["Enums"]["user_role"] | null
-          seeking?: string[] | null
           social_links?: Json | null
-          state?: string | null
           stats?: Json | null
           status?: Database["public"]["Enums"]["user_status"] | null
           stripe_customer_id?: string | null
@@ -4766,9 +5194,91 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      conversation_summaries: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          group_type: string | null
+          last_message_at: string | null
+          message_count: number | null
+          name: string | null
+          participant_count: number | null
+          type: string | null
+        }
+        Relationships: []
+      }
+      poll_options: {
+        Row: {
+          id: string | null
+          poll_id: string | null
+          text: string | null
+          votes_count: number | null
+        }
+        Relationships: []
+      }
+      post_polls: {
+        Row: {
+          allows_multiple: boolean | null
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          max_options: number | null
+          options: Json | null
+          post_id: string | null
+          question: string | null
+          total_votes: number | null
+          user_votes: number[] | null
+        }
+        Relationships: []
+      }
+      user_blocks: {
+        Row: {
+          blocked_at: string | null
+          blocked_id: string | null
+          blocker_id: string | null
+          created_at: string | null
+          id: string | null
+          reason: string | null
+        }
+        Insert: {
+          blocked_at?: string | null
+          blocked_id?: string | null
+          blocker_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          blocked_at?: string | null
+          blocked_id?: string | null
+          blocker_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_users_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocked_users_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      are_users_friends: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: boolean
+      }
       calculate_content_commission: {
         Args: {
           p_creator_id: string
@@ -4780,6 +5290,25 @@ export type Database = {
           creator_revenue: number
         }[]
       }
+      can_upload_media: {
+        Args: { user_id: string; media_type: string }
+        Returns: boolean
+      }
+      check_messaging_index_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+          index_name: string
+          index_scans: number
+          tuples_read: number
+          tuples_fetched: number
+          usage_ratio: number
+        }[]
+      }
+      check_user_can_upload: {
+        Args: { p_user_id: string; p_media_type: string }
+        Returns: boolean
+      }
       cleanup_expired_invitations: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -4788,9 +5317,54 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      cleanup_old_read_receipts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_old_typing_indicators: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_orphaned_message_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          orphaned_reads_deleted: number
+          orphaned_participants_deleted: number
+          empty_conversations_deleted: number
+        }[]
+      }
       create_conversation_for_match: {
         Args: { match_id: string }
         Returns: string
+      }
+      create_notification: {
+        Args: {
+          p_recipient_id: string
+          p_sender_id: string
+          p_type: string
+          p_title: string
+          p_content: string
+          p_entity_id?: string
+          p_entity_type?: string
+          p_metadata?: Json
+        }
+        Returns: {
+          action_url: string | null
+          content: string | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          icon: string | null
+          id: string
+          is_read: boolean | null
+          message: string | null
+          read_at: string | null
+          recipient_id: string | null
+          related_data: Json | null
+          sender_id: string | null
+          title: string
+          type: string
+        }
       }
       decrement_collection_posts: {
         Args: { collection_id: string }
@@ -4811,6 +5385,166 @@ export type Database = {
       decrement_post_shares: {
         Args: { post_id: string }
         Returns: undefined
+      }
+      get_average_messages_per_conversation: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg: number
+        }[]
+      }
+      get_average_participants_per_conversation: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg: number
+        }[]
+      }
+      get_conversation_metadata: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          participant_count: number
+          message_count: number
+          last_message_at: string
+          created_at: string
+        }[]
+      }
+      get_direct_conversation: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: {
+          conversation_id: string
+          conversation_type: Database["public"]["Enums"]["conversation_type"]
+          created_at: string
+          updated_at: string
+          initiated_by: string
+          initiated_by_premium: boolean
+        }[]
+      }
+      get_friendship_status: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: string
+      }
+      get_last_message: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          id: string
+          content: string
+          sender_id: string
+          created_at: string
+          message_type: Database["public"]["Enums"]["message_type"]
+        }[]
+      }
+      get_message_delivery_stats: {
+        Args: { p_period?: unknown }
+        Returns: {
+          total_sent: number
+          total_delivered: number
+          total_read: number
+          delivery_rate: number
+          read_rate: number
+          avg_time_to_read: unknown
+        }[]
+      }
+      get_messaging_stats: {
+        Args: { p_period?: unknown }
+        Returns: {
+          total_messages: number
+          total_conversations: number
+          active_users: number
+          messages_in_period: number
+          new_conversations_in_period: number
+          average_response_time: unknown
+        }[]
+      }
+      get_poll_with_stats: {
+        Args: { poll_id_param: string }
+        Returns: {
+          id: string
+          question: string
+          options: Json
+          total_votes: number
+          expires_at: string
+          multiple_choice: boolean
+          user_has_voted: boolean
+          user_votes: number[]
+        }[]
+      }
+      get_posts_with_interactions: {
+        Args: {
+          p_user_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_following_only?: boolean
+        }
+        Returns: {
+          id: string
+          user_id: string
+          content: string
+          visibility: string
+          location: string
+          media_urls: string[]
+          created_at: string
+          updated_at: string
+          likes_count: number
+          comments_count: number
+          shares_count: number
+          saves_count: number
+          is_liked: boolean
+          is_saved: boolean
+          user_data: Json
+          recent_likes: Json
+          recent_comments: Json
+        }[]
+      }
+      get_slow_message_queries: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          query: string
+          calls: number
+          mean_time: number
+          total_time: number
+        }[]
+      }
+      get_unread_count: {
+        Args: { p_user_id: string; p_conversation_id: string }
+        Returns: number
+      }
+      get_user_conversations: {
+        Args: { p_user_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          conversation_id: string
+          conversation_type: Database["public"]["Enums"]["conversation_type"]
+          conversation_name: string
+          last_message_id: string
+          last_message_content: string
+          last_message_at: string
+          last_message_sender: string
+          unread_count: number
+          participant_count: number
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      get_user_friends: {
+        Args: { target_user_id: string }
+        Returns: {
+          friend_id: string
+          username: string
+          name: string
+          avatar_url: string
+          is_verified: boolean
+          premium_type: string
+          accepted_at: string
+        }[]
+      }
+      get_user_message_activity: {
+        Args: { p_user_id: string; p_period?: unknown }
+        Returns: {
+          messages_sent: number
+          messages_received: number
+          conversations_active: number
+          avg_messages_per_day: number
+          most_active_hour: number
+          response_time_avg: unknown
+        }[]
       }
       gtrgm_compress: {
         Args: { "": unknown }
@@ -4856,6 +5590,10 @@ export type Database = {
         Args: { post_id: string }
         Returns: undefined
       }
+      mark_messages_as_read: {
+        Args: { p_conversation_id: string; p_user_id: string }
+        Returns: number
+      }
       reset_daily_limits: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -4864,9 +5602,21 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      safe_array_length: {
+        Args: { arr: unknown }
+        Returns: number
+      }
       set_limit: {
         Args: { "": number }
         Returns: number
+      }
+      set_typing_indicator: {
+        Args: {
+          p_conversation_id: string
+          p_user_id: string
+          p_is_typing: boolean
+        }
+        Returns: undefined
       }
       show_limit: {
         Args: Record<PropertyKey, never>
@@ -4875,6 +5625,14 @@ export type Database = {
       show_trgm: {
         Args: { "": string }
         Returns: string[]
+      }
+      update_post_reaction_counts: {
+        Args: { p_post_id: string }
+        Returns: undefined
+      }
+      validate_message_permission: {
+        Args: { p_user_id: string; p_conversation_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -4933,10 +5691,20 @@ export type Database = {
         | "educational"
         | "entertainment"
       content_status: "draft" | "active" | "paused" | "archived" | "removed"
+      conversation_type: "private" | "group" | "direct"
       credit_transaction_type: "purchase" | "spend" | "refund" | "bonus"
       event_type: "social" | "cultural" | "sports" | "educational" | "online"
       friend_status: "pending" | "accepted" | "blocked" | "declined"
-      gender_type: "male" | "female" | "non_binary" | "other" | "prefer_not_say"
+      gender_type:
+        | "couple"
+        | "couple_female"
+        | "couple_male"
+        | "male"
+        | "male_trans"
+        | "female"
+        | "female_trans"
+        | "travesti"
+        | "crossdressing"
       match_status: "active" | "expired" | "unmatched"
       media_type: "image" | "video" | "audio"
       message_type:
@@ -5161,10 +5929,21 @@ export const Constants = {
         "entertainment",
       ],
       content_status: ["draft", "active", "paused", "archived", "removed"],
+      conversation_type: ["private", "group", "direct"],
       credit_transaction_type: ["purchase", "spend", "refund", "bonus"],
       event_type: ["social", "cultural", "sports", "educational", "online"],
       friend_status: ["pending", "accepted", "blocked", "declined"],
-      gender_type: ["male", "female", "non_binary", "other", "prefer_not_say"],
+      gender_type: [
+        "couple",
+        "couple_female",
+        "couple_male",
+        "male",
+        "male_trans",
+        "female",
+        "female_trans",
+        "travesti",
+        "crossdressing",
+      ],
       match_status: ["active", "expired", "unmatched"],
       media_type: ["image", "video", "audio"],
       message_type: [

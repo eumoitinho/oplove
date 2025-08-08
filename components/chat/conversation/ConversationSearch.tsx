@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { useChatStore } from "@/lib/stores/chat-store"
 import { supabase } from "@/lib/supabase"
-import type { User as UserType } from "@/types/common"
+import type { User as UserType } from "@/types/database.types"
 
 interface ConversationSearchProps {
   value: string

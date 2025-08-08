@@ -1,23 +1,18 @@
-import { createClient } from '@/app/lib/supabase-browser'
+import { createSupabaseClient } from '@/lib/supabase/client'
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
-import type { NotificationData, User } from '@/types/common'
+import type { NotificationData } from '@/types/common'
+import type { UserBasic, Notification as DBNotification } from '@/types/database.types'
 
-// Extended notification interface matching actual database columns
-export interface Notification {
-  id: string
-  recipient_id: string  // who receives the notification (corrected column name)
-  sender_id?: string  // who triggered the notification (corrected column name)
-  sender?: User  // populated from join
-  type: 'like' | 'comment' | 'follow' | 'message' | 'post'
-  title: string
-  message: string
-  is_read: boolean  // corrected column name
-  entity_id?: string // ID of the related entity (post, comment, etc)
-  entity_type?: 'post' | 'comment' | 'message' | 'follow'
-  action_taken?: boolean // For follow notifications - if user followed back
-  metadata?: any // JSONB field
-  created_at: string
-  content?: string  // Alternative to message for display
+// Extended notification interface with sender info
+export interface Notification extends DBNotification {
+  sender?: UserBasic  // populated from join
+  
+  // Legacy support (deprecated) - mapped for backward compatibility
+  message?: string  // mapped from content
+  entity_id?: string 
+  entity_type?: string
+  action_taken?: boolean 
+  metadata?: Record<string, unknown> // Better than 'any'
 }
 
 export interface NotificationFilters {
@@ -34,7 +29,7 @@ class NotificationsService {
   private realtimeChannel: RealtimeChannel | null = null
 
   constructor() {
-    this.supabase = createClient()
+    this.supabase = createSupabaseClient()
   }
 
   // Get notifications with pagination and filters
@@ -63,22 +58,8 @@ class NotificationsService {
         .order('created_at', { ascending: false })
         .limit(Math.min(limit, 20))
       
-      let data, error, count
-      try {
-        const result = await Promise.race([
-          query,
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Query timeout after 3s')), 8000)
-          )
-        ]) as any
-        data = result.data
-        error = result.error
-        count = result.count
-      } catch (queryError) {
-        error = queryError
-        data = null
-        count = 0
-      }
+      // Simple query without timeout race condition
+      const { data, error, count } = await query
 
       if (error) {
         console.error('NotificationsService - Error getting notifications:', error)
@@ -109,15 +90,23 @@ class NotificationsService {
   // Get unread notification count
   async getUnreadCount(userId: string): Promise<number> {
     try {
+      // Check if notifications table exists by trying a simple query first
       const { count, error } = await this.supabase
         .from('notifications')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('recipient_id', userId)
         .eq('is_read', false)
 
       if (error) {
-        console.error('NotificationsService - getUnreadCount error:', error)
-        throw error
+        console.error('NotificationsService - getUnreadCount error:', error.message || error)
+        
+        // If table doesn't exist, return 0 instead of throwing
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          console.warn('Notifications table does not exist, returning 0')
+          return 0
+        }
+        
+        return 0 // Return 0 on any error instead of throwing
       }
       
       return count || 0

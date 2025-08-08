@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
-import type { PremiumPlan } from "@/types/common"
+import type { PremiumType } from "@/types/database.types"
 
 interface PaywallModalProps {
   isOpen: boolean

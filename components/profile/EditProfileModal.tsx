@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Calendar, MapPin, Globe, User, Heart, Tag, X } from "lucide-react"
 import { UserService } from "@/lib/services/user-service"
 import { toast } from "sonner"
-import { User as UserType } from "@/types/common"
+import { User as UserType } from "@/types/database.types"
 
 interface EditProfileModalProps {
   isOpen: boolean

@@ -14,7 +14,7 @@ import {
   Zap,
   Gift
 } from 'lucide-react'
-import { Story, StoryReaction, StoryView } from '@/types/stories.types'
+import { Story, StoryView, StoryReaction } from '@/types/database.types'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'

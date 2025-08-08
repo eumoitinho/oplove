@@ -13,7 +13,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/app/lib/supabase-browser"
 import { toast } from "sonner"
-import type { PremiumType } from "@/types/user.types"
+import type { User, PremiumType } from "@/types/database.types"
 import { PaymentModal } from "@/components/common/PaymentModal"
 
 interface FormData {

@@ -1,11 +1,11 @@
 import { createClient } from '@/app/lib/supabase-browser'
-import type { User } from '@/types/common'
+import type { User, UserProfile } from '@/types/database.types'
 
 const supabase = createClient()
 
 export class UserService {
   // Get user profile by ID
-  static async getUserProfile(userId: string): Promise<{ data: User | null; error: string | null }> {
+  static async getUserProfile(userId: string): Promise<{ data: UserProfile | null; error: string | null }> {
     try {
       if (process.env.NODE_ENV === 'development') {
         console.log('[UserService] Fetching user profile for ID:', userId)
@@ -35,7 +35,7 @@ export class UserService {
         return { data: null, error: result.error || 'Erro ao buscar perfil' }
       }
 
-      return { data: result.data as User, error: null }
+      return { data: result.data as UserProfile, error: null }
     } catch (error) {
       console.error('Error in getUserProfile:', error)
       return { data: null, error: (error as Error).message }
@@ -46,7 +46,7 @@ export class UserService {
   static async updateUserProfile(
     userId: string, 
     updates: Partial<User>
-  ): Promise<{ data: User | null; error: string | null }> {
+  ): Promise<{ data: UserProfile | null; error: string | null }> {
     try {
       // Use the API endpoint for proper validation
       const response = await fetch(`/api/v1/users/${userId}`, {
@@ -64,7 +64,7 @@ export class UserService {
         return { data: null, error: result.error || 'Erro ao atualizar perfil' }
       }
 
-      return { data: result.data as User, error: null }
+      return { data: result.data as UserProfile, error: null }
     } catch (error) {
       console.error('Error in updateUserProfile:', error)
       return { data: null, error: (error as Error).message }

@@ -11,7 +11,7 @@ import { Search, Users, Verified, Star, Gem } from "lucide-react"
 import { useFollows } from "@/hooks/useFollows"
 import { useDebounce } from "@/hooks/useDebounce"
 import { cn } from "@/lib/utils"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 
 interface FollowsListProps {
   userId: string

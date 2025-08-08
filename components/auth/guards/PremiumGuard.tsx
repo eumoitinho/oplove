@@ -5,11 +5,11 @@ import { motion } from "framer-motion"
 import { Crown, Lock, Sparkles } from "lucide-react"
 import { useAuth } from "../providers/AuthProvider"
 import { Button } from "@/components/common/button"
-import type { PremiumPlan } from "@/types/common"
+import type { PremiumType } from "@/types/database.types"
 
 interface PremiumGuardProps {
   children: React.ReactNode
-  requiredPlan: PremiumPlan
+  requiredPlan: PremiumType
   fallback?: React.ReactNode
   showUpgrade?: boolean
 }

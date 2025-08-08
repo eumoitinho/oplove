@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/client'
+import type { UserCredit, UserCreditTransaction, TransactionType } from '@/types/database.types'
 
 export class CreditsService {
   // Initialize user credits if not exists
@@ -80,7 +81,7 @@ export class CreditsService {
   // Add credits transaction
   static async addTransaction(
     userId: string,
-    type: 'purchase' | 'spend' | 'gift_sent' | 'gift_received' | 'refund' | 'bonus',
+    type: TransactionType,
     amount: number,
     description: string,
     referenceType?: string,

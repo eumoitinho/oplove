@@ -135,14 +135,8 @@ export function MessagesView() {
     try {
       setLoading(true)
       
-      const response = await fetch('/api/v1/conversations')
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to load conversations')
-      }
-      
-      setConversations(result.data || [])
+      const conversations = await messagesService.getConversations(user!.id)
+      setConversations(conversations)
     } catch (error) {
       console.error('Error loading conversations:', error)
       notification.error('Erro ao carregar conversas')
@@ -449,21 +443,49 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Gold+ podem fazer chamadas. Faça upgrade!')
       return
     }
 
     try {
-      await messagesService.initiateVoiceCall(selectedConversation, user.id)
-      // Here you would integrate with WebRTC service
-      notification.info('Iniciando chamada de voz...')
+      const response = await fetch('/api/v1/calls/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: selectedConversation,
+          callType: 'audio',
+          maxParticipants: 4,
+          expiresInMinutes: 60
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.code === 'UPGRADE_REQUIRED') {
+          notification.error(result.error)
+          return
+        }
+        throw new Error(result.error || 'Failed to create call')
+      }
+
+      // Open Daily.co call in new window
+      const callWindow = window.open(
+        `${result.call.room_url}?t=${result.call.meeting_token}`,
+        'voice-call',
+        'width=800,height=600,resizable=yes'
+      )
+
+      if (callWindow) {
+        notification.success('Chamada de voz iniciada!')
+      } else {
+        notification.error('Pop-up bloqueado. Permita pop-ups para fazer chamadas.')
+      }
     } catch (error) {
       console.error('Error initiating voice call:', error)
-      if (error instanceof PlanLimitError) {
-        notification.error(error.message)
-      } else {
-        notification.error('Erro ao iniciar chamada')
-      }
+      notification.error('Erro ao iniciar chamada de voz')
     }
   }
 
@@ -472,21 +494,49 @@ export function MessagesView() {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification.error('Apenas usuários Diamond e Couple podem fazer chamadas. Faça upgrade!')
+      notification.error('Apenas usuários Gold+ podem fazer chamadas. Faça upgrade!')
       return
     }
 
     try {
-      await messagesService.initiateVideoCall(selectedConversation, user.id)
-      // Here you would integrate with WebRTC service
-      notification.info('Iniciando chamada de vídeo...')
+      const response = await fetch('/api/v1/calls/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: selectedConversation,
+          callType: 'video',
+          maxParticipants: user.premium_type === 'diamond' || user.premium_type === 'couple' ? 8 : 4,
+          expiresInMinutes: 60
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.code === 'UPGRADE_REQUIRED') {
+          notification.error(result.error)
+          return
+        }
+        throw new Error(result.error || 'Failed to create call')
+      }
+
+      // Open Daily.co call in new window
+      const callWindow = window.open(
+        `${result.call.room_url}?t=${result.call.meeting_token}`,
+        'video-call',
+        'width=1200,height=800,resizable=yes'
+      )
+
+      if (callWindow) {
+        notification.success('Chamada de vídeo iniciada!')
+      } else {
+        notification.error('Pop-up bloqueado. Permita pop-ups para fazer chamadas.')
+      }
     } catch (error) {
       console.error('Error initiating video call:', error)
-      if (error instanceof PlanLimitError) {
-        notification.error(error.message)
-      } else {
-        notification.error('Erro ao iniciar chamada')
-      }
+      notification.error('Erro ao iniciar chamada de vídeo')
     }
   }
 

@@ -19,12 +19,11 @@ import { ptBR } from 'date-fns/locale'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { notificationsService, type Notification, type NotificationFilters } from '@/lib/services/notifications-service'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
-import type { NotificationData } from '@/types/common'
+import type { Notification as NotificationType } from '@/types/database.types'
 
 interface NotificationsViewProps {
   className?: string
@@ -50,60 +49,46 @@ export function NotificationsView({ className }: NotificationsViewProps) {
       user.id,
       (notification) => {
         setNotifications(prev => [notification, ...prev])
-        toast.info(notification.message)
+        toast.info(notification.content || notification.message || 'Nova notificação')
       }
     )
 
     return unsubscribe
   }, [user])
 
-  // Infinite scroll fetch function
-  const fetchNotifications = useCallback(async (pageNum: number) => {
+  // Direct fetch function (simplified)
+  const fetchNotifications = useCallback(async () => {
     if (!user) {
-      return { data: [], hasMore: false }
+      setNotifications([])
+      setLoading(false)
+      return
     }
 
+    setLoading(true)
     try {
+      console.log('[NotificationsView] Fetching notifications for user:', user.id)
       const result = await notificationsService.getNotifications(
         user.id,
-        pageNum,
+        1,
         20,
         filters
       )
       
-      return {
-        data: result.notifications || [],
-        hasMore: result.hasMore || false,
-        total: result.total || 0
-      }
+      console.log('[NotificationsView] Result:', result)
+      setNotifications(result.notifications || [])
     } catch (error) {
       console.error('[NotificationsView] Error fetching notifications:', error)
       toast.error('Erro ao carregar notificações')
-      return { data: [], hasMore: false }
+      setNotifications([])
+    } finally {
+      setLoading(false)
     }
   }, [user, filters])
 
-  // Use infinite scroll hook
-  const {
-    data: scrollNotifications,
-    loading: scrollLoading,
-    hasMore,
-    loadMore,
-    refresh,
-    containerRef,
-    loadingState
-  } = useInfiniteScroll({
-    fetchFn: fetchNotifications,
-    limit: 20,
-    enabled: !!user,
-    dependencies: [filters]
-  })
-
-  // Update local state when scroll data changes
+  // Load notifications on mount and filter changes
   useEffect(() => {
-    setNotifications(scrollNotifications)
-    setLoading(scrollLoading)
-  }, [scrollNotifications, scrollLoading])
+    fetchNotifications()
+  }, [fetchNotifications])
 
   // Mark as read
   const handleMarkAsRead = async (notification: Notification) => {
@@ -419,12 +404,6 @@ export function NotificationsView({ className }: NotificationsViewProps) {
               </motion.div>
             ))}
 
-            {/* Load more trigger */}
-            {hasMore && (
-              <div ref={containerRef} className="py-4">
-                {loading && <PostSkeleton />}
-              </div>
-            )}
           </>
         )}
       </div>

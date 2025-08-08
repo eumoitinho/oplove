@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/hooks/useAuth"
 import { EventsService } from "@/lib/services/events-service"
 import { useToast } from "@/hooks/useToast"
-import type { EventCategory } from "@/types/common"
+// Event categories as constants
 
 interface CreateEventModalProps {
   isOpen: boolean

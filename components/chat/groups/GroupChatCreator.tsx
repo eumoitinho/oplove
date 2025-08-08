@@ -14,8 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { supabase } from "@/lib/supabase"
-import type { User } from "@/types/common"
-import type { Conversation } from "@/types/chat"
+import type { User, Conversation } from "@/types/database.types"
 
 interface GroupChatCreatorProps {
   onClose: () => void

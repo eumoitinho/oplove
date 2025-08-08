@@ -26,7 +26,7 @@ import {
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
 import { EventsService } from "@/lib/services/events-service"
-import type { Event, EventParticipant } from "@/types/common"
+import type { Event, EventParticipant } from "@/types/database.types"
 import { cn } from "@/lib/utils"
 import { PremiumTooltip } from "@/components/common/PremiumTooltip"
 

@@ -12,7 +12,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { Story } from '@/types/stories.types'
+import { Story } from '@/types/database.types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

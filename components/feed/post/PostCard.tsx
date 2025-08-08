@@ -59,9 +59,9 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
     sharesCount,
     savesCount,
     isLoading,
-    handleLike: onLike,
-    handleSave: onSave,
-    handleShare: onShare,
+    handleLike: hookHandleLike,
+    handleSave: hookHandleSave,
+    handleShare: hookHandleShare,
     handleComment,
     incrementCommentCount,
   } = usePostInteractions({
@@ -88,17 +88,17 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
     
     setIsLikeAnimating(true)
     setTimeout(() => setIsLikeAnimating(false), 600)
-    onLike()
+    hookHandleLike()
   }
 
   const handleSave = () => {
     if (isLoading) return
-    onSave()
+    hookHandleSave()
   }
   
   const handleShare = () => {
     if (isLoading) return
-    onShare()
+    hookHandleShare()
   }
   
   const handleCommentClick = () => {
