@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth"
 interface LeftSidebarProps {
   className?: string
   onLinkClick?: () => void
-  onViewChange?: (view: string) => void
+  onViewChange?: (view: string, userId?: string) => void
   onItemClick?: () => void
   currentView?: string
 }
@@ -65,7 +65,12 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
   ]
 
   const handleMenuItemClick = (view: string) => {
-    onViewChange?.(view)
+    // Pass userId for user-profile view
+    if (view === 'user-profile' && user?.id) {
+      onViewChange?.(view, user.id)
+    } else {
+      onViewChange?.(view)
+    }
     onLinkClick?.() // Close mobile menu if applicable
     onItemClick?.() // Notify parent that an item was clicked
   }

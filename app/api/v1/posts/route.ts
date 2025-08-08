@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import { getUserProfileOrError } from "@/lib/api/user-profile"
 
 // GET /api/v1/posts - List posts
 export async function GET(request: NextRequest) {
@@ -144,26 +145,36 @@ export async function POST(request: NextRequest) {
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    console.log("[POST /api/v1/posts] Auth check:", { 
+      hasUser: !!user, 
+      userId: user?.id,
+      authError: authError?.message 
+    })
+    
     if (authError || !user) {
+      console.error("[POST /api/v1/posts] Authentication failed:", authError)
       return NextResponse.json(
         { error: "Não autorizado", success: false },
         { status: 401 }
       )
     }
 
-    // Get user profile with plan info and location data
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('premium_type, is_verified, monthly_photos_uploaded, monthly_photo_limit, latitude, longitude, location, city, uf')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !userProfile) {
-      return NextResponse.json(
-        { error: "Perfil não encontrado", success: false },
-        { status: 404 }
-      )
+    // Get user profile with plan info and location data using utility function
+    const profileResult = await getUserProfileOrError(
+      supabase,
+      user.id,
+      'id, username, premium_type, is_verified, monthly_photos_uploaded, monthly_photo_limit, latitude, longitude, location, city, uf',
+      'POST /api/v1/posts'
+    )
+    
+    // If it's a NextResponse (error), return it
+    if (profileResult instanceof NextResponse) {
+      return profileResult
     }
+    
+    // Otherwise, we have the profile
+    const userProfile = profileResult
 
     // Parse form data
     const formData = await request.formData()

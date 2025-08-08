@@ -71,13 +71,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user profile to check plan
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("users")
       .select("premium_type, daily_message_count, daily_message_limit")
       .eq("id", user.id)
       .single()
 
+    if (profileError) {
+      console.error("[POST /api/v1/messages/conversations] Profile error:", {
+        error: profileError,
+        userId: user.id
+      })
+      
+      return NextResponse.json(
+        { 
+          error: profileError.code === 'PGRST116' 
+            ? "Perfil não encontrado. Por favor, faça login novamente."
+            : `Erro ao buscar perfil: ${profileError.message}`,
+          success: false 
+        },
+        { status: profileError.code === 'PGRST116' ? 404 : 500 }
+      )
+    }
+    
     if (!profile) {
+      console.error("[POST /api/v1/messages/conversations] Profile is null for user:", user.id)
       return NextResponse.json(
         { error: "Perfil não encontrado", success: false },
         { status: 404 }

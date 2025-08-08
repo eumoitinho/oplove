@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { TimelineFeed } from "@/components/feed/timeline/TimelineFeed"
 import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
@@ -9,6 +8,7 @@ import { useEngagementToasts } from "@/hooks/useEngagementToasts"
 import { Feather, Menu, Home, ArrowUp, X } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
+import { useViewNavigation } from "@/hooks/useViewNavigation"
 import { Header, LeftSidebar, RightSidebar } from "@/components/feed"
 import { ResponsiveFeedLayout } from "@/components/feed/layouts"
 
@@ -32,7 +32,7 @@ type MainContentType =
 
 export default function FeedPage() {
   const { user } = useAuth()
-  const searchParams = useSearchParams()
+  const { navigateToView, currentView, userId: urlUserId } = useViewNavigation()
   const [currentMainContent, setCurrentMainContent] = useState<MainContentType>("timeline")
   const [activeTab, setActiveTab] = useState<"for-you" | "following" | "explore">("for-you")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -44,18 +44,20 @@ export default function FeedPage() {
   // Initialize security protection
   useSecurityProtection()
   
-  // Handle query parameters for navigation
+  // Sync state with URL parameters
   useEffect(() => {
-    const view = searchParams.get('view') as MainContentType
-    const userId = searchParams.get('userId')
+    const view = (currentView || 'timeline') as MainContentType
     
-    if (view) {
-      setCurrentMainContent(view)
-      if (view === 'user-profile' && userId) {
-        setSelectedUserId(userId)
-      }
+    console.log('[FeedPage] Syncing with URL - view:', view, 'userId:', urlUserId)
+    
+    setCurrentMainContent(view)
+    
+    if (view === 'user-profile' && urlUserId) {
+      setSelectedUserId(urlUserId)
+    } else if (view !== 'user-profile') {
+      setSelectedUserId(undefined)
     }
-  }, [searchParams])
+  }, [currentView, urlUserId])
 
   // Don't reset tab when returning to timeline - preserve user's choice
   // useEffect(() => {
@@ -64,14 +66,21 @@ export default function FeedPage() {
   //   }
   // }, [currentMainContent])
 
-  // Wrapper function to handle view changes
-  const handleViewChange = (view: string) => {
-    setCurrentMainContent(view as MainContentType)
+  // Wrapper function to handle view changes with URL update
+  const handleViewChange = (view: string, userId?: string) => {
+    console.log('[FeedPage] Changing view to:', view, 'userId:', userId)
+    
+    // Use the navigation hook to update URL
+    if (view === 'user-profile' && userId) {
+      navigateToView(view, { userId })
+    } else {
+      navigateToView(view)
+    }
   }
 
   // Wrapper function for TimelineFeed
-  const handleTimelineViewChange = (view: string) => {
-    setCurrentMainContent(view as MainContentType)
+  const handleTimelineViewChange = (view: string, userId?: string) => {
+    handleViewChange(view, userId)
   }
 
   // Mobile menu functions

@@ -8,18 +8,12 @@ import { Lock, Mail, ArrowRight } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/app/lib/supabase-browser"
+import { useAuth } from "@/components/auth/providers/AuthProvider"
 import { toast } from "sonner"
 
 interface LoginFormErrors {
   email: string
   password: string
-}
-
-interface UserData {
-  id: string
-  account_type?: string
-  business_id?: string
 }
 
 export function LoginForm() {
@@ -29,11 +23,13 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false)
 
   const router = useRouter()
-  const supabase = createClient()
+  const { signIn } = useAuth()
 
   // Traduzir mensagens de erro do Supabase para português
-  const translateSupabaseError = (error: any): string => {
-    const errorMessage = error?.message?.toLowerCase() || ""
+  const translateSupabaseError = (error: string | null): string => {
+    if (!error) return "Erro inesperado. Tente novamente"
+    
+    const errorMessage = error.toLowerCase()
     
     if (errorMessage.includes("invalid login credentials") || 
         errorMessage.includes("email not confirmed") ||
@@ -58,18 +54,6 @@ export function LoginForm() {
     }
     
     return "Erro inesperado. Tente novamente"
-  }
-
-  // Função unificada para redirecionamento
-  const redirectUser = (userData: UserData | null) => {
-    // Definir URL de destino baseada no tipo de conta
-    let targetUrl = "/feed" // default
-    
-    if (userData?.account_type === "business") {
-      targetUrl = userData.business_id ? "/business/dashboard" : "/business/register"
-    }
-    
-    router.push(targetUrl)
   }
 
   // Validar formulário de login
@@ -97,7 +81,7 @@ export function LoginForm() {
     return isValid
   }
 
-  // Handle login - versão simplificada e otimizada
+  // Handle login - usando AuthProvider
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -108,37 +92,21 @@ export function LoginForm() {
     setLoading(true)
     
     try {
-      // Fazer login com Supabase
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password
-      })
+      // Fazer login usando o AuthProvider
+      const result = await signIn(email.trim(), password)
 
-      if (authError) {
-        const errorMessage = translateSupabaseError(authError)
+      if (!result.success) {
+        const errorMessage = translateSupabaseError(result.error)
         setErrors({ email: "", password: errorMessage })
         toast.error("Erro ao fazer login")
         return
       }
 
-      if (!authData.user) {
-        setErrors({ email: "", password: "Erro inesperado" })
-        toast.error("Erro inesperado")
-        return
-      }
-
-      // Buscar dados do usuário em uma única query otimizada
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id, account_type, business_id")
-        .eq("id", authData.user.id)
-        .single()
-
       // Sucesso no login
       toast.success("Login realizado com sucesso!")
       
-      // Redirecionar baseado nos dados do usuário
-      redirectUser(userData)
+      // Redirecionar para o feed (o AuthProvider já carregou o perfil)
+      router.push("/feed")
 
     } catch (error) {
       console.error("Login error:", error)
