@@ -84,6 +84,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import StoryViewer from "@/components/stories/StoryViewer"
 
 interface UserProfileProps {
   userId?: string
@@ -122,6 +123,8 @@ export function UserProfile({ userId }: UserProfileProps) {
   const [showReportModal, setShowReportModal] = useState(false)
   const [showMediaViewer, setShowMediaViewer] = useState(false)
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
+  const [showStoryViewer, setShowStoryViewer] = useState(false)
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({
     bio: "",
@@ -1323,9 +1326,13 @@ export function UserProfile({ userId }: UserProfileProps) {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
                   className="aspect-[9/16] bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl overflow-hidden cursor-pointer hover:scale-105 transition-transform group relative border-2 border-gradient-to-r from-purple-500 to-pink-500"
+                  onClick={() => {
+                    setSelectedStoryIndex(index)
+                    setShowStoryViewer(true)
+                  }}
                 >
                   <OptimizedImage
-                    src={story.media_url}
+                    src={story.mediaUrl || story.media_url}
                     alt="Story"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     loading="lazy"
@@ -1339,7 +1346,7 @@ export function UserProfile({ userId }: UserProfileProps) {
                         className="h-full bg-white rounded-full transition-all duration-300"
                         style={{ 
                           width: `${Math.max(10, Math.min(100, 
-                            100 - ((Date.now() - new Date(story.created_at).getTime()) / (24 * 60 * 60 * 1000)) * 100
+                            100 - ((Date.now() - new Date(story.createdAt || story.created_at).getTime()) / (24 * 60 * 60 * 1000)) * 100
                           ))}%` 
                         }}
                       />
@@ -1363,10 +1370,10 @@ export function UserProfile({ userId }: UserProfileProps) {
                     <div className="flex items-center justify-between text-white text-xs">
                       <span className="flex items-center gap-1">
                         <Eye className="w-3 h-3" />
-                        {story.view_count || 0}
+                        {story.viewCount || story.view_count || 0}
                       </span>
                       <span>
-                        {new Date(story.created_at).toLocaleDateString('pt-BR', {
+                        {new Date(story.createdAt || story.created_at).toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit'
                         })}

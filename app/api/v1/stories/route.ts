@@ -87,7 +87,18 @@ export async function GET(request: NextRequest) {
     // Process stories to add user interaction data  
     const processedStories = stories?.map(story => ({
       ...story,
-      user: story.users,
+      // Normalize field names for consistency
+      mediaUrl: story.media_url,
+      mediaType: story.media_type,
+      userId: story.user_id,
+      createdAt: story.created_at,
+      expiresAt: story.expires_at,
+      user: {
+        ...story.users,
+        avatarUrl: story.users?.avatar_url,
+        isVerified: story.users?.is_verified,
+        premiumType: story.users?.premium_type
+      },
       hasViewed: false, // Simplificado por enquanto
       viewedAt: null,
       reaction: null,
@@ -175,10 +186,30 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Story created successfully:', story)
+    // Normalize the response data
+    const normalizedStory = {
+      ...story,
+      mediaUrl: story.media_url,
+      mediaType: story.media_type,
+      userId: story.user_id,
+      createdAt: story.created_at,
+      expiresAt: story.expires_at,
+      user: {
+        ...story.user,
+        avatarUrl: story.user?.avatar_url,
+        isVerified: story.user?.is_verified,
+        premiumType: story.user?.premium_type
+      },
+      viewCount: story.view_count || 0,
+      uniqueViewCount: story.unique_view_count || 0,
+      reactionCount: story.reaction_count || 0,
+      replyCount: story.reply_count || 0
     }
-    return NextResponse.json(story, { status: 201 })
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Story created successfully:', normalizedStory)
+    }
+    return NextResponse.json(normalizedStory, { status: 201 })
   } catch (error: any) {
     console.error('Error creating story:', error)
     

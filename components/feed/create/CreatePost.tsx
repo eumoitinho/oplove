@@ -231,25 +231,27 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
   return (
     <div
       data-create-post
-      className="mb-4 xs:mb-6 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl xs:rounded-3xl p-3 xs:p-4 sm:p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 animate-slide-in-from-top"
+      className="w-full max-w-2xl mx-auto mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
     >
-      <div className="flex gap-2 xs:gap-3 sm:gap-4">
+      <div className="flex gap-3">
         <UserAvatar 
           user={user}
           size="lg" 
           showPlanBadge={false}
-          className="flex-shrink-0 w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14"
+          className="flex-shrink-0 w-12 h-12"
         />
-        <div className="flex-grow min-w-0">
+        <div className="flex-1 min-w-0">
           <Textarea
-            placeholder="O que está acontecendo? ✨"
+            placeholder="O que está acontecendo?"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            className="bg-transparent border-none text-base xs:text-lg p-0 focus-visible:ring-0 placeholder:text-gray-500 dark:placeholder:text-white/50 resize-none w-full"
+            className="w-full bg-transparent border-none text-lg p-0 focus-visible:ring-0 placeholder:text-gray-500 dark:placeholder:text-gray-400 resize-none min-h-[60px]"
             rows={3}
           />
-          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between mt-3 xs:mt-4 gap-2 xs:gap-2">
-            <div className="flex gap-1 flex-wrap xs:flex-nowrap">
+          
+          {/* Action bar - Fixed at bottom */}
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-1">
               {/* Image Upload */}
               <TooltipProvider>
                 <Tooltip>
@@ -260,10 +262,10 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       onClick={handleShowMediaUploader}
                       disabled={!features.canUploadImages || !features.canUploadMoreMedia}
                       className={cn(
-                        "relative rounded-full transition-all duration-300",
+                        "relative rounded-full w-9 h-9 p-0 transition-colors",
                         features.canUploadImages && features.canUploadMoreMedia
-                          ? "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
-                          : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          ? "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                          : "text-gray-400 cursor-not-allowed"
                       )}
                     >
                       <Camera className="w-5 h-5" />
@@ -272,84 +274,38 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="z-50">
+                  <TooltipContent side="top">
                     {!features.canUploadImages ? (
-                      <p className="text-sm">Upload de Imagens • Requer verificação</p>
+                      <p>Upload de imagens • Requer verificação</p>
                     ) : !features.canUploadMoreMedia ? (
-                      <p className="text-sm">Limite de armazenamento atingido ({features.formatStorageLimit(features.storageUsed)}/{features.formatStorageLimit(features.storageLimit)})</p>
-                    ) : features.userPlan === "free" ? (
-                      <p className="text-sm">Máximo: {features.maxImagesPerPost} foto por post</p>
+                      <p>Limite de armazenamento atingido</p>
                     ) : (
-                      <p className="text-sm">Máximo: {features.maxImagesPerPost} fotos por post • {features.formatStorageLimit(features.storageLimit)} de armazenamento</p>
+                      <p>Adicionar fotos ou vídeos</p>
                     )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Video Upload */}
+              {/* GIF/Emoji - simplified */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => !features.canUploadVideos ? handlePremiumFeatureClick("gold") : handleShowMediaUploader()}
-                      disabled={!features.canUploadVideos || !features.canUploadMoreMedia}
-                      className={cn(
-                        "relative rounded-full transition-all duration-300",
-                        features.canUploadVideos && features.canUploadMoreMedia
-                          ? "text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"
-                          : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-                      )}
+                      onClick={() => {}}
+                      className="rounded-full w-9 h-9 p-0 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors"
                     >
-                      <Video className="w-5 h-5" />
-                      {!features.canUploadVideos && (
-                        <Crown className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500" />
-                      )}
+                      <span className="text-lg">😀</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="z-50">
-                    {!features.canUploadVideos ? (
-                      <p className="text-sm">Upload de Vídeo • Plano Gold</p>
-                    ) : !features.canUploadMoreMedia ? (
-                      <p className="text-sm">Limite de armazenamento atingido</p>
-                    ) : (
-                      <p className="text-sm">Vídeos até {features.formatVideoLength(features.maxVideoLength)}</p>
-                    )}
+                  <TooltipContent side="top">
+                    <p>Emoji</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Audio Upload */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleShowAudioRecorder}
-                      className={cn(
-                        "relative rounded-full transition-all duration-300",
-                        features.canUploadImages
-                          ? "text-gray-500 hover:text-green-500 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
-                          : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-                      )}
-                    >
-                      <Mic className="w-5 h-5" />
-                      {!features.canUploadImages && (
-                        <Crown className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  {!features.canUploadImages && (
-                    <TooltipContent side="top" className="z-50">
-                      <p className="text-sm">Áudio • Plano Gold</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-
-              {/* Polls */}
+              {/* Poll */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -358,10 +314,10 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       size="icon"
                       onClick={() => !features.canCreatePolls ? handlePremiumFeatureClick("gold") : setShowPollCreator(true)}
                       className={cn(
-                        "relative rounded-full transition-all duration-300",
+                        "relative rounded-full w-9 h-9 p-0 transition-colors",
                         features.canCreatePolls
-                          ? "text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10"
-                          : "text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          ? "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                          : "text-gray-400 cursor-not-allowed"
                       )}
                     >
                       <BarChart2 className="w-5 h-5" />
@@ -370,11 +326,9 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       )}
                     </Button>
                   </TooltipTrigger>
-                  {!features.canCreatePolls && (
-                    <TooltipContent side="top" className="z-50">
-                      <p className="text-sm">Enquetes • Plano Gold</p>
-                    </TooltipContent>
-                  )}
+                  <TooltipContent side="top">
+                    <p>Enquete{!features.canCreatePolls ? " • Gold" : ""}</p>
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
@@ -387,69 +341,75 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                       size="icon"
                       onClick={() => setShowLocationInput(!showLocationInput)}
                       className={cn(
-                        "relative rounded-full transition-all duration-300",
+                        "rounded-full w-9 h-9 p-0 transition-colors",
                         showLocationInput || location
-                          ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10"
-                          : "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                          ? "text-purple-600 bg-purple-50 dark:bg-purple-500/10"
+                          : "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10"
                       )}
                     >
                       <MapPin className="w-5 h-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="z-50">
-                    <p className="text-sm">Adicionar localização</p>
+                  <TooltipContent side="top">
+                    <p>Localização</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
             </div>
-            <div className="flex items-center gap-1 xs:gap-2 flex-shrink-0 xs:ml-auto">
-              {/* Seletor de Visibilidade */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-full px-2 xs:px-3 py-1.5 xs:py-2 text-xs xs:text-sm text-gray-700 dark:text-white/80 hover:bg-white/80 dark:hover:bg-white/20 transition-all duration-300 flex items-center gap-1 xs:gap-2"
-                  >
-                    {getVisibilityIcon()}
-                    <span className="hidden xs:inline">{getVisibilityLabel()}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-2"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setPostVisibility("public")}
-                    className="flex items-center gap-2 rounded-xl"
-                  >
-                    <Globe className="w-4 h-4" />
-                    Público
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setPostVisibility("friends")}
-                    className="flex items-center gap-2 rounded-xl"
-                  >
-                    <Users className="w-4 h-4" />
-                    Amigos
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setPostVisibility("private")}
-                    className="flex items-center gap-2 rounded-xl"
-                  >
-                    <Lock className="w-4 h-4" />
-                    Privado
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            
+            {/* Right side - Visibility and Post button */}
+            <div className="flex items-center gap-3">
+              {/* Character count - Twitter style */}
+              <div className="flex items-center gap-2">
+                {postContent.length > 0 && (
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium",
+                    postContent.length > 280 
+                      ? "bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                      : postContent.length > 260
+                      ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                  )}>
+                    {280 - postContent.length}
+                  </div>
+                )}
+                
+                {/* Visibility selector - minimal */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full w-9 h-9 p-0 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors"
+                    >
+                      {getVisibilityIcon()}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onClick={() => setPostVisibility("public")} className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      Público
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPostVisibility("friends")} className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Seguidores
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPostVisibility("private")} className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Apenas eu
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              {/* Post button - Twitter style */}
               <Button
                 onClick={handlePublish}
                 disabled={(!postContent.trim() && mediaFiles.length === 0 && !audioFile && !poll) || isSubmitting}
-                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 text-xs xs:text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-shrink-0 min-w-[60px] xs:min-w-[70px] sm:min-w-[100px]"
+                className="rounded-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[80px]"
               >
-                <span className="xs:hidden">{isSubmitting ? "..." : "+"}</span>
-                <span className="hidden xs:inline sm:hidden">{isSubmitting ? "..." : "Post"}</span>
-                <span className="hidden sm:inline">{isSubmitting ? "Publicando..." : "Publicar"}</span>
+                {isSubmitting ? "Postando..." : "Postar"}
               </Button>
             </div>
           </div>

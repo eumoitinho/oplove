@@ -6,7 +6,6 @@ import { TimelineFeed } from "@/components/feed/timeline/TimelineFeed"
 import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
 import { useEngagementToasts } from "@/hooks/useEngagementToasts"
-import StoriesCarousel from "@/components/stories/StoriesCarousel"
 import { Feather, Menu, Home, ArrowUp, X } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
@@ -134,15 +133,8 @@ export default function FeedPage() {
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      {/* Stories Carousel - Full width - Only show when user is authenticated */}
-      {user && (
-        <div className="relative pt-20" style={{ zIndex: 30 }}>
-          <StoriesCarousel />
-        </div>
-      )}
-
       {/* Main Content Layout - Using ResponsiveFeedLayout */}
-      <main className={`relative pb-20 lg:pb-4 ${user ? '' : 'pt-20'}`} style={{ zIndex: 20 }}>
+      <main className="relative pt-20 pb-20 lg:pb-4" style={{ zIndex: 20 }}>
         {/* Hide sidebars when mobile menu is open */}
         {!isMobileMenuOpen ? (
           <ResponsiveFeedLayout

@@ -50,7 +50,18 @@ export async function GET(request: NextRequest) {
     // Process stories to add user interaction data
     const processedStories = stories?.map(story => ({
       ...story,
-      user: story.users,
+      // Normalize field names for consistency
+      mediaUrl: story.media_url,
+      mediaType: story.media_type,
+      userId: story.user_id,
+      createdAt: story.created_at,
+      expiresAt: story.expires_at,
+      user: {
+        ...story.users,
+        avatarUrl: story.users?.avatar_url,
+        isVerified: story.users?.is_verified,
+        premiumType: story.users?.premium_type
+      },
       hasViewed: false, // Simplificado por enquanto
       viewedAt: null,
       reaction: null,

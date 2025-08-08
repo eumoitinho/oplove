@@ -22,13 +22,15 @@ import { TrendingTopicsCard } from "../TrendingTopicsCard"
 import { UpcomingEventsCard } from "../UpcomingEventsCard"
 import { UserProfile } from "../profile/UserProfile"
 import { SettingsPage } from "../settings/SettingsPage"
-import { MessagesViewResponsive } from "../messages/MessagesViewResponsive"
+import { MessagesTwitter } from "../messages/MessagesTwitter"
 import { NotificationsView } from "../notifications/NotificationsView"
 import { EventsView } from "../events/EventsView"
 import { CommunitiesView } from "../communities/CommunitiesView"
 import { AdultCommunitiesView } from "../communities/AdultCommunitiesView"
 import { OpenDates } from "../../dating/OpenDates"
 import { VerificationForm } from "../../verification/VerificationForm"
+import { ViewManager } from "../ViewManager"
+import { StoriesCarousel } from "../../stories"
 
 // Memoized CreatePost wrapper to prevent re-renders
 const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: (newPost: any) => void }) => (
@@ -524,329 +526,341 @@ export function TimelineFeed({
     )
   }
 
-  // Render different views based on currentMainContent
-  if (currentMainContent !== "timeline") {
-    switch (currentMainContent) {
-      case "messages":
-        return <MessagesViewResponsive />
-      case "notifications":
-        return <NotificationsView />
-      case "events":
-        return <EventsView />
-      case "communities":
-        return <AdultCommunitiesView />
-      case "open-dates":
-        return <OpenDates />
-      case "saved-items":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Itens Salvos
-              </h2>
-            </div>
-            <div className="text-center py-12">
-              <p className="text-gray-500 dark:text-gray-400">Seus posts salvos aparecerão aqui</p>
-            </div>
-          </motion.div>
-        )
-      case "user-profile":
-        return <UserProfile userId={userId} />
-      case "who-to-follow":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Quem Seguir
-              </h2>
-            </div>
-            <WhoToFollowCard />
-          </motion.div>
-        )
-      case "trending-topics":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Tópicos em Alta
-              </h2>
-            </div>
-            <TrendingTopicsCard />
-          </motion.div>
-        )
-      case "upcoming-events":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Próximos Eventos
-              </h2>
-            </div>
-            <UpcomingEventsCard />
-          </motion.div>
-        )
-      case "settings":
-        return <SettingsPage />
-      case "verification":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Verificação de Conta
-              </h2>
-            </div>
-            <VerificationForm />
-          </motion.div>
-        )
-      case "plans":
-        // Redirect to plans page
-        router.push("/plans")
-        return null
-      default:
-        return null
-    }
-  }
+  // Define all available views
+  const allViews = useMemo(() => ({
+    timeline: (
+      <div className={cn("space-y-6", className)}>
+        {/* Create Post - Outside of tab content to prevent re-renders */}
+        {user ? (
+          <MemoizedCreatePost onSuccess={handleNewPost} />
+        ) : (
+          <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
+            <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>
+          </div>
+        )}
 
-  return (
-    <div className={cn("space-y-6", className)}>
-      {/* Create Post - Outside of tab content to prevent re-renders */}
-      {user ? (
-        <MemoizedCreatePost onSuccess={handleNewPost} />
-      ) : (
-        <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
-          <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>
-        </div>
-      )}
+        {/* Stories Carousel - Show only for authenticated users and timeline */}
+        {user && isAuthenticated && (
+          <StoriesCarousel className="mb-6" />
+        )}
 
-      {/* Feed Tabs */}
-      <div className="w-full mb-6">
-        <div className={cn(
-          "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
-          isLoading && "opacity-90 transition-opacity"
-        )}>
-          <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
-            <Button
-              onClick={() => {
-                if (activeTab !== "for-you") {
-                  setIsChangingTab(true)
-                  setIsLoading(false) // Clear any stuck loading state
-                  onTabChange?.("for-you")
-                  setTimeout(() => setIsChangingTab(false), 300)
-                }
-              }}
-              disabled={isChangingTab || isLoading}
-              className={cn(
-                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
-                activeTab === "for-you"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Para você</span>
-              <span className="sm:hidden">Todos</span>
-            </Button>
-            <Button
-              onClick={() => {
-                if (activeTab !== "following") {
-                  setIsChangingTab(true)
-                  setIsLoading(false) // Clear any stuck loading state
-                  onTabChange?.("following")
-                  setTimeout(() => setIsChangingTab(false), 300)
-                }
-              }}
-              disabled={isChangingTab || isLoading}
-              className={cn(
-                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
-                activeTab === "following"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
-              )}
-            >
-              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Seguindo
-            </Button>
-            <Button
-              onClick={() => {
-                if (activeTab !== "explore") {
-                  setIsChangingTab(true)
-                  setIsLoading(false) // Clear any stuck loading state
-                  onTabChange?.("explore")
-                  setTimeout(() => setIsChangingTab(false), 300)
-                }
-              }}
-              disabled={isChangingTab || isLoading}
-              className={cn(
-                "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:px-2.5 transition-all",
-                activeTab === "explore"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
-                  : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
-              )}
-            >
-              <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Explorar
-            </Button>
+        {/* Feed Tabs */}
+        <div className="w-full mb-6">
+          <div className={cn(
+            "bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-0.5 sm:p-1 shadow-sm",
+            isLoading && "opacity-90 transition-opacity"
+          )}>
+            <div className="grid w-full grid-cols-3 bg-transparent gap-0.5">
+              <Button
+                onClick={() => {
+                  if (activeTab !== "for-you") {
+                    setIsChangingTab(true)
+                    setIsLoading(false) // Clear any stuck loading state
+                    onTabChange?.("for-you")
+                    setTimeout(() => setIsChangingTab(false), 300)
+                  }
+                }}
+                disabled={isChangingTab || isLoading}
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
+                  activeTab === "for-you"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                )}
+              >
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Para você</span>
+                <span className="sm:hidden">Todos</span>
+              </Button>
+              <Button
+                onClick={() => {
+                  if (activeTab !== "following") {
+                    setIsChangingTab(true)
+                    setIsLoading(false) // Clear any stuck loading state
+                    onTabChange?.("following")
+                    setTimeout(() => setIsChangingTab(false), 300)
+                  }
+                }}
+                disabled={isChangingTab || isLoading}
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all",
+                  activeTab === "following"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                )}
+              >
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Seguindo
+              </Button>
+              <Button
+                onClick={() => {
+                  if (activeTab !== "explore") {
+                    setIsChangingTab(true)
+                    setIsLoading(false) // Clear any stuck loading state
+                    onTabChange?.("explore")
+                    setTimeout(() => setIsChangingTab(false), 300)
+                  }
+                }}
+                disabled={isChangingTab || isLoading}
+                className={cn(
+                  "rounded-xl sm:rounded-2xl text-xs sm:text-sm px-2 sm:px-4 py-2 sm:px-2.5 transition-all",
+                  activeTab === "explore"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                )}
+              >
+                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Explorar
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content based on active tab */}
-      {activeTab === "explore" ? (
-        <ExploreView />
-      ) : (
-        <div className="space-y-6">
-          {/* Background Loading Indicator */}
-          <AnimatePresence>
-            {isLoading && posts.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40"
-              >
-                <div className="bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-full px-4 py-2 flex items-center space-x-2 shadow-lg">
-                  <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Atualizando...</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* New Posts Toast - Twitter Style */}
-          <AnimatePresence>
-            {newPostsCount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -50, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -50, scale: 0.95 }}
-                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
-              >
-                <Button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
-                >
-                  <div className="flex -space-x-2">
-                    {/* Mock avatars */}
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 border-2 border-white dark:border-black"></div>
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 border-2 border-white dark:border-black"></div>
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-yellow-400 border-2 border-white dark:border-black"></div>
-                  </div>
-                  <span className="font-medium">
-                    {newPostsCount} {newPostsCount === 1 ? "novo post" : "novos posts"}
-                  </span>
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Posts with smooth transition */}
-          {postsWithAds.length > 0 ? (
+        {/* Content based on active tab */}
+        {activeTab === "explore" ? (
+          <ExploreView />
+        ) : (
+          <div className="space-y-6">
+            {/* Background Loading Indicator */}
             <AnimatePresence>
-              {postsWithAds.map((item: any, index: number) => (
+              {isLoading && posts.length > 0 && (
                 <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.05 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40"
                 >
-                  {item.type === "feedAd" ? (
-                    <FeedAd className="animate-slide-in-from-top" />
-                  ) : item.type === "ad" ? (
-                    <AdCard ad={item.content} />
-                  ) : (
-                    <PostWithComments post={item} />
-                  )}
+                  <div className="bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-full px-4 py-2 flex items-center space-x-2 shadow-lg">
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Atualizando...</span>
+                  </div>
                 </motion.div>
-              ))}
+              )}
             </AnimatePresence>
-          ) : (
-            /* Empty State */
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center justify-center py-16 text-center"
-            >
-              <div className="w-24 h-24 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-full flex items-center justify-center mb-6">
-                <span className="text-4xl">
-                  {activeTab === "following" && isFollowingAnyone === false ? "👥" : "🔥"}
-                </span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                {activeTab === "following" && isFollowingAnyone === false
-                  ? "Comece seguindo pessoas interessantes!"
-                  : "Ops! Parece que faltou sacanagem por aqui rs"}
-              </h3>
-              <p className="text-gray-500 dark:text-white/60 mb-6 max-w-md">
-                {activeTab === "for-you" && "Seja o primeiro a postar algo picante!"}
-                {activeTab === "following" && (
-                  isFollowingAnyone === false 
-                    ? "Você ainda não segue ninguém! Explore perfis e comece a seguir pessoas interessantes."
-                    : "As pessoas que você segue ainda não postaram nada hoje. Que tal dar o exemplo?"
-                )}
-                {activeTab === "explore" && "Explore novos perfis ou seja o primeiro a criar conteúdo quente!"}
-              </p>
-              {activeTab === "following" && isFollowingAnyone === false ? (
-                <Button
-                  onClick={() => onViewChange?.("explore")}
-                  className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+
+            {/* New Posts Toast - Twitter Style */}
+            <AnimatePresence>
+              {newPostsCount > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -50, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -50, scale: 0.95 }}
+                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
                 >
-                  <Compass className="w-4 h-4 mr-2" />
-                  Explorar Perfis
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
-                >
-                  {isRefreshing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Atualizando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Tentar novamente
-                    </>
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
+                  >
+                    <div className="flex -space-x-2">
+                      {/* Mock avatars */}
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 border-2 border-white dark:border-black"></div>
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 border-2 border-white dark:border-black"></div>
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-yellow-400 border-2 border-white dark:border-black"></div>
+                    </div>
+                    <span className="font-medium">
+                      {newPostsCount} {newPostsCount === 1 ? "novo post" : "novos posts"}
+                    </span>
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Posts with smooth transition */}
+            {postsWithAds.length > 0 ? (
+              <AnimatePresence>
+                {postsWithAds.map((item: any, index: number) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    {item.type === "feedAd" ? (
+                      <FeedAd className="animate-slide-in-from-top" />
+                    ) : item.type === "ad" ? (
+                      <AdCard ad={item.content} />
+                    ) : (
+                      <PostWithComments post={item} />
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            ) : (
+              /* Empty State */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center py-16 text-center"
+              >
+                <div className="w-24 h-24 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-full flex items-center justify-center mb-6">
+                  <span className="text-4xl">
+                    {activeTab === "following" && isFollowingAnyone === false ? "👥" : "🔥"}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  {activeTab === "following" && isFollowingAnyone === false
+                    ? "Comece seguindo pessoas interessantes!"
+                    : "Ops! Parece que faltou sacanagem por aqui rs"}
+                </h3>
+                <p className="text-gray-500 dark:text-white/60 mb-6 max-w-md">
+                  {activeTab === "for-you" && "Seja o primeiro a postar algo picante!"}
+                  {activeTab === "following" && (
+                    isFollowingAnyone === false 
+                      ? "Você ainda não segue ninguém! Explore perfis e comece a seguir pessoas interessantes."
+                      : "As pessoas que você segue ainda não postaram nada hoje. Que tal dar o exemplo?"
                   )}
-                </Button>
-              )}
-            </motion.div>
-          )}
-          
-          {/* Load More Trigger */}
-          {activeTab !== "explore" && postsWithAds.length > 0 && (
-            <div ref={loadMoreRef} className="flex justify-center py-4">
-              {!hasMore && posts.length > 0 && (
-                <p className="text-gray-500 text-center">Você chegou ao fim da timeline! 🎉</p>
-              )}
-            </div>
-          )}
+                  {activeTab === "explore" && "Explore novos perfis ou seja o primeiro a criar conteúdo quente!"}
+                </p>
+                {activeTab === "following" && isFollowingAnyone === false ? (
+                  <Button
+                    onClick={() => onViewChange?.("explore")}
+                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                  >
+                    <Compass className="w-4 h-4 mr-2" />
+                    Explorar Perfis
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                  >
+                    {isRefreshing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Atualizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Tentar novamente
+                      </>
+                    )}
+                  </Button>
+                )}
+              </motion.div>
+            )}
+            
+            {/* Load More Trigger */}
+            {activeTab !== "explore" && postsWithAds.length > 0 && (
+              <div ref={loadMoreRef} className="flex justify-center py-4">
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-gray-500 text-center">Você chegou ao fim da timeline! 🎉</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    ),
+    messages: <MessagesTwitter />,
+    notifications: <NotificationsView />,
+    events: <EventsView />,
+    communities: <AdultCommunitiesView />,
+    "open-dates": <OpenDates />,
+    "saved-items": (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Itens Salvos
+          </h2>
         </div>
-      )}
-    </div>
-  )
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Seus posts salvos aparecerão aqui</p>
+        </div>
+      </motion.div>
+    ),
+    "user-profile": <UserProfile userId={userId} />,
+    "who-to-follow": (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Quem Seguir
+          </h2>
+        </div>
+        <WhoToFollowCard />
+      </motion.div>
+    ),
+    "trending-topics": (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Tópicos em Alta
+          </h2>
+        </div>
+        <TrendingTopicsCard />
+      </motion.div>
+    ),
+    "upcoming-events": (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Próximos Eventos
+          </h2>
+        </div>
+        <UpcomingEventsCard />
+      </motion.div>
+    ),
+    settings: <SettingsPage />,
+    verification: (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Verificação de Conta
+          </h2>
+        </div>
+        <VerificationForm />
+      </motion.div>
+    )
+  }), [
+    className,
+    user,
+    handleNewPost,
+    activeTab,
+    isLoading,
+    onTabChange,
+    isChangingTab,
+    posts.length,
+    newPostsCount,
+    handleRefresh,
+    isRefreshing,
+    postsWithAds,
+    hasMore,
+    isFollowingAnyone,
+    onViewChange,
+    loadMoreRef,
+    userId
+  ])
+
+  // Handle plans redirect
+  useEffect(() => {
+    if (currentMainContent === "plans") {
+      router.push("/plans")
+    }
+  }, [currentMainContent, router])
+
+  // Render views using ViewManager
+  return <ViewManager views={allViews} activeView={currentMainContent} />
 }

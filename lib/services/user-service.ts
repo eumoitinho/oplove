@@ -399,19 +399,22 @@ export class UserService {
     error: string | null
   }> {
     try {
-      const { data, error } = await supabase
+      const { data: stories, error } = await supabase
         .from('stories')
         .select(`
-          id,
-          media_url,
-          media_type,
-          caption,
-          created_at,
-          expires_at,
-          view_count
+          *,
+          users!user_id (
+            id,
+            name,
+            username,
+            avatar_url,
+            is_verified,
+            premium_type
+          )
         `)
         .eq('user_id', userId)
-        .gt('expires_at', new Date().toISOString())
+        .eq('status', 'active')
+        .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -419,7 +422,29 @@ export class UserService {
         return { data: null, error: error.message }
       }
 
-      return { data, error: null }
+      // Process stories to normalize field names (match API endpoint format)
+      const processedStories = stories?.map(story => ({
+        ...story,
+        // Normalize field names for consistency
+        mediaUrl: story.media_url,
+        mediaType: story.media_type,
+        userId: story.user_id,
+        createdAt: story.created_at,
+        expiresAt: story.expires_at,
+        user: {
+          ...story.users,
+          avatarUrl: story.users?.avatar_url,
+          isVerified: story.users?.is_verified,
+          premiumType: story.users?.premium_type
+        },
+        hasViewed: false, // Default to false for other users' stories
+        viewCount: story.view_count || 0,
+        uniqueViewCount: story.unique_view_count || 0,
+        reactionCount: story.reaction_count || 0,
+        replyCount: story.reply_count || 0
+      }))
+
+      return { data: processedStories || [], error: null }
     } catch (error) {
       console.error('Error in getUserStories:', error)
       return { data: null, error: (error as Error).message }

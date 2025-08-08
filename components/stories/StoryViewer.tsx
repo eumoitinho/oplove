@@ -62,7 +62,14 @@ export default function StoryViewer({
     console.log('StoryViewer rendered:', { 
       storiesLength: stories.length, 
       initialIndex, 
-      currentIndex 
+      currentIndex,
+      currentStory: currentStory ? {
+        id: currentStory.id,
+        mediaUrl: currentStory.mediaUrl,
+        mediaType: currentStory.mediaType,
+        userId: currentStory.userId,
+        user: currentStory.user
+      } : null
     })
   }
   const [progress, setProgress] = useState(0)
@@ -96,7 +103,7 @@ export default function StoryViewer({
 
   useEffect(() => {
     if (!isPaused && currentStory) {
-      const duration = currentStory.duration * 1000 // Convert to milliseconds
+      const duration = (currentStory.duration || 5) * 1000 // Convert to milliseconds, default 5 seconds
       const interval = 50 // Update every 50ms
       
       intervalRef.current = setInterval(() => {
@@ -275,7 +282,26 @@ export default function StoryViewer({
     }
   }
 
-  if (!currentStory) return null
+  if (!currentStory) {
+    console.warn('StoryViewer: No current story available')
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black flex items-center justify-center z-50"
+        onClick={onClose}
+      >
+        <div className="text-white text-center">
+          <p className="text-lg mb-4">Story não encontrado</p>
+          <Button onClick={onClose} variant="ghost" className="text-white">
+            <X className="w-5 h-5 mr-2" />
+            Fechar
+          </Button>
+        </div>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
@@ -314,18 +340,18 @@ export default function StoryViewer({
             <div className="flex items-center space-x-2 sm:space-x-3">
               <Avatar 
                 className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-white cursor-pointer"
-                onClick={() => window.location.href = `/profile/${currentStory.user.username}`}
+                onClick={() => window.location.href = `/profile/${currentStory.user?.username}`}
               >
-                <AvatarImage src={currentStory.user.avatarUrl} />
-                <AvatarFallback>{currentStory.user.name[0]}</AvatarFallback>
+                <AvatarImage src={currentStory.user?.avatarUrl} />
+                <AvatarFallback>{currentStory.user?.name?.[0] || 'U'}</AvatarFallback>
               </Avatar>
               
               <div>
                 <div className="flex items-center space-x-1 sm:space-x-2">
                   <p className="text-white font-semibold text-sm sm:text-base">
-                    {currentStory.user.name}
+                    {currentStory.user?.name || currentStory.user?.username || 'User'}
                   </p>
-                  {currentStory.user.isVerified && (
+                  {currentStory.user?.isVerified && (
                     <Badge variant="secondary" className="h-4 sm:h-5">
                       <span className="text-xs">✓</span>
                     </Badge>
@@ -428,12 +454,16 @@ export default function StoryViewer({
           {/* Media content */}
           {currentStory.mediaType === 'image' ? (
             <Image
-              src={currentStory.mediaUrl}
+              src={currentStory.mediaUrl || ''}
               alt="Story"
               width={400}
               height={800}
               className="w-full h-full object-contain"
               priority
+              onError={(e) => {
+                console.error('Image failed to load:', currentStory.mediaUrl)
+                // Show fallback or error message
+              }}
             />
           ) : (
             <video
@@ -445,9 +475,12 @@ export default function StoryViewer({
               loop={false}
               controls={false}
               webkit-playsinline="true"
+              onError={(e) => {
+                console.error('Video failed to load:', currentStory.mediaUrl)
+              }}
             >
-              <source src={currentStory.mediaUrl} type="video/mp4" />
-              <source src={currentStory.mediaUrl} type="video/webm" />
+              <source src={currentStory.mediaUrl || ''} type="video/mp4" />
+              <source src={currentStory.mediaUrl || ''} type="video/webm" />
               Seu navegador não suporta vídeo.
             </video>
           )}
@@ -563,7 +596,7 @@ export default function StoryViewer({
                       <div className="flex items-center space-x-3">
                         <Avatar className="w-10 h-10">
                           <AvatarImage src={view.viewer?.avatarUrl} />
-                          <AvatarFallback>{view.viewer?.name[0]}</AvatarFallback>
+                          <AvatarFallback>{view.viewer?.name?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-medium">{view.viewer?.name}</p>
@@ -599,7 +632,7 @@ export default function StoryViewer({
         isOpen={showGiftModal}
         onClose={() => setShowGiftModal(false)}
         recipientId={currentStory.userId}
-        recipientName={currentStory.user.name}
+        recipientName={currentStory.user?.name || currentStory.user?.username || 'User'}
       />
     </motion.div>
   )

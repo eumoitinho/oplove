@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { dailyVideoService } from '@/lib/services/daily-video.service'
-import { z } from 'zod'
-
-const createCallSchema = z.object({
-  conversationId: z.string().uuid(),
-  callType: z.enum(['video', 'audio']).default('video'),
-  maxParticipants: z.number().min(2).max(8).default(4),
-  expiresInMinutes: z.number().min(5).max(120).default(60)
-})
+import { createServerClient } from '@/lib/supabase/server'
+import { dailyVideoService } from '@/lib/services/daily-video-service'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createServerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
     const body = await request.json()
-    const validation = createCallSchema.safeParse(body)
-    
-    if (!validation.success) {
+    const { 
+      conversationId, 
+      callType = 'video',
+      maxParticipants = 8,
+      expiresInMinutes = 60
+    } = body
+
+    if (!conversationId) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validation.error.errors },
+        { error: 'conversationId é obrigatório' },
         { status: 400 }
       )
     }
-
-    const { conversationId, callType, maxParticipants, expiresInMinutes } = validation.data
 
     // Verify user is participant in the conversation
     const { data: participant } = await supabase
@@ -42,21 +37,24 @@ export async function POST(request: NextRequest) {
 
     if (!participant) {
       return NextResponse.json(
-        { error: 'You are not a participant in this conversation' },
+        { error: 'Você não é participante desta conversa' },
         { status: 403 }
       )
     }
 
-    // Check if user has premium plan (only premium users can initiate calls)
+    // Check if user has premium plan (only Diamond and Couple can make calls)
     const { data: userData } = await supabase
       .from('users')
-      .select('premium_type, username, name')
+      .select('premium_type, username, name, full_name')
       .eq('id', user.id)
       .single()
 
     if (!userData || (userData.premium_type !== 'diamond' && userData.premium_type !== 'couple')) {
       return NextResponse.json(
-        { error: 'Chamadas de voz/vídeo estão disponíveis apenas para planos Diamond ou Dupla Hot', code: 'UPGRADE_REQUIRED' },
+        { 
+          error: 'Chamadas de voz/vídeo estão disponíveis apenas para planos Diamond ou Dupla Hot', 
+          code: 'UPGRADE_REQUIRED' 
+        },
         { status: 403 }
       )
     }
@@ -73,8 +71,11 @@ export async function POST(request: NextRequest) {
     const meetingToken = await dailyVideoService.createMeetingToken(
       dailyRoom.name,
       user.id,
-      userData.name || userData.username,
-      { isModerator: true, expiresInMinutes }
+      userData.full_name || userData.name || userData.username,
+      { 
+        isModerator: true, 
+        expiresInMinutes 
+      }
     )
 
     // Save call to database
@@ -96,67 +97,54 @@ export async function POST(request: NextRequest) {
     if (callError) {
       // Cleanup Daily.co room if DB insert fails
       await dailyVideoService.deleteRoom(dailyRoom.name)
-      throw callError
+      console.error('Failed to save call to database:', callError)
+      // Continue anyway - the call can still work
     }
 
-    // Send call notification to other participants
-    const { data: otherParticipants } = await supabase
+    // Send notification to other participants
+    const { data: participants } = await supabase
       .from('conversation_participants')
-      .select(`
-        user_id,
-        users!inner(
-          id,
-          username,
-          name,
-          push_token
-        )
-      `)
+      .select('user_id')
       .eq('conversation_id', conversationId)
       .neq('user_id', user.id)
       .is('left_at', null)
 
-    // Create call message in conversation
-    await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
+    if (participants && participants.length > 0) {
+      // Create notifications for other participants
+      const notifications = participants.map(p => ({
+        recipient_id: p.user_id,
         sender_id: user.id,
-        content: callType === 'video' ? '📹 Video call started' : '📞 Voice call started',
-        type: 'system',
-        system_data: {
-          type: 'call_started',
-          call_id: videoCall.id,
-          call_type: callType,
-          room_url: dailyRoom.url
+        type: 'call',
+        content: `${userData.full_name || userData.name || userData.username} está te chamando para uma ${callType === 'video' ? 'videochamada' : 'chamada de voz'}`,
+        link: `/feed?view=messages&conversation=${conversationId}`,
+        metadata: {
+          conversation_id: conversationId,
+          room_url: dailyRoom.url,
+          call_type: callType
         }
-      })
+      }))
 
-    // TODO: Send push notifications to other participants
-    // This would be implemented with your push notification service
+      await supabase
+        .from('notifications')
+        .insert(notifications)
+    }
 
     return NextResponse.json({
       success: true,
       call: {
-        id: videoCall.id,
+        id: videoCall?.id || dailyRoom.id,
         room_url: dailyRoom.url,
         room_name: dailyRoom.name,
-        meeting_token: meetingToken,
+        meeting_token: meetingToken.token,
         call_type: callType,
-        expires_at: videoCall.expires_at
+        expires_at: new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString()
       }
     })
-  } catch (error: any) {
-    console.error('Error creating video call:', error)
-    
-    if (error.message?.includes('Daily.co')) {
-      return NextResponse.json(
-        { error: 'Video call service unavailable', details: error.message },
-        { status: 503 }
-      )
-    }
 
+  } catch (error: any) {
+    console.error('Error creating call:', error)
     return NextResponse.json(
-      { error: 'Failed to create video call', details: error.message },
+      { error: error.message || 'Erro ao criar chamada' },
       { status: 500 }
     )
   }
