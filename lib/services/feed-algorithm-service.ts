@@ -1,10 +1,20 @@
-import { createClient } from '@/app/lib/supabase-browser'
+import { createClient } from '@supabase/supabase-js'
 import type { Post } from '@/types/common'
 import type { UserProfile, FeedAlgorithmWeights, AdultInterest, LocationData } from '@/types/adult'
 import { TimelineCacheService, type TimelineFeedResult } from '@/lib/cache/timeline-cache'
+import type { Database } from '@/types/database'
 
 class FeedAlgorithmService {
-  private supabase = createClient()
+  private supabase = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  )
   
   // Pesos do algoritmo (soma = 100%)
   private weights: FeedAlgorithmWeights = {
@@ -212,16 +222,22 @@ class FeedAlgorithmService {
           shares_count,
           media_urls,
           media_types,
+          media_thumbnails,
           visibility,
+          location,
+          latitude,
+          longitude,
+          poll_question,
+          poll_options,
+          poll_expires_at,
+          audio_duration,
           users (
             id,
             username,
             name,
             avatar_url,
             is_verified,
-            premium_type,
-            location,
-            interests
+            premium_type
           )
         `)
         .eq('visibility', 'public')
@@ -230,7 +246,7 @@ class FeedAlgorithmService {
         .limit(500) // Buscar mais posts para ter variedade no algoritmo
 
       if (error) {
-        console.error('Error fetching posts for algorithm:', error)
+        console.error('Error fetching posts for algorithm:', error?.message || error)
         return this.getFallbackPosts(offset, limit)
       }
 
@@ -241,55 +257,18 @@ class FeedAlgorithmService {
 
       console.log(`📊 Found ${allPosts.length} posts to analyze`)
 
-      // Aplicar algoritmo melhorado - MOSTRAR TODOS OS POSTS DA REGIÃO
+      // Aplicar algoritmo melhorado - MOSTRAR TODOS OS POSTS
       const postsWithScores = allPosts.map(post => {
         let score = 100 // Score base para garantir que todos apareçam
         
-        // 1. LOCALIZAÇÃO - PRIORIDADE MÁXIMA (45% do score)
-        let locationScore = 0
-        if (userProfile.location?.latitude && userProfile.location?.longitude && 
-            post.users?.location?.latitude && post.users?.location?.longitude) {
-          const distance = this.calculateDistance(
-            userProfile.location.latitude,
-            userProfile.location.longitude,
-            post.users.location.latitude,
-            post.users.location.longitude
-          )
-          
-          // Score baseado na distância - quanto mais perto, maior o score
-          if (distance <= 5) {
-            locationScore = 100 // Muito perto (mesmo bairro)
-          } else if (distance <= 15) {
-            locationScore = 80 // Perto (mesma cidade)
-          } else if (distance <= 50) {
-            locationScore = 60 // Região metropolitana
-          } else if (distance <= 100) {
-            locationScore = 40 // Estado/região
-          } else if (distance <= 300) {
-            locationScore = 20 // País
-          } else {
-            locationScore = 5 // Longe
-          }
-          
-          console.log(`📍 Post ${post.id} distance: ${distance.toFixed(1)}km, location score: ${locationScore}`)
-        } else {
-          // Posts sem localização recebem score médio para aparecerem também
-          locationScore = 30
-          console.log(`📍 Post ${post.id} no location data, default score: ${locationScore}`)
-        }
+        // 1. LOCALIZAÇÃO - Temporariamente desabilitado até coluna estar disponível
+        // Por enquanto, todos os posts recebem score médio de localização
+        let locationScore = 50 // Score neutro para todos
         score += locationScore * this.weights.location
 
-        // 2. INTERESSES/COMPATIBILIDADE - se o usuário tem preferências
-        let interestScore = 0
-        if (userProfile.interests?.length > 0 && post.users?.interests?.length > 0) {
-          const compatibility = this.calculateInterestScore(userProfile.interests, post.users.interests)
-          interestScore = compatibility * 100
-          console.log(`💝 Post ${post.id} interest compatibility: ${(compatibility * 100).toFixed(1)}%`)
-        } else {
-          // Se não tem interesses definidos, score neutro
-          interestScore = 50
-        }
-        // Usar peso correto para interesses
+        // 2. INTERESSES/COMPATIBILIDADE - Temporariamente desabilitado
+        // Por enquanto, todos recebem score neutro
+        let interestScore = 50
         score += interestScore * this.weights.interests
 
         // 3. ENGAJAMENTO (20% do score)
@@ -347,27 +326,61 @@ class FeedAlgorithmService {
       console.log(`📄 Returning page ${page}: posts ${offset} to ${offset + limit - 1} (${paginatedPosts.length} posts)`)
 
       // Formatar resposta
-      return paginatedPosts.map(post => ({
-        id: post.id,
-        content: post.content,
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        user_id: post.user_id,
-        likes_count: post.likes_count,
-        comments_count: post.comments_count,
-        shares_count: post.shares_count,
-        media_urls: post.media_urls,
-        media_types: post.media_types,
-        visibility: post.visibility,
-        user: {
-          id: post.users.id,
-          username: post.users.username,
-          name: post.users.name,
-          avatar_url: post.users.avatar_url,
-          is_verified: post.users.is_verified,
-          premium_type: post.users.premium_type
+      return paginatedPosts.map(post => {
+        // Format poll data if exists
+        let pollData = null
+        if (post.poll_question && post.poll_options) {
+          pollData = {
+            id: `${post.id}_poll`,
+            question: post.poll_question,
+            options: post.poll_options.map((option: string, index: number) => ({
+              id: `${post.id}_option_${index}`,
+              text: option,
+              votes_count: 0,
+              percentage: 0
+            })),
+            total_votes: 0,
+            expires_at: post.poll_expires_at,
+            multiple_choice: false,
+            user_has_voted: false,
+            user_votes: []
+          }
         }
-      }))
+
+        return {
+          id: post.id,
+          content: post.content,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          user_id: post.user_id,
+          likes_count: post.likes_count,
+          comments_count: post.comments_count,
+          shares_count: post.shares_count,
+          media_urls: post.media_urls,
+          media_types: post.media_types,
+          media_thumbnails: post.media_thumbnails,
+          visibility: post.visibility,
+          location: post.location,
+          latitude: post.latitude,
+          longitude: post.longitude,
+          audio_duration: post.audio_duration,
+          poll: pollData,
+          poll_question: post.poll_question,
+          poll_options: post.poll_options,
+          poll_expires_at: post.poll_expires_at,
+          is_liked: false,
+          is_saved: false,
+          saves_count: 0,
+          user: {
+            id: post.users.id,
+            username: post.users.username,
+            name: post.users.name,
+            avatar_url: post.users.avatar_url,
+            is_verified: post.users.is_verified,
+            premium_type: post.users.premium_type
+          }
+        }
+      })
 
     } catch (error) {
       console.error('Error in getPostsWithScores:', error)
@@ -395,6 +408,15 @@ class FeedAlgorithmService {
           shares_count,
           media_urls,
           media_types,
+          media_thumbnails,
+          visibility,
+          location,
+          latitude,
+          longitude,
+          poll_question,
+          poll_options,
+          poll_expires_at,
+          audio_duration,
           users (
             id,
             username,
@@ -415,7 +437,39 @@ class FeedAlgorithmService {
         throw error
       }
       
-      return posts || []
+      // Format posts with poll data
+      return (posts || []).map(post => {
+        // Format poll data if exists
+        let pollData = null
+        if (post.poll_question && post.poll_options) {
+          pollData = {
+            id: `${post.id}_poll`,
+            question: post.poll_question,
+            options: post.poll_options.map((option: string, index: number) => ({
+              id: `${post.id}_option_${index}`,
+              text: option,
+              votes_count: 0,
+              percentage: 0
+            })),
+            total_votes: 0,
+            expires_at: post.poll_expires_at,
+            multiple_choice: false,
+            user_has_voted: false,
+            user_votes: []
+          }
+        }
+
+        return {
+          ...post,
+          poll: pollData,
+          media_urls: post.media_urls || [],
+          media_types: post.media_types || [],
+          is_liked: false,
+          is_saved: false,
+          saves_count: 0,
+          user: post.users
+        }
+      })
     } catch (error) {
       console.error('Error fetching posts:', error)
       return []
@@ -492,6 +546,15 @@ class FeedAlgorithmService {
           shares_count,
           media_urls,
           media_types,
+          media_thumbnails,
+          visibility,
+          location,
+          latitude,
+          longitude,
+          poll_question,
+          poll_options,
+          poll_expires_at,
+          audio_duration,
           users (
             id,
             username,
@@ -510,11 +573,39 @@ class FeedAlgorithmService {
         return []
       }
 
-      return posts?.map(post => ({
-        ...post,
-        user: post.users,
-        users: undefined
-      })) || []
+      return posts?.map(post => {
+        // Format poll data if exists
+        let pollData = null
+        if (post.poll_question && post.poll_options) {
+          pollData = {
+            id: `${post.id}_poll`,
+            question: post.poll_question,
+            options: post.poll_options.map((option: string, index: number) => ({
+              id: `${post.id}_option_${index}`,
+              text: option,
+              votes_count: 0,
+              percentage: 0
+            })),
+            total_votes: 0,
+            expires_at: post.poll_expires_at,
+            multiple_choice: false,
+            user_has_voted: false,
+            user_votes: []
+          }
+        }
+
+        return {
+          ...post,
+          poll: pollData,
+          media_urls: post.media_urls || [],
+          media_types: post.media_types || [],
+          is_liked: false,
+          is_saved: false,
+          saves_count: 0,
+          user: post.users,
+          users: undefined
+        }
+      }) || []
     } catch (error) {
       console.error('Error in getFollowingPosts:', error)
       return []
@@ -540,6 +631,15 @@ class FeedAlgorithmService {
           shares_count,
           media_urls,
           media_types,
+          media_thumbnails,
+          visibility,
+          location,
+          latitude,
+          longitude,
+          poll_question,
+          poll_options,
+          poll_expires_at,
+          audio_duration,
           users (
             id,
             username,
@@ -560,11 +660,39 @@ class FeedAlgorithmService {
         return []
       }
 
-      return posts?.map(post => ({
-        ...post,
-        user: post.users,
-        users: undefined
-      })) || []
+      return posts?.map(post => {
+        // Format poll data if exists
+        let pollData = null
+        if (post.poll_question && post.poll_options) {
+          pollData = {
+            id: `${post.id}_poll`,
+            question: post.poll_question,
+            options: post.poll_options.map((option: string, index: number) => ({
+              id: `${post.id}_option_${index}`,
+              text: option,
+              votes_count: 0,
+              percentage: 0
+            })),
+            total_votes: 0,
+            expires_at: post.poll_expires_at,
+            multiple_choice: false,
+            user_has_voted: false,
+            user_votes: []
+          }
+        }
+
+        return {
+          ...post,
+          poll: pollData,
+          media_urls: post.media_urls || [],
+          media_types: post.media_types || [],
+          is_liked: false,
+          is_saved: false,
+          saves_count: 0,
+          user: post.users,
+          users: undefined
+        }
+      }) || []
     } catch (error) {
       console.error('Error in getExplorePosts:', error)
       return []

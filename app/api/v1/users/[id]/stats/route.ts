@@ -10,7 +10,9 @@ export async function GET(
     const resolvedParams = await params
     const rawUserId = resolvedParams.id
     
-    console.log('[UserStats API] Fetching stats for user:', rawUserId)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserStats API] Fetching stats for user:', rawUserId)
+    }
 
     // Get current user for additional info
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -165,7 +167,9 @@ export async function GET(
                      recentActivityResult.count >= 3 ? 'medium' : 'low'
     }
 
-    console.log('[UserStats API] Stats calculated:', stats)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserStats API] Stats calculated:', stats)
+    }
 
     return NextResponse.json({
       data: stats,

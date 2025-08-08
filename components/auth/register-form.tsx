@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, Camera, ArrowRight, ArrowLeft, Mail, Lock, User, AtSign, Calendar, Star, Gem, Crown, Check, Heart, Users, Building2 } from "lucide-react"
+import { MapPin, Camera, ArrowRight, ArrowLeft, Mail, Lock, User, AtSign, Calendar, Star, Gem, Crown, Check, Heart, Users, Building2, Loader2, MapPinOff, AlertCircle } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -31,9 +31,8 @@ interface FormData {
   // Profile details
   bio: string
   profilePicture: File | null
-  gender: "male" | "female" | "other" | "prefer_not_to_say"
-  lookingFor: "single" | "couple" | "couple_mm" | "couple_ff" | "couple_mf" | "trans" | "crossdresser"
-  profileType: "single" | "couple" | "trans" | "other"
+  gender: "couple" | "couple_ff" | "couple_mm" | "male" | "male_trans" | "female" | "female_trans" | "travesti" | "crossdresser"
+  lookingFor: string[]
   relationshipGoals: string[]
   
   // Location
@@ -83,9 +82,8 @@ export function RegisterForm() {
     // Profile
     bio: "",
     profilePicture: null,
-    gender: "prefer_not_to_say",
-    lookingFor: "single",
-    profileType: "single",
+    gender: "male",
+    lookingFor: [],
     relationshipGoals: [],
     
     // Location
@@ -109,6 +107,9 @@ export function RegisterForm() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
+  const [locationDetecting, setLocationDetecting] = useState(false)
+  const [locationError, setLocationError] = useState<string>("")
+  const [showManualLocation, setShowManualLocation] = useState(false)
   const usernameTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const imageUrlRef = useRef<string | null>(null)
 
@@ -126,49 +127,131 @@ export function RegisterForm() {
     }
   }, [])
 
-  // Handle location detection
-  const handleCityFocus = async () => {
-    if (typeof window !== "undefined" && navigator.geolocation) {
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 60000
-          })
-        })
-        
-        const { latitude, longitude } = position.coords
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`)
-          const data = await res.json()
-          const city = data.address.city || data.address.town || data.address.village || data.address.county || ""
-          const state = data.address.state || data.address.region || ""
-          
-          // Extract UF (state abbreviation) from state name
-          let uf = ""
-          const stateToUF: Record<string, string> = {
-            "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
-            "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES",
-            "Goiás": "GO", "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS",
-            "Minas Gerais": "MG", "Pará": "PA", "Paraíba": "PB", "Paraná": "PR",
-            "Pernambuco": "PE", "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN",
-            "Rio Grande do Sul": "RS", "Rondônia": "RO", "Roraima": "RR", "Santa Catarina": "SC",
-            "São Paulo": "SP", "Sergipe": "SE", "Tocantins": "TO"
-          }
-          
-          if (state && stateToUF[state]) {
-            uf = stateToUF[state]
-          }
-          
-          setFormData((prev) => ({ ...prev, city, state, uf, latitude, longitude }))
-        } catch (e) {
-          console.error("Erro ao buscar cidade:", e)
-          setFormData((prev) => ({ ...prev, latitude, longitude }))
+  // Handle explicit location detection with better iOS support
+  const handleLocationDetection = async () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocalização não suportada pelo navegador")
+      setShowManualLocation(true)
+      return
+    }
+
+    setLocationDetecting(true)
+    setLocationError("")
+
+    try {
+      // Check geolocation permission first (for modern browsers)
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({ name: 'geolocation' })
+        if (permission.state === 'denied') {
+          throw new Error('PERMISSION_DENIED')
         }
-      } catch (error) {
-        console.error("Erro ao obter localização:", error)
       }
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        const options = {
+          enableHighAccuracy: true,
+          timeout: 15000, // Increased timeout for iOS
+          maximumAge: 300000 // 5 minutes cache
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          (error) => {
+            reject(error)
+          },
+          options
+        )
+      })
+      
+      const { latitude, longitude } = position.coords
+      
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1&accept-language=pt-BR,pt,en`,
+          { headers: { 'User-Agent': 'OpenLove/1.0' } }
+        )
+        
+        if (!res.ok) {
+          throw new Error('API_ERROR')
+        }
+        
+        const data = await res.json()
+        
+        // Better city name extraction with fallbacks
+        let city = ""
+        if (data.address) {
+          city = data.address.city || 
+                 data.address.town || 
+                 data.address.village || 
+                 data.address.municipality ||
+                 data.address.city_district ||
+                 data.address.suburb ||
+                 data.address.neighbourhood ||
+                 ""
+        }
+        
+        // Avoid generic names like "Região Metropolitana"
+        if (city.includes("Região") || city.includes("Metropolitana") || city.includes("Grande ")) {
+          city = data.address.suburb || 
+                 data.address.neighbourhood || 
+                 data.address.city_district || 
+                 ""
+        }
+        
+        const state = data.address?.state || data.address?.region || ""
+        
+        // Extract UF (state abbreviation) from state name
+        let uf = ""
+        const stateToUF: Record<string, string> = {
+          "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
+          "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES",
+          "Goiás": "GO", "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS",
+          "Minas Gerais": "MG", "Pará": "PA", "Paraíba": "PB", "Paraná": "PR",
+          "Pernambuco": "PE", "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN",
+          "Rio Grande do Sul": "RS", "Rondônia": "RO", "Roraima": "RR", "Santa Catarina": "SC",
+          "São Paulo": "SP", "Sergipe": "SE", "Tocantins": "TO"
+        }
+        
+        if (state && stateToUF[state]) {
+          uf = stateToUF[state]
+        }
+        
+        if (city) {
+          setFormData((prev) => ({ ...prev, city, state, uf, latitude, longitude }))
+          toast.success(`Localização detectada: ${city}${state ? `, ${state}` : ''}`)
+        } else {
+          setFormData((prev) => ({ ...prev, latitude, longitude }))
+          setLocationError("Não foi possível determinar sua cidade. Digite manualmente.")
+          setShowManualLocation(true)
+        }
+        
+      } catch (geocodeError) {
+        console.error("Erro na geocodificação:", geocodeError)
+        setFormData((prev) => ({ ...prev, latitude, longitude }))
+        setLocationError("Localização detectada, mas não foi possível determinar a cidade. Digite manualmente.")
+        setShowManualLocation(true)
+      }
+      
+    } catch (error: any) {
+      console.error("Erro ao obter localização:", error)
+      
+      let errorMessage = ""
+      
+      if (error.code === 1 || error.message === 'PERMISSION_DENIED') {
+        errorMessage = "Permissão de localização negada. Para detectar automaticamente, permita o acesso à localização nas configurações do seu navegador."
+      } else if (error.code === 2) {
+        errorMessage = "Localização indisponível. Verifique se o GPS está ativo e tente novamente."
+      } else if (error.code === 3) {
+        errorMessage = "Tempo limite para detectar localização. Verifique sua conexão e tente novamente."
+      } else {
+        errorMessage = "Erro ao detectar localização. Digite sua cidade manualmente."
+      }
+      
+      setLocationError(errorMessage)
+      setShowManualLocation(true)
+      
+    } finally {
+      setLocationDetecting(false)
     }
   }
 
@@ -197,6 +280,7 @@ export function RegisterForm() {
     if (type === "checkbox") {
       setFormData((prev) => ({ ...prev, [name]: checked }))
     } else {
+      // Handle all text inputs including business fields
       setFormData((prev) => ({ ...prev, [name]: value }))
 
       // Check username availability
@@ -303,10 +387,20 @@ export function RegisterForm() {
     } else if (step === 3) {
       // Profile preferences validation - Skip for business accounts
       if (formData.accountType === "personal") {
-        if (!formData.gender) newErrors.gender = "Selecione seu gênero"
-        if (!formData.lookingFor) newErrors.lookingFor = "Selecione o que você procura"
+        if (!formData.gender) newErrors.gender = "Selecione o que você é"
+        if (!formData.lookingFor || formData.lookingFor.length === 0) newErrors.lookingFor = "Selecione pelo menos uma opção do que você procura"
       }
     } else if (step === 4) {
+      // Business fields validation (if business account)
+      if (formData.accountType === "business") {
+        if (!formData.businessName) newErrors.businessName = "Nome da empresa é obrigatório"
+        else if (formData.businessName.length < 2) newErrors.businessName = "Nome deve ter pelo menos 2 caracteres"
+        
+        if (!formData.businessType) newErrors.businessType = "Tipo de negócio é obrigatório"
+        
+        // CNPJ is optional, but if provided, could add format validation here
+      }
+      
       // Profile details validation
       if (!formData.bio) newErrors.bio = "Bio é obrigatória"
       else if (formData.bio.length < 10) newErrors.bio = "Bio deve ter pelo menos 10 caracteres"
@@ -385,11 +479,10 @@ export function RegisterForm() {
       // Add personal account fields
       if (formData.accountType === "personal") {
         if (formData.gender) registrationData.gender = formData.gender
-        if (formData.profileType) registrationData.profile_type = formData.profileType
         
-        // Convert lookingFor to array format
-        if (formData.lookingFor) {
-          registrationData.looking_for = [formData.lookingFor]
+        // lookingFor is already an array
+        if (formData.lookingFor && formData.lookingFor.length > 0) {
+          registrationData.looking_for = formData.lookingFor
         }
         
         if (formData.interests && formData.interests.length > 0) {
@@ -477,19 +570,25 @@ export function RegisterForm() {
           }
         }
 
-        // Handle routing based on account type
+        // Handle routing based on account type and plan
         if (formData.accountType === "business") {
-          toast.success("Conta empresarial criada! Redirecionando para configurar seu negócio...")
-          router.push("/business/register")
+          // Business accounts always go to feed for now - BUSINESS DESATIVADO TEMPORARIAMENTE
+          toast.success("Conta empresarial criada! Redirecionando para o feed...")
+          // router.push("/business/register") // DESATIVADO - redirecionamento removido
+          router.push("/feed") // Redirecionamento temporário para o feed
           return
         }
 
-        // Open payment modal for paid plans (personal accounts only)
+        // For personal accounts with paid plans, open payment modal BEFORE any redirect
         if (formData.plan !== "free") {
+          // Show success message but keep user on registration page
+          toast.success("Conta criada com sucesso! Complete seu pagamento para ativar o plano.")
+          // Open payment modal - this will handle success redirect internally
           setShowPaymentModal(true)
           return
         }
 
+        // For free plans, redirect directly to feed
         toast.success("Conta criada com sucesso!")
         router.push("/feed")
       }
@@ -528,16 +627,16 @@ export function RegisterForm() {
 
       {/* Form Steps */}
       <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Step 1: Account Type Selection */}
+        {/* Step 1: Account Type Selection - SIMPLIFICADO */}
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">Tipo de Conta</h2>
+            <h2 className="text-xl font-semibold text-center">Criar Conta</h2>
             <p className="text-center text-gray-600 dark:text-gray-400">
-              Escolha o tipo de conta que melhor se adequa às suas necessidades
+              Comece sua jornada no OpenLove
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personal Account */}
+            <div className="grid grid-cols-1 gap-6">
+              {/* Personal Account - Única opção disponível temporariamente */}
               <div
                 className={`relative rounded-lg border-2 p-6 transition-all cursor-pointer hover:shadow-md ${
                   formData.accountType === "personal" 
@@ -568,15 +667,16 @@ export function RegisterForm() {
                 </div>
               </div>
 
-              {/* Business Account */}
+              {/* Business Account - DESATIVADO TEMPORARIAMENTE */}
               <div
-                className={`relative rounded-lg border-2 p-6 transition-all cursor-pointer hover:shadow-md ${
-                  formData.accountType === "business" 
-                    ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20" 
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-                onClick={() => setFormData(prev => ({ ...prev, accountType: "business" }))}
+                className="relative rounded-lg border-2 p-6 opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700"
               >
+                <div className="absolute inset-0 bg-gray-900/60 rounded-lg flex items-center justify-center">
+                  <div className="bg-gray-800/90 px-6 py-3 rounded-lg">
+                    <p className="text-white font-semibold">Em breve</p>
+                    <p className="text-gray-300 text-sm">Conta profissional em desenvolvimento</p>
+                  </div>
+                </div>
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/50">
                     <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -584,7 +684,6 @@ export function RegisterForm() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="text-lg font-semibold">Conta Profissional</h3>
-                      {formData.accountType === "business" && <Check className="w-5 h-5 text-purple-600" />}
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 mb-3">
                       Para empresas, criadores de conteúdo e profissionais
@@ -616,7 +715,7 @@ export function RegisterForm() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo</Label>
+                <Label htmlFor="name">Nome Completo (Não será divulgado)</Label>
               <div className="relative">
                 <Input
                   id="name"
@@ -756,7 +855,7 @@ export function RegisterForm() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Gênero</Label>
+                <Label>Eu sou/somos</Label>
               <Select
                 value={formData.gender}
                 onValueChange={(value) => handleSelectChange("gender", value)}
@@ -765,10 +864,15 @@ export function RegisterForm() {
                   <SelectValue placeholder="Selecione seu gênero" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Masculino</SelectItem>
-                  <SelectItem value="female">Feminino</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefiro não dizer</SelectItem>
+                  <SelectItem value="couple">Casal</SelectItem>
+                  <SelectItem value="couple_ff">Casal (2 mulheres)</SelectItem>
+                  <SelectItem value="couple_mm">Casal (2 homens)</SelectItem>
+                  <SelectItem value="male">Homem</SelectItem>
+                  <SelectItem value="male_trans">Homem Trans</SelectItem>
+                  <SelectItem value="female">Mulher</SelectItem>
+                  <SelectItem value="female_trans">Mulher Trans</SelectItem>
+                  <SelectItem value="travesti">Travesti</SelectItem>
+                  <SelectItem value="crossdresser">Cross-dressing (CD)</SelectItem>
                 </SelectContent>
               </Select>
                 {errors.gender && (
@@ -777,47 +881,60 @@ export function RegisterForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>O que você procura?</Label>
-              <Select
-                value={formData.lookingFor}
-                onValueChange={(value) => handleSelectChange("lookingFor", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o que você procura" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">Solteiro(a)</SelectItem>
-                  <SelectItem value="couple">Casal</SelectItem>
-                  <SelectItem value="couple_mm">Casal (H/H)</SelectItem>
-                  <SelectItem value="couple_ff">Casal (M/M)</SelectItem>
-                  <SelectItem value="couple_mf">Casal (H/M)</SelectItem>
-                  <SelectItem value="trans">Trans</SelectItem>
-                  <SelectItem value="crossdresser">Crossdresser</SelectItem>
-                </SelectContent>
-              </Select>
+                <Label>O que você procura? (selecione até 3)</Label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Escolha os tipos de pessoas que você gostaria de conhecer
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {[
+                    { value: "couple", label: "Casal" },
+                    { value: "couple_ff", label: "Casal (2 mulheres)" },
+                    { value: "couple_mm", label: "Casal (2 homens)" },
+                    { value: "male", label: "Homem" },
+                    { value: "male_trans", label: "Homem Trans" },
+                    { value: "female", label: "Mulher" },
+                    { value: "female_trans", label: "Mulher Trans" },
+                    { value: "travesti", label: "Travesti" },
+                    { value: "crossdresser", label: "Cross-dressing (CD)" }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        formData.lookingFor.includes(option.value)
+                          ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20"
+                          : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                      } ${formData.lookingFor.length >= 3 && !formData.lookingFor.includes(option.value) ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <Checkbox
+                        checked={formData.lookingFor.includes(option.value)}
+                        onCheckedChange={(checked) => {
+                          if (checked && formData.lookingFor.length < 3) {
+                            setFormData(prev => ({
+                              ...prev,
+                              lookingFor: [...prev.lookingFor, option.value]
+                            }))
+                          } else if (!checked) {
+                            setFormData(prev => ({
+                              ...prev,
+                              lookingFor: prev.lookingFor.filter(f => f !== option.value)
+                            }))
+                          }
+                        }}
+                        disabled={formData.lookingFor.length >= 3 && !formData.lookingFor.includes(option.value)}
+                      />
+                      <span className="text-sm">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {formData.lookingFor.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Selecionados: {formData.lookingFor.length}/3
+                  </p>
+                )}
                 {errors.lookingFor && (
                   <p className="text-sm text-red-500">{errors.lookingFor}</p>
                 )}
               </div>
-            </div>
-            
-            {/* Profile Type */}
-            <div className="space-y-2 mt-4">
-              <Label>Tipo de Perfil</Label>
-              <Select
-                value={formData.profileType}
-                onValueChange={(value) => handleSelectChange("profileType", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo de perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">Solteiro(a)</SelectItem>
-                  <SelectItem value="couple">Casal</SelectItem>
-                  <SelectItem value="trans">Trans</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Relationship Goals */}
@@ -922,10 +1039,78 @@ export function RegisterForm() {
         {/* Step 4: Profile Details */}
         {step === 4 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">Detalhes do Perfil</h2>
+            <h2 className="text-xl font-semibold text-center">
+              {formData.accountType === "business" ? "Informações do Negócio" : "Detalhes do Perfil"}
+            </h2>
+            
+            {/* Business Fields - Only for business accounts */}
+            {formData.accountType === "business" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">Nome da Empresa *</Label>
+                  <div className="relative">
+                    <Input
+                      id="businessName"
+                      name="businessName"
+                      value={formData.businessName || ""}
+                      onChange={handleInputChange}
+                      placeholder="Nome do seu negócio"
+                      className="pl-10"
+                    />
+                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  </div>
+                  {errors.businessName && (
+                    <p className="text-sm text-red-500">{errors.businessName}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tipo de Negócio *</Label>
+                  <Select
+                    value={formData.businessType || ""}
+                    onValueChange={(value) => handleSelectChange("businessType", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de negócio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="creator">Criador de Conteúdo</SelectItem>
+                      <SelectItem value="product">Produtos</SelectItem>
+                      <SelectItem value="service">Serviços</SelectItem>
+                      <SelectItem value="event">Eventos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.businessType && (
+                    <p className="text-sm text-red-500">{errors.businessType}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cnpj">CNPJ (opcional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="cnpj"
+                      name="cnpj"
+                      value={formData.cnpj || ""}
+                      onChange={handleInputChange}
+                      placeholder="00.000.000/0000-00"
+                      className="pl-10"
+                    />
+                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Opcional. Formato: 00.000.000/0000-00
+                  </p>
+                </div>
+
+                <div className="border-t pt-4 mt-4" />
+              </>
+            )}
             
             <div className="space-y-2">
-              <Label htmlFor="profilePicture">Foto de Perfil (opcional)</Label>
+              <Label htmlFor="profilePicture">
+                {formData.accountType === "business" ? "Logo da Empresa" : "Foto de Perfil"} (opcional)
+              </Label>
               
               {/* Profile Picture Preview */}
               {formData.profilePicture && (
@@ -998,59 +1183,193 @@ export function RegisterForm() {
 
         {/* Step 5: Location */}
         {step === 5 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">Localização</h2>
-            
-            <div className="space-y-2">
-              <Label htmlFor="city">Cidade</Label>
-              <div className="relative">
-                <Input
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  onFocus={handleCityFocus}
-                  placeholder="Digite sua cidade ou toque para detectar"
-                  className="pl-10"
-                />
-                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              </div>
-              <p className="text-xs text-gray-500">
-                Toque no campo para detectar sua localização automaticamente
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Sua Localização</h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Isso nos ajuda a encontrar pessoas próximas a você
               </p>
-              {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
             </div>
-
-            {formData.state && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
-                  <Input
-                    id="state"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    placeholder="Estado"
-                    disabled
-                    className="bg-gray-50 dark:bg-gray-800"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="uf">UF</Label>
-                  <Input
-                    id="uf"
-                    name="uf"
-                    value={formData.uf}
-                    onChange={handleInputChange}
-                    placeholder="UF"
-                    maxLength={2}
-                    disabled
-                    className="bg-gray-50 dark:bg-gray-800"
-                  />
+            
+            {/* Location Detection Section */}
+            {!showManualLocation && !formData.city && (
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+                <div className="text-center space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                    <MapPin className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Detectar Localização</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Permita que detectemos sua cidade automaticamente para uma experiência personalizada
+                    </p>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    onClick={handleLocationDetection}
+                    disabled={locationDetecting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+                  >
+                    {locationDetecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Detectando...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Detectar Minha Localização
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowManualLocation(true)}
+                    className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mt-2"
+                  >
+                    Prefiro digitar manualmente
+                  </Button>
                 </div>
               </div>
             )}
+
+            {/* Error Message */}
+            {locationError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                      Erro na detecção de localização
+                    </h4>
+                    <p className="text-sm text-red-700 dark:text-red-300">{locationError}</p>
+                    
+                    {locationError.includes("Permissão") && (
+                      <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/40 rounded border text-xs text-red-800 dark:text-red-200">
+                        <strong>Como permitir localização no iOS Safari:</strong><br/>
+                        1. Vá em Configurações → Safari → Localização<br/>
+                        2. Selecione "Perguntar" ou "Permitir"<br/>
+                        3. Volte aqui e tente novamente
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Manual Location Input or Success State */}
+            {(showManualLocation || formData.city) && (
+              <div className="space-y-4">
+                {formData.city && !showManualLocation && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
+                        <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-green-800 dark:text-green-200">
+                          Localização detectada com sucesso!
+                        </h4>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          {formData.city}{formData.state ? `, ${formData.state}` : ''}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowManualLocation(true)
+                          setLocationError("")
+                        }}
+                        className="text-green-700 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 ml-auto"
+                      >
+                        Alterar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="city">Cidade *</Label>
+                  <div className="relative">
+                    <Input
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      placeholder="Digite o nome da sua cidade"
+                      className="pl-10"
+                    />
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  </div>
+                  {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
+                </div>
+
+                {formData.state && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="state">Estado</Label>
+                      <Input
+                        id="state"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleInputChange}
+                        placeholder="Estado"
+                        disabled={!!formData.latitude}
+                        className={`${formData.latitude ? 'bg-gray-50 dark:bg-gray-800' : ''}`}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="uf">UF</Label>
+                      <Input
+                        id="uf"
+                        name="uf"
+                        value={formData.uf}
+                        onChange={handleInputChange}
+                        placeholder="UF"
+                        maxLength={2}
+                        disabled={!!formData.latitude}
+                        className={`${formData.latitude ? 'bg-gray-50 dark:bg-gray-800' : ''}`}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!formData.city && showManualLocation && (
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowManualLocation(false)
+                        setLocationError("")
+                      }}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Tentar detectar localização novamente
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Privacy Note */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border">
+              <div className="flex items-start gap-3">
+                <MapPinOff className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="font-medium mb-1">Sua privacidade é importante</p>
+                  <p>Usamos sua localização apenas para mostrar pessoas próximas. Você pode ajustar a visibilidade nas configurações após criar sua conta.</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1061,116 +1380,88 @@ export function RegisterForm() {
               <>
                 <h2 className="text-xl font-semibold text-center">Escolha seu Plano</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Free Plan */}
-              <div
-                className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
-                  formData.plan === "free" 
-                    ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20" 
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-                onClick={() => handlePlanSelect("free")}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary">
-                    <Star className="w-3 h-3 mr-1" /> Free
-                  </Badge>
-                  {formData.plan === "free" && <Check className="w-4 h-4 text-pink-600" />}
-                </div>
-                <div className="text-2xl font-bold mb-1">Grátis</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Acesso básico
-                </div>
-                <ul className="text-sm space-y-1">
-                  <li>• Responder mensagens</li>
-                  <li>• 3 fotos/mês</li>
-                  <li>• Ver posts de amigos</li>
-                  <li>• Anúncios frequentes</li>
-                </ul>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Free Plan */}
+                  <div
+                    className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
+                      formData.plan === "free" 
+                        ? "border-pink-600 bg-pink-50 dark:bg-pink-900/20" 
+                        : "border-gray-200 dark:border-gray-700"
+                    }`}
+                    onClick={() => handlePlanSelect("free")}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary">
+                        <Star className="w-3 h-3 mr-1" /> Free
+                      </Badge>
+                      {formData.plan === "free" && <Check className="w-4 h-4 text-pink-600" />}
+                    </div>
+                    <div className="text-2xl font-bold mb-1">Grátis</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Acesso básico
+                    </div>
+                    <ul className="text-sm space-y-1">
+                      <li>• Responder mensagens</li>
+                      <li>• 3 fotos/mês</li>
+                      <li>• Ver posts de amigos</li>
+                      <li>• Anúncios frequentes</li>
+                    </ul>
+                  </div>
 
-              {/* Gold Plan */}
-              <div
-                className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
-                  formData.plan === "gold" 
-                    ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-                onClick={() => handlePlanSelect("gold")}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                    <Crown className="w-3 h-3 mr-1" /> Gold
-                  </Badge>
-                  {formData.plan === "gold" && <Check className="w-4 h-4 text-pink-600" />}
-                </div>
-                <div className="text-2xl font-bold mb-1">R$ 25/mês</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Recursos premium
-                </div>
-                <ul className="text-sm space-y-1">
-                  <li>✓ 10 mensagens/dia</li>
-                  <li>✓ 5 imagens por post</li>
-                  <li>✓ Criar 3 eventos/mês</li>
-                  <li>✓ Menos anúncios</li>
-                </ul>
-              </div>
+                  {/* Gold Plan */}
+                  <div
+                    className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
+                      formData.plan === "gold" 
+                        ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
+                        : "border-gray-200 dark:border-gray-700"
+                    }`}
+                    onClick={() => handlePlanSelect("gold")}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                        <Crown className="w-3 h-3 mr-1" /> Gold
+                      </Badge>
+                      {formData.plan === "gold" && <Check className="w-4 h-4 text-pink-600" />}
+                    </div>
+                    <div className="text-2xl font-bold mb-1">R$ 25/mês</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Recursos premium
+                    </div>
+                    <ul className="text-sm space-y-1">
+                      <li>✓ 10 mensagens/dia</li>
+                      <li>✓ 5 imagens por post</li>
+                      <li>✓ Criar 3 eventos/mês</li>
+                      <li>✓ Menos anúncios</li>
+                    </ul>
+                  </div>
 
-              {/* Diamond Plan */}
-              <div
-                className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
-                  formData.plan === "diamond" 
-                    ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20" 
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-                onClick={() => handlePlanSelect("diamond")}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    <Gem className="w-3 h-3 mr-1" /> Diamond
-                  </Badge>
-                  {formData.plan === "diamond" && <Check className="w-4 h-4 text-pink-600" />}
-                </div>
-                <div className="text-2xl font-bold mb-1">R$ 45/mês</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Tudo ilimitado
-                </div>
-                <ul className="text-sm space-y-1">
-                  <li>✓ Mensagens ilimitadas</li>
-                  <li>✓ Grupos e videochamadas</li>
-                  <li>✓ Stories 24h</li>
-                  <li>✓ Sem anúncios</li>
-                  <li>✓ Monetização</li>
-                </ul>
-              </div>
-
-              {/* Couple Plan */}
-              <div
-                className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
-                  formData.plan === "couple" 
-                    ? "border-pink-600 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20" 
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-                onClick={() => handlePlanSelect("couple")}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-gradient-to-r from-pink-100 to-purple-100 text-purple-800 dark:from-pink-900 dark:to-purple-900 dark:text-purple-200">
-                    <Users className="w-3 h-3 mr-1" /> Casal
-                  </Badge>
-                  {formData.plan === "couple" && <Check className="w-4 h-4 text-pink-600" />}
-                </div>
-                <div className="text-2xl font-bold mb-1">R$ 69,90/mês</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  2 contas Diamond
-                </div>
-                <ul className="text-sm space-y-1">
-                  <li>✓ Tudo do Diamond para 2</li>
-                  <li>✓ Perfil compartilhado</li>
-                  <li>✓ Álbum privado</li>
-                  <li>✓ Diário do casal</li>
-                  <li>✓ Jogos exclusivos</li>
-                </ul>
-              </div>
+                  {/* Diamond Plan */}
+                  <div
+                    className={`relative rounded-lg border-2 p-4 transition-all cursor-pointer hover:shadow-md ${
+                      formData.plan === "diamond" 
+                        ? "border-purple-600 bg-purple-50 dark:bg-purple-900/20" 
+                        : "border-gray-200 dark:border-gray-700"
+                    }`}
+                    onClick={() => handlePlanSelect("diamond")}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        <Gem className="w-3 h-3 mr-1" /> Diamond
+                      </Badge>
+                      {formData.plan === "diamond" && <Check className="w-4 h-4 text-pink-600" />}
+                    </div>
+                    <div className="text-2xl font-bold mb-1">R$ 45/mês</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Tudo ilimitado
+                    </div>
+                    <ul className="text-sm space-y-1">
+                      <li>✓ Mensagens ilimitadas</li>
+                      <li>✓ Grupos e videochamadas</li>
+                      <li>✓ Stories 24h</li>
+                      <li>✓ Sem anúncios</li>
+                      <li>✓ Monetização</li>
+                    </ul>
+                  </div>
                 </div>
 
                 {errors.plan && <p className="text-sm text-red-500">{errors.plan}</p>}
@@ -1275,9 +1566,15 @@ export function RegisterForm() {
       {/* Payment Modal */}
       <PaymentModal
         isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
+        onClose={() => {
+          setShowPaymentModal(false)
+          // If modal is closed without payment, redirect to feed anyway since account was created
+          toast.info("Você pode ativar seu plano premium a qualquer momento nas configurações.")
+          router.push("/feed")
+        }}
         selectedPlan={formData.plan !== "free" ? formData.plan as "gold" | "diamond" | "couple" : "gold"}
         onSuccess={() => {
+          setShowPaymentModal(false)
           toast.success("Pagamento processado com sucesso!")
           router.push("/feed")
         }}

@@ -31,7 +31,7 @@ import { OpenDates } from "../../dating/OpenDates"
 import { VerificationForm } from "../../verification/VerificationForm"
 
 // Memoized CreatePost wrapper to prevent re-renders
-const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: () => void }) => (
+const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: (newPost: any) => void }) => (
   <motion.div
     initial={{ opacity: 0, y: -20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -102,72 +102,70 @@ export function TimelineFeed({
       return
     }
 
-    // For authenticated users, always try to load data
-    // This ensures users with valid tokens get their content
-    if (!isAuthenticated) {
-      setIsLoading(false)
-      updateState(activeTab, { initialized: true, posts: [], hasMore: false })
-      return
-    }
-
     // Don't load data for explore tab - ExploreView handles its own data
     if (activeTab === "explore") {
       setIsLoading(false)
       return
     }
 
+    // For unauthenticated users, show empty state immediately
+    if (!isAuthenticated) {
+      console.log('[TimelineFeed] User not authenticated, showing empty state')
+      setIsLoading(false)
+      updateState(activeTab, { 
+        initialized: true, 
+        posts: [], 
+        hasMore: false 
+      })
+      return
+    }
+
+    // Get effective user ID
+    const userIdToUse = effectiveUserId || user?.id
+    if (!userIdToUse) {
+      console.error('[TimelineFeed] No user ID available')
+      setIsLoading(false)
+      updateState(activeTab, { 
+        initialized: true, 
+        posts: [], 
+        hasMore: false 
+      })
+      return
+    }
+
     // Load state for the current tab
     const currentState = loadState(activeTab)
     
-
+    // Check if we have valid cached data
+    const hasValidCache = currentState.posts && 
+                         currentState.posts.length > 0 && 
+                         isCacheValid(activeTab)
     
-    // Check if we have valid cached data for this tab
-    if (currentState.initialized && currentState.posts.length > 0 && isCacheValid(activeTab)) {
-      console.log('[TimelineFeed] Using cached data for tab:', activeTab)
+    if (hasValidCache) {
+      console.log('[TimelineFeed] Using valid cached posts:', currentState.posts.length)
       setIsLoading(false)
       return
     }
 
-    // If we have some cached data but it's stale, show it while loading fresh data
-    if (currentState.initialized && currentState.posts.length > 0) {
-      console.log('[TimelineFeed] Using stale cached data while refreshing for tab:', activeTab)
-      setIsLoading(false) // Don't show skeleton, show stale data
+    // If we have posts but cache is expired, keep posts visible while refreshing
+    if (currentState.posts && currentState.posts.length > 0) {
+      console.log('[TimelineFeed] Cache expired, refreshing in background')
+      setIsLoading(false) // Don't show loading spinner
     } else {
-      setIsLoading(true) // Only show skeleton if no data at all
+      console.log('[TimelineFeed] No cached posts, showing loading')
+      setIsLoading(true)
     }
 
     // Load fresh data
     let cancelled = false
+    const loadStartTime = Date.now()
     
     const loadPosts = async () => {
       if (cancelled) return
       
-      console.log('[TimelineFeed] Loading fresh posts for tab:', activeTab)
-      setIsLoading(true)
-      
-      // Set a timeout to ensure loading state doesn't get stuck
-      const loadingTimeout = setTimeout(() => {
-        if (!cancelled) {
-          console.warn('[TimelineFeed] Loading timeout reached, clearing loading state')
-          setIsLoading(false)
-          updateState(activeTab, {
-            posts: [],
-            hasMore: false,
-            initialized: true
-          })
-        }
-      }, 10000) // 10 seconds timeout
+      console.log('[TimelineFeed] Loading posts for tab:', activeTab, 'user:', userIdToUse)
       
       try {
-        // Use effectiveUserId which could be from props or current user
-        const userIdToUse = effectiveUserId || user?.id
-        
-        if (!userIdToUse) {
-          console.error('[TimelineFeed] No user ID available for loading posts')
-          throw new Error('User ID is required for loading posts')
-        }
-        
-        console.log('[TimelineFeed] Loading posts for user:', userIdToUse)
         let result
         
         switch (activeTab) {
@@ -181,13 +179,12 @@ export function TimelineFeed({
             result = await feedAlgorithmService.generatePersonalizedFeed(userIdToUse, 1, 10)
         }
 
-        console.log('[TimelineFeed] Feed service result - posts:', result?.data?.length || 0)
+        const loadTime = Date.now() - loadStartTime
+        console.log(`[TimelineFeed] Feed loaded in ${loadTime}ms - posts:`, result?.data?.length || 0)
 
         if (!cancelled && result) {
           const newPosts = Array.isArray(result.data) ? result.data : []
           const newHasMore = result.hasMore === true && newPosts.length > 0
-          
-          console.log('[TimelineFeed] Loaded posts:', newPosts.length, 'Has more:', newHasMore)
           
           updateState(activeTab, {
             posts: newPosts,
@@ -198,28 +195,31 @@ export function TimelineFeed({
           })
         }
       } catch (error) {
-        console.error('[TimelineFeed] Error fetching posts:', error)
+        console.error('[TimelineFeed] Error loading posts:', error)
         if (!cancelled) {
+          // Only clear posts if we don't have any cached posts
+          const fallbackPosts = currentState.posts || []
           updateState(activeTab, {
-            posts: [],
+            posts: fallbackPosts,
             hasMore: false,
             initialized: true
           })
         }
       } finally {
-        clearTimeout(loadingTimeout)
         if (!cancelled) {
           setIsLoading(false)
         }
       }
     }
 
-    loadPosts()
+    // Add small delay to prevent rapid API calls during navigation
+    const timeoutId = setTimeout(loadPosts, 50)
 
     return () => {
       cancelled = true
+      clearTimeout(timeoutId)
     }
-  }, [isAuthenticated, effectiveUserId, activeTab, currentMainContent, loadState, updateState, isCacheValid])
+  }, [isAuthenticated, effectiveUserId, activeTab, currentMainContent, user?.id, loadState, updateState, isCacheValid])
 
   // Load more when in view
   useEffect(() => {
@@ -280,6 +280,58 @@ export function TimelineFeed({
       cancelled = true
     }
   }, [inView, page, hasMore, isLoading, user?.id, activeTab, initialized, currentMainContent, posts, feedState])
+
+  // Handle new post creation - add to feed immediately (optimistic update)
+  const handleNewPost = useCallback((newPost: any) => {
+    if (!newPost || !user) {
+      console.log('[TimelineFeed] Invalid new post data or no user:', { newPost, user: !!user })
+      return
+    }
+    
+    console.log('[TimelineFeed] Adding new post to feed immediately:', {
+      postId: newPost.id,
+      userId: newPost.user_id,
+      content: newPost.content?.substring(0, 50) + '...'
+    })
+    
+    // Ensure the post has proper structure
+    const normalizedPost = {
+      ...newPost,
+      // Ensure user data is properly attached
+      user: newPost.user || user,
+      users: newPost.users || user,
+      // Ensure interaction counts are initialized
+      likes_count: newPost.likes_count || 0,
+      comments_count: newPost.comments_count || 0,
+      shares_count: newPost.shares_count || 0,
+      saves_count: newPost.saves_count || 0,
+      is_liked: false,
+      is_saved: false,
+      created_at: newPost.created_at || new Date().toISOString()
+    }
+    
+    // Add to all relevant tabs
+    const tabsToUpdate = ['for-you']
+    
+    // If user follows people, also add to following tab
+    const followingState = feedState.loadState('following')
+    if (followingState.isFollowingAnyone) {
+      tabsToUpdate.push('following')
+    }
+    
+    tabsToUpdate.forEach(tab => {
+      const currentState = feedState.loadState(tab)
+      const updatedPosts = [normalizedPost, ...currentState.posts]
+      
+      feedState.updateState(tab, {
+        posts: updatedPosts,
+        initialized: true,
+        lastFetched: Date.now()
+      })
+      
+      console.log(`[TimelineFeed] Added new post to ${tab} tab, total posts:`, updatedPosts.length)
+    })
+  }, [user, feedState])
 
   // Define handleRefresh with state clearing
   const handleRefresh = useCallback(async () => {
@@ -369,8 +421,27 @@ export function TimelineFeed({
 
   // Clear all feed state on user change (logout/login)
   useEffect(() => {
+    const handleAuthSignOut = () => {
+      console.log('[TimelineFeed] Auth signed out event received, clearing feed state')
+      feedState.clearAllStates()
+      setIsLoading(false)
+    }
+
+    // Listen for auth sign-out events
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:signed-out', handleAuthSignOut)
+    }
+
+    // Clear state if user is null (but was previously set)
     if (!user) {
       feedState.clearAllStates()
+      setIsLoading(false)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auth:signed-out', handleAuthSignOut)
+      }
     }
   }, [user?.id, feedState])
 
@@ -381,7 +452,7 @@ export function TimelineFeed({
     return (
       <div className={cn("space-y-6", className)}>
         {/* Create Post - Show even during loading */}
-        {user && <MemoizedCreatePost onSuccess={handleRefresh} />}
+        {user && <MemoizedCreatePost onSuccess={handleNewPost} />}
         
         {/* Feed Tabs */}
         <div className="w-full mb-6">
@@ -484,7 +555,7 @@ export function TimelineFeed({
           </motion.div>
         )
       case "user-profile":
-        return <UserProfile />
+        return <UserProfile userId={userId} />
       case "who-to-follow":
         return (
           <motion.div
@@ -560,7 +631,7 @@ export function TimelineFeed({
     <div className={cn("space-y-6", className)}>
       {/* Create Post - Outside of tab content to prevent re-renders */}
       {user ? (
-        <MemoizedCreatePost onSuccess={handleRefresh} />
+        <MemoizedCreatePost onSuccess={handleNewPost} />
       ) : (
         <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
           <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>

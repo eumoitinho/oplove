@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-
-
-
 import { ArrowRight, Heart, Moon, Sun, MessageSquare, Calendar, Lock, Search, Star } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import Logo from "@/components/common/logo"
+import { createClient } from "@/app/lib/supabase-browser"
+import { LoadingScreen } from "@/components/common/LoadingScreen"
 
 export default function OpenLoveLandingClient() {
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -16,8 +16,10 @@ export default function OpenLoveLandingClient() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isHoveringDesignElement, setIsHoveringDesignElement] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const scrollRef = useRef<NodeJS.Timeout | null>(null)
   const mouseRef = useRef<NodeJS.Timeout | null>(null)
+  const router = useRouter()
 
 
   // Check system preference on initial load and session status
@@ -110,6 +112,34 @@ export default function OpenLoveLandingClient() {
   }
 
   const { borderRadius, rotation } = getShapeProgress()
+
+  // Check if user is already authenticated and redirect to feed
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // User is authenticated, redirect to feed
+          router.push('/feed')
+        } else {
+          // User is not authenticated, show landing page
+          setIsCheckingAuth(false)
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error)
+        setIsCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return <LoadingScreen />
+  }
 
   return (
     <div

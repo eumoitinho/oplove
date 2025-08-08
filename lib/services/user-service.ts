@@ -7,7 +7,9 @@ export class UserService {
   // Get user profile by ID
   static async getUserProfile(userId: string): Promise<{ data: User | null; error: string | null }> {
     try {
-      console.log('[UserService] Fetching user profile for ID:', userId)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] Fetching user profile for ID:', userId)
+      }
       
       // Use the API endpoint for proper data formatting
       const response = await fetch(`/api/v1/users/${userId}`, {
@@ -20,11 +22,13 @@ export class UserService {
 
       const result = await response.json()
       
-      console.log('[UserService] User profile API response:', { 
-        success: result.success, 
-        hasData: !!result.data,
-        error: result.error 
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] User profile API response:', { 
+          success: result.success, 
+          hasData: !!result.data,
+          error: result.error 
+        })
+      }
 
       if (!response.ok || !result.success) {
         console.error('Error fetching user profile from API:', result.error)
@@ -126,7 +130,9 @@ export class UserService {
     error: string | null
   }> {
     try {
-      console.log('[UserService] Fetching stats for user ID:', userId)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] Fetching stats for user ID:', userId)
+      }
       
       // Use the API endpoint for stats
       const response = await fetch(`/api/v1/users/${userId}/stats`, {
@@ -137,13 +143,48 @@ export class UserService {
         credentials: 'include', // Include cookies for authentication
       })
 
-      const result = await response.json()
+      // Check if response is HTML (error page) instead of JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('[UserService] Received non-JSON response for stats')
+        return { 
+          data: {
+            posts: 0,
+            followers: 0,
+            following: 0,
+            likes: 0,
+            views: 0,
+            seals: 0
+          }, 
+          error: null 
+        }
+      }
+
+      let result
+      try {
+        result = await response.json()
+      } catch (parseError) {
+        console.error('[UserService] Failed to parse stats JSON:', parseError)
+        return { 
+          data: {
+            posts: 0,
+            followers: 0,
+            following: 0,
+            likes: 0,
+            views: 0,
+            seals: 0
+          }, 
+          error: null 
+        }
+      }
       
-      console.log('[UserService] User stats API response:', { 
-        success: result.success, 
-        stats: result.data,
-        error: result.error 
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] User stats API response:', { 
+          success: result.success, 
+          stats: result.data,
+          error: result.error 
+        })
+      }
 
       if (!response.ok || !result.success) {
         console.error('Error fetching user stats from API:', result.error)
@@ -163,7 +204,9 @@ export class UserService {
     error: string | null
   }> {
     try {
-      console.log('[UserService] Fetching posts for user ID:', userId, 'limit:', limit, 'offset:', offset)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] Fetching posts for user ID:', userId, 'limit:', limit, 'offset:', offset)
+      }
       
       // Use the API endpoint for posts
       const response = await fetch(`/api/v1/users/${userId}/posts?limit=${limit}&offset=${offset}`, {
@@ -174,13 +217,28 @@ export class UserService {
         credentials: 'include', // Include cookies for authentication
       })
 
-      const result = await response.json()
+      // Check if response is HTML (error page) instead of JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('[UserService] Received non-JSON response, likely an error page')
+        return { data: [], error: 'Erro ao carregar posts - resposta inválida' }
+      }
+
+      let result
+      try {
+        result = await response.json()
+      } catch (parseError) {
+        console.error('[UserService] Failed to parse JSON response:', parseError)
+        return { data: [], error: 'Erro ao processar resposta do servidor' }
+      }
       
-      console.log('[UserService] User posts API response:', { 
-        success: result.success, 
-        postsCount: result.data?.length || 0,
-        error: result.error 
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] User posts API response:', { 
+          success: result.success, 
+          postsCount: result.data?.length || 0,
+          error: result.error 
+        })
+      }
 
       if (!response.ok || !result.success) {
         console.error('Error fetching user posts from API:', result.error)
@@ -293,7 +351,9 @@ export class UserService {
     error: string | null
   }> {
     try {
-      console.log('[UserService] Fetching media for user ID:', userId, 'type:', mediaType, 'limit:', limit)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] Fetching media for user ID:', userId, 'type:', mediaType, 'limit:', limit)
+      }
       
       // Build query parameters
       const params = new URLSearchParams({ limit: limit.toString() })
@@ -312,12 +372,14 @@ export class UserService {
 
       const result = await response.json()
       
-      console.log('[UserService] User media API response:', { 
-        success: result.success, 
-        mediaCount: result.data?.length || 0,
-        error: result.error,
-        details: result.details 
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserService] User media API response:', { 
+          success: result.success, 
+          mediaCount: result.data?.length || 0,
+          error: result.error,
+          details: result.details 
+        })
+      }
 
       if (!response.ok || !result.success) {
         console.error('Error fetching user media from API:', result.error, 'Details:', result.details)

@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { Badge } from "@/components/ui/badge"
 import { Flame, MessageCircle, Share, Bookmark, MoreVertical, MapPin, Verified, Gem, Star, Play } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import type { Post } from "@/types/common"
+import type { Post } from "@/types/post.types"
 import { SecureMedia } from "@/components/common/SecureMedia"
 import { usePostInteractions } from "@/hooks/usePostInteractions"
 import { CommentsModal } from "@/components/feed/comments/CommentsModal"
@@ -32,9 +32,22 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const { showRestriction } = useRestrictionModal()
   
+  // Support both 'user' and 'users' field names for compatibility
+  const userData = post.user || post.users
+  
+  // Debug poll data
+  if (post.poll_question || post.poll) {
+    console.log('[PostCard] Poll data found:', {
+      poll_question: post.poll_question,
+      poll_options: post.poll_options,
+      poll: post.poll,
+      post_id: post.id
+    })
+  }
+  
   const handleUserClick = () => {
-    if (post.user?.id) {
-      router.push(`/feed?view=user-profile&userId=${post.user.id}`)
+    if (userData?.id) {
+      router.push(`/feed?view=user-profile&userId=${userData.id}`)
     }
   }
   
@@ -140,7 +153,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
       <div className="grid grid-cols-[auto_1fr] gap-x-4">
         {/* Avatar na primeira coluna */}
         <UserAvatar 
-          user={post.user}
+          user={userData}
           size="lg"
           showPlanBadge={true}
           className="flex-shrink-0 group-hover:ring-purple-300 dark:group-hover:ring-purple-400/30 transition-all duration-300 row-span-full cursor-pointer"
@@ -157,24 +170,24 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                   className="font-bold truncate text-gray-900 dark:text-white cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                   onClick={handleUserClick}
                 >
-                  {post.user?.username || "Usuário"}
+                  {userData?.username || "Usuário"}
                 </span>
-                {post.user?.is_verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
-                <PlanBadge plan={post.user?.premium_type || "free"} />
+                {userData?.is_verified && <Verified className="w-4 h-4 text-blue-500 flex-shrink-0" />}
+                <PlanBadge plan={userData?.premium_type || "free"} />
                 <span 
                   className="text-gray-500 dark:text-white/60 truncate cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                   onClick={handleUserClick}
                 >
-                  @{post.user?.username || "usuario"}
+                  @{userData?.username || "usuario"}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-white/60 mt-1">
                 <span>{timeAgo}</span>
-                {post.user?.location && (
+                {post.location && (
                   <>
                     <span>·</span>
                     <MapPin className="w-3 h-3" />
-                    <span>{post.user.location}</span>
+                    <span>{post.location}</span>
                   </>
                 )}
               </div>
@@ -202,49 +215,107 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           {/* Post Content */}
           <div className="mt-3 space-y-4">
             {post.content && (
-              <p className="whitespace-pre-wrap text-gray-800 dark:text-white/90 leading-relaxed">{post.content}</p>
+              <div className="whitespace-pre-wrap text-gray-800 dark:text-white/90 leading-relaxed">
+                {post.content.split(/(\s+)/).map((word, index) => {
+                  // Handle hashtags
+                  if (word.startsWith('#')) {
+                    return (
+                      <span key={index} className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 cursor-pointer transition-colors">
+                        {word}
+                      </span>
+                    )
+                  }
+                  // Handle mentions
+                  if (word.startsWith('@')) {
+                    return (
+                      <span key={index} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer transition-colors">
+                        {word}
+                      </span>
+                    )
+                  }
+                  // Handle URLs
+                  if (word.match(/https?:\/\/[^\s]+/)) {
+                    return (
+                      <a key={index} href={word} target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 underline">
+                        {word}
+                      </a>
+                    )
+                  }
+                  return word
+                })}
+              </div>
             )}
             
             {/* Audio Player */}
-            {post.audio_url && (
+            {post.media_urls && post.media_types && post.media_urls.some((url, index) => post.media_types[index]?.startsWith('audio/')) && (
               <AudioPlayer
-                src={post.audio_url}
-                title={post.audio_title}
-                artist={post.user?.username}
+                src={post.media_urls.find((url, index) => post.media_types[index]?.startsWith('audio/')) || ''}
+                title={`Áudio de ${userData?.username || 'Usuário'}`}
+                artist={userData?.username}
+                duration={post.audio_duration}
                 className="my-3"
               />
             )}
             
-            {/* Poll */}
-            {post.poll && (
-              <PostPoll
-                poll={post.poll}
-                canVote={!!user && user.id !== post.user_id}
-                onVote={async (pollId, optionId) => {
-                  try {
-                    const response = await fetch(`/api/v1/polls/${pollId}/vote`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ optionId }),
-                    })
+            {/* Poll - Handle both formatted poll object and raw poll data */}
+            {(post.poll || (post.poll_question && post.poll_options)) && (
+              <div className="my-3">
+                <PostPoll
+                  poll={post.poll ? {
+                    ...post.poll,
+                    // Ensure proper structure from backend response
+                    options: post.poll.options?.map((option: any) => ({
+                      id: option.id,
+                      text: option.text,
+                      votes_count: option.votes || 0,
+                      percentage: option.percentage || 0
+                    })) || []
+                  } : {
+                    // Fallback for legacy poll structure
+                    id: `${post.id}_poll`,
+                    question: post.poll_question || '',
+                    options: post.poll_options?.map((option: string, index: number) => ({
+                      id: `${post.id}_option_${index}`,
+                      text: option,
+                      votes_count: 0,
+                      percentage: 0
+                    })) || [],
+                    total_votes: post.poll_total_votes || 0,
+                    expires_at: post.poll_expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    multiple_choice: false,
+                    user_has_voted: post.poll_user_voted || false,
+                    user_votes: post.poll_user_vote ? [post.poll_user_vote] : []
+                  }}
+                  canVote={!!user && user.id !== post.user_id && !post.poll?.user_voted}
+                  onVote={async (pollId, optionId) => {
+                    try {
+                      console.log('[PostCard] Voting on poll:', pollId, 'option:', optionId)
+                      const response = await fetch(`/api/v1/posts/${post.id}/poll/vote`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ option_id: optionId }),
+                      })
 
-                    if (!response.ok) {
-                      const error = await response.json()
-                      throw new Error(error.error || 'Erro ao votar')
+                      if (!response.ok) {
+                        const error = await response.json()
+                        throw new Error(error.error || 'Erro ao votar')
+                      }
+
+                      const result = await response.json()
+                      console.log('[PostCard] Vote registered successfully:', result)
+                      
+                      // Update the UI optimistically or trigger a refresh
+                      // The parent component should handle poll updates
+                      window.location.reload() // Temporary solution - ideally should use state management
+                    } catch (error) {
+                      console.error('Error voting:', error)
+                      alert(error instanceof Error ? error.message : 'Erro ao votar')
                     }
-
-                    // Refresh post to show updated vote counts
-                    // This would typically be handled by the parent component
-                    console.log('Vote registered successfully')
-                  } catch (error) {
-                    console.error('Error voting:', error)
-                    alert(error instanceof Error ? error.message : 'Erro ao votar')
-                  }
-                }}
-                className="my-3"
-              />
+                  }}
+                />
+              </div>
             )}
             
             {post.media_urls && post.media_urls.length > 0 && (
@@ -263,7 +334,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                         <SecureMedia
                           src={post.media_urls[0]}
                           type="video"
-                          alt={`Post de ${post.user?.username || 'usuário'}`}
+                          alt={`Post de ${userData?.username || 'usuário'}`}
                           aspectRatio="auto"
                           className="w-full max-h-96 object-cover hover:opacity-95 transition-opacity"
                           autoPlay={false}
@@ -275,7 +346,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                         <SecureMedia
                           src={post.media_urls[0]}
                           type="image"
-                          alt={`Post de ${post.user?.username || 'usuário'}`}
+                          alt={`Post de ${userData?.username || 'usuário'}`}
                           width={600}
                           height={400}
                           aspectRatio="auto"
@@ -308,7 +379,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                           <SecureMedia
                             src={url}
                             type="video"
-                            alt={`Post de ${post.user?.username || 'usuário'} - imagem ${index + 1}`}
+                            alt={`Post de ${userData?.username || 'usuário'} - imagem ${index + 1}`}
                             aspectRatio="square"
                             className="w-full h-full object-cover"
                             autoPlay={false}
@@ -320,7 +391,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
                           <SecureMedia
                             src={url}
                             type="image"
-                            alt={`Post de ${post.user?.username || 'usuário'} - imagem ${index + 1}`}
+                            alt={`Post de ${userData?.username || 'usuário'} - imagem ${index + 1}`}
                             width={300}
                             height={300}
                             priority={index === 0}
@@ -391,14 +462,14 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
               variant="ghost"
               onClick={handleSave}
               disabled={isLoading}
-              className={`hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-300 group/btn ${
+              className={`button-responsive hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all duration-300 group/btn ${
                 isSaved
                   ? "text-purple-500 dark:text-purple-400"
                   : "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400"
               }`}
             >
               <Bookmark
-                className={`w-5 h-5 group-hover/btn:scale-110 transition-transform duration-300 ${isSaved ? "fill-current" : ""}`}
+                className={`w-4 h-4 tablet:w-5 tablet:h-5 group-hover/btn:scale-110 transition-transform duration-300 ${isSaved ? "fill-current" : ""}`}
               />
             </Button>
           </div>
@@ -432,9 +503,9 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           isOpen={showMediaViewer}
           onClose={() => setShowMediaViewer(false)}
           postAuthor={{
-            name: post.user?.username || 'Usuário',
-            username: post.user?.username || 'usuario',
-            avatar_url: post.user?.avatar_url
+            name: userData?.username || 'Usuário',
+            username: userData?.username || 'usuario',
+            avatar_url: userData?.avatar_url
           }}
         />
       )}

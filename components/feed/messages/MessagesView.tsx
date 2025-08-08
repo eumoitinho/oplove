@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +49,7 @@ export function MessagesView() {
   const { features } = usePremiumFeatures()
   const permissions = useMessagePermissions()
   const supabase = createClient()
+  const searchParams = useSearchParams()
   
   // State
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -79,6 +81,18 @@ export function MessagesView() {
       loadConversations()
     }
   }, [user?.id])
+
+  // Check for conversationId in URL and auto-select
+  useEffect(() => {
+    const conversationId = searchParams.get('conversationId')
+    if (conversationId && conversations.length > 0) {
+      // Verify the conversation exists in the loaded conversations
+      const conversation = conversations.find(c => c.id === conversationId)
+      if (conversation) {
+        setSelectedConversation(conversationId)
+      }
+    }
+  }, [searchParams, conversations])
 
   // Load messages when conversation selected
   useEffect(() => {
@@ -120,8 +134,15 @@ export function MessagesView() {
   const loadConversations = async () => {
     try {
       setLoading(true)
-      const data = await messagesService.getConversations(user!.id)
-      setConversations(data || [])
+      
+      const response = await fetch('/api/v1/conversations')
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load conversations')
+      }
+      
+      setConversations(result.data || [])
     } catch (error) {
       console.error('Error loading conversations:', error)
       notification.error('Erro ao carregar conversas')

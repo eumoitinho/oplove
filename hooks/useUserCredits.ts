@@ -25,14 +25,24 @@ export function useUserCredits() {
       const response = await fetch('/api/v1/credits/balance')
       
       if (!response.ok) {
-        throw new Error('Failed to load credits')
+        console.warn('[useUserCredits] Credits API returned non-ok status:', response.status)
+        // Don't throw, just use default values
       }
       
       const data = await response.json()
-      setCredits(data)
+      
+      // Use data if valid, otherwise use defaults
+      setCredits({
+        userId: data?.userId || user?.id || '',
+        creditBalance: data?.creditBalance || 0,
+        totalPurchased: data?.totalPurchased || 0,
+        totalSpent: data?.totalSpent || 0,
+        totalGifted: data?.totalGifted || 0,
+        totalReceived: data?.totalReceived || 0
+      })
     } catch (err) {
-      console.error('Error loading credits:', err)
-      setError('Erro ao carregar créditos')
+      console.warn('[useUserCredits] Non-critical error loading credits:', err)
+      // Don't set error state for this non-critical feature
       
       // Set default credits if error
       setCredits({

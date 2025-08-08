@@ -8,6 +8,7 @@ interface FeedState {
   hasMore: boolean
   initialized: boolean
   lastUpdated: number
+  lastFetched?: number // Track when data was actually fetched from API
   isFollowingAnyone?: boolean
 }
 
@@ -51,30 +52,48 @@ export function useFeedState(userId?: string, options: UseFeedStateOptions = {})
     const key = getCacheKey(tab)
     const cached = stateCache.current[key]
     
-    if (cached && cached.initialized && isCacheValid(cached)) {
+    // ALWAYS return cached data if we have posts
+    // This prevents posts from disappearing during re-renders
+    if (cached && cached.posts && cached.posts.length > 0) {
+      console.log(`[useFeedState] Returning cached state with ${cached.posts.length} posts`)
       return cached
     }
     
-    // Return fresh state if cache is invalid or doesn't exist
+    // Only return empty state if we truly have no data
+    if (cached && cached.initialized) {
+      return cached
+    }
+    
+    // Return fresh state if cache doesn't exist
     return {
       posts: [],
       page: 1,
       hasMore: true,
       initialized: false,
       lastUpdated: 0,
+      lastFetched: 0,
       isFollowingAnyone: undefined
     }
-  }, [getCacheKey, isCacheValid])
+  }, [getCacheKey])
 
   // Update state for a specific tab
   const updateState = useCallback((tab: string, updates: Partial<FeedState>) => {
     const key = getCacheKey(tab)
     const current = stateCache.current[key] || getState(tab)
     
+    // CRITICAL: Never overwrite posts with empty array unless explicitly intended
     const newState = {
       ...current,
       ...updates,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
+      // Track when we actually fetched new data
+      lastFetched: updates.posts !== undefined ? Date.now() : current.lastFetched
+    }
+    
+    // Safety check: Don't clear posts unless we really mean to
+    if (updates.posts?.length === 0 && current.posts?.length > 0 && !updates.initialized) {
+      console.warn('[useFeedState] Preventing accidental post clear, keeping existing posts')
+      newState.posts = current.posts
     }
     
     stateCache.current[key] = newState

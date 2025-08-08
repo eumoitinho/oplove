@@ -340,7 +340,7 @@ BEGIN
     VALUES (NEW.user_id, daily_limit, 0)
     ON CONFLICT (user_id) DO UPDATE
     SET 
-        daily_limit = daily_limit,
+        daily_limit = EXCLUDED.daily_limit,
         stories_posted_today = CASE 
             WHEN story_daily_limits.last_reset_date < CURRENT_DATE THEN 0
             ELSE story_daily_limits.stories_posted_today

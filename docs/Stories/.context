@@ -1,0 +1,68 @@
+# Sistema de Stories - Context
+
+## Propósito do Sistema
+Conteúdo efêmero estilo Instagram/WhatsApp com monetização avançada através de boosts pagos e sistema de presentes (seals) exclusivo da plataforma.
+
+## Componentes Principais
+- **StoriesCarousel**: Carrossel horizontal principal
+- **StoryViewer**: Visualizador fullscreen com controles
+- **StoryCreator**: Interface de criação
+- **StoryBoosts**: Sistema de boosts pagos
+- **ProfileSeals**: Presentes virtuais (10 tipos únicos)
+- **Credits Service**: Gerenciamento de créditos
+
+## Dependências
+### Internas
+- Sistema de Autenticação (limites por plano/verificação)
+- Sistema de Pagamentos (compra de créditos)
+- Sistema de Feed (integração na timeline)
+- Sistema de Mensagens (direct replies)
+- Database (stories, views, boosts, seals, credits)
+
+### Externas
+- Supabase Storage (mídia efêmera)
+- WebSocket (real-time views/reactions)
+- Sharp (otimização de imagens)
+- FFmpeg (processamento de vídeos curtos)
+
+## Estado Atual
+✅ **Funcional e Monetizando**
+- Stories com expiração automática 24h
+- Sistema de boosts ativo gerando receita
+- Profile Seals funcionais (10 tipos)
+- Analytics para Diamond+ users
+- Cache otimizado com SWR
+- Real-time updates funcionando
+
+## Problemas Conhecidos
+1. **iOS Video Upload**: Limitações de formato/tamanho
+2. **Story Sync Delays**: Ocasionalmente stories demoram para aparecer
+3. **Analytics Lag**: Métricas com delay de 5-10min
+4. **Credits Race Conditions**: Raramente double-spending
+
+## TODOs Críticos
+- [ ] Music library integration (Spotify API)
+- [ ] AR filters e efeitos avançados
+- [ ] Story highlights permanentes
+- [ ] Advanced targeting para boosts
+
+## Métricas Importantes
+- Stories criados/dia: 850+
+- Boost conversion rate: 12%
+- Average boost spend: 90 créditos
+- Seals enviados/dia: 450+
+- Story completion rate: 78%
+- Revenue/mês via stories: R$ 8.5k+
+
+## Monetização
+- **Boosts**: 50-150 créditos (6-24h)
+- **Profile Seals**: 15-100 créditos cada
+- **Revenue mensal**: ~R$ 8.500
+- **Conversion rate**: 12% dos usuários fazem boost
+- **Average spending**: R$ 35/usuário/mês
+
+## Responsável Técnico
+- Sistema de alta monetização
+- Performance crítica para engagement
+- Requer monitoramento constante de créditos
+- Cache strategy essencial para real-time

@@ -1,6 +1,7 @@
 import { createClient } from '@/app/lib/supabase-browser'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { User } from '@/types/common'
+import { CONTENT_LIMITS } from '@/utils/constants'
 
 export interface Message {
   id: string
@@ -65,6 +66,14 @@ class MessagesService {
 
   // Check if user can send messages based on plan
   private async checkMessagePermissions(user: User, conversation?: Conversation) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('checkMessagePermissions:', { 
+        premium_type: user.premium_type,
+        conversation_initiated_by_premium: conversation?.initiated_by_premium,
+        user_id: user.id
+      })
+    }
+    
     // Free users cannot send messages at all (0 daily limit)
     if (user.premium_type === 'free') {
       // Check if this is a reply to a premium user
@@ -79,16 +88,17 @@ class MessagesService {
       return { allowed: true, isReply: false }
     }
 
-    // Gold users have daily limits
+    // Gold users have daily limits (200/day, unlimited if verified)
     if (user.premium_type === 'gold') {
-      // Check if limit is -1 (unlimited for verified gold users)
-      if (user.daily_message_limit === -1) {
+      // Verified Gold users get unlimited messages
+      if (user.is_verified) {
         return { allowed: true, isReply: false }
       }
 
-      // Check daily message count
-      if (user.daily_message_count >= user.daily_message_limit) {
-        throw new PlanLimitError(`mensagens diárias (${user.daily_message_limit}/dia)`, user.is_verified ? undefined : 'verificação')
+      // Unverified Gold users have daily limits
+      const dailyLimit = CONTENT_LIMITS.gold.dailyMessageLimit
+      if (user.daily_message_count >= dailyLimit) {
+        throw new PlanLimitError(`mensagens diárias (${dailyLimit}/dia)`, 'verificação')
       }
 
       return { allowed: true, isReply: false }
@@ -130,20 +140,90 @@ class MessagesService {
 
   // Get all conversations for current user
   async getConversations(userId: string) {
-    const { data, error } = await this.supabase
+    
+    // Get conversations where user is a participant
+    const { data: conversations, error } = await this.supabase
       .from('conversations')
       .select(`
-        *,
-        participants:conversation_participants(
-          user:users(*)
-        ),
-        last_message:messages(*)
+        id,
+        type,
+        name,
+        avatar_url,
+        last_message_at,
+        created_at,
+        updated_at,
+        initiated_by,
+        initiated_by_premium,
+        group_type,
+        participants:conversation_participants!inner(
+          user_id,
+          role,
+          joined_at,
+          last_read_at,
+          notifications_enabled,
+          user:users(
+            id,
+            username,
+            name,
+            avatar_url,
+            is_verified,
+            premium_type,
+            last_seen
+          )
+        )
       `)
-      .contains('participants', [userId])
-      .order('last_message_at', { ascending: false })
+      .eq('conversation_participants.user_id', userId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
 
-    if (error) throw error
-    return data
+    if (error) {
+      console.error('Error fetching conversations:', error)
+      throw error
+    }
+
+    // Get last message for each conversation
+    if (conversations && conversations.length > 0) {
+      const conversationIds = conversations.map(c => c.id)
+      
+      const { data: lastMessages, error: messagesError } = await this.supabase
+        .from('messages')
+        .select('*')
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: false })
+
+      if (messagesError) {
+        console.error('Error fetching last messages:', messagesError)
+      } else {
+        // Group messages by conversation and get the latest one
+        const messagesByConversation = lastMessages?.reduce((acc, msg) => {
+          if (!acc[msg.conversation_id] || new Date(msg.created_at) > new Date(acc[msg.conversation_id].created_at)) {
+            acc[msg.conversation_id] = msg
+          }
+          return acc
+        }, {})
+
+        // Add last message to each conversation
+        conversations.forEach(conv => {
+          conv.last_message = messagesByConversation?.[conv.id] || null
+          
+          // Calculate unread count (messages after user's last_read_at)
+          const userParticipant = conv.participants?.find(p => p.user_id === userId)
+          const lastReadAt = userParticipant?.last_read_at
+          
+          if (lastReadAt && conv.last_message) {
+            const unreadMessages = lastMessages?.filter(msg => 
+              msg.conversation_id === conv.id && 
+              msg.sender_id !== userId &&
+              new Date(msg.created_at) > new Date(lastReadAt)
+            ) || []
+            conv.unread_count = unreadMessages.length
+          } else {
+            conv.unread_count = 0
+          }
+        })
+      }
+    }
+
+    return conversations || []
   }
 
   // Get or create direct conversation
@@ -247,8 +327,8 @@ class MessagesService {
       })
       .eq('id', conversationId)
 
-    // Increment daily message count for Gold users (not for replies or unlimited users)
-    if (user.premium_type === 'gold' && user.daily_message_limit > 0 && !isReply) {
+    // Increment daily message count for unverified Gold users (not for replies or unlimited users)
+    if (user.premium_type === 'gold' && !user.is_verified && !isReply) {
       await this.supabase
         .from('users')
         .update({ daily_message_count: user.daily_message_count + 1 })
@@ -576,6 +656,29 @@ class MessagesService {
 
   // Create a new conversation between two users
   async createConversation(senderId: string, recipientId: string) {
+    
+    // Check if conversation already exists
+    const { data: existingConv } = await this.supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .in('user_id', [senderId, recipientId])
+    
+    if (existingConv && existingConv.length >= 2) {
+      // Find conversation that has both users
+      const conversationCounts = existingConv.reduce((acc, conv) => {
+        acc[conv.conversation_id] = (acc[conv.conversation_id] || 0) + 1
+        return acc
+      }, {})
+      
+      const existingConversationId = Object.keys(conversationCounts).find(
+        id => conversationCounts[id] === 2
+      )
+      
+      if (existingConversationId) {
+        return { id: existingConversationId }
+      }
+    }
+    
     // Check if sender can create conversations
     const { data: sender, error: senderError } = await this.supabase
       .from('users')
@@ -587,7 +690,7 @@ class MessagesService {
 
     // Free users cannot create conversations
     if (!sender.premium_type || sender.premium_type === 'free') {
-      throw new PlanLimitError('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
+      throw new PlanLimitError('conversas', 'Gold')
     }
 
     // Create the conversation

@@ -3,6 +3,9 @@ const nextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  compiler: {
+    removeConsole: false, // Console logs habilitados para debug
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

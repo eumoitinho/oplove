@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/app/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +42,9 @@ export async function GET(
     const offset = parseInt(searchParams.get('offset') || '0')
     const showAll = searchParams.get('show_all') === 'true'
 
-    console.log('[UserSeals API] Fetching seals for user:', userId)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserSeals API] Fetching seals for user:', userId)
+    }
 
     try {
       // Get user's profile seals with comprehensive data
@@ -93,13 +95,18 @@ export async function GET(
         console.error('[UserSeals API] Error getting seals count:', countError)
       }
 
-      // Format seals data
+      // Format seals data with fallback values for missing columns
       const formattedSeals = userSeals?.map(sealRecord => ({
         id: sealRecord.id,
         received_at: sealRecord.created_at,
         seal: sealRecord.seal ? {
           ...sealRecord.seal,
-          // Add any computed properties if needed
+          // Add default values for potentially missing columns
+          color_hex: sealRecord.seal.color_hex || '#9333ea',
+          rarity: sealRecord.seal.rarity || 
+            (sealRecord.seal.credit_cost >= 100 ? 'legendary' : 
+             sealRecord.seal.credit_cost >= 75 ? 'epic' :
+             sealRecord.seal.credit_cost >= 50 ? 'rare' : 'common')
         } : null,
         gifter: sealRecord.gifter ? {
           ...sealRecord.gifter,
@@ -124,7 +131,9 @@ export async function GET(
         return acc
       }, {})
 
-      console.log('[UserSeals API] Found seals:', formattedSeals.length)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserSeals API] Found seals:', formattedSeals.length)
+      }
 
       return NextResponse.json({
         data: showAll ? formattedSeals : formattedSeals.slice(0, 6),
@@ -150,7 +159,9 @@ export async function GET(
 
     } catch (tableError) {
       // Handle case where profile seals tables don't exist yet
-      console.log('[UserSeals API] Profile seals tables not available yet')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserSeals API] Profile seals tables not available yet')
+      }
       
       return NextResponse.json({
         data: [],

@@ -19,6 +19,7 @@ Handle all authentication flows including login, register, password recovery, an
 - @/types/common: TypeScript interfaces
 - @/hooks/use-auth: Authentication hook
 - @/stores/authStore: Zustand auth store
+- @/lib/services/storage-server.service: Media upload handling
 
 ## Exports
 - `AuthProvider`: Global authentication context provider
@@ -27,7 +28,7 @@ Handle all authentication flows including login, register, password recovery, an
 - `PremiumGuard`: Route protection for premium features
 - `VerificationGuard`: Route protection for verified users
 - `LoginForm`: Animated login form with validation
-- `RegisterForm`: Multi-step registration form
+- `RegisterForm`: Multi-step registration form (6 steps)
 - `ForgotPasswordForm`: Password recovery form
 - `SocialLoginButtons`: Social authentication buttons
 - `PasswordStrengthIndicator`: Real-time password strength feedback
@@ -37,22 +38,60 @@ Handle all authentication flows including login, register, password recovery, an
 - Persisted user session in localStorage
 - Real-time auth state updates via Supabase
 - Automatic token refresh handling
+- **ISSUE:** RegisterForm uses monolithic state (30+ fields) causing 50-100 re-renders per keystroke
 
 ## API Endpoints
-- `POST /api/auth/login`: Email/password authentication
-- `POST /api/auth/register`: User registration
-- `POST /api/auth/logout`: Session termination
-- `POST /api/auth/refresh`: Token refresh
-- `POST /api/auth/forgot-password`: Password reset request
-- `POST /api/auth/reset-password`: Password reset confirmation
+- `POST /api/v1/auth/login`: Email/password authentication
+- `POST /api/v1/auth/register`: User registration with profile creation
+- `POST /api/v1/auth/logout`: Session termination
+- `POST /api/v1/auth/refresh`: Token refresh
+- `POST /api/v1/auth/forgot-password`: Password reset request
+- `POST /api/v1/auth/reset-password`: Password reset confirmation
 
 ## Features
 ### Authentication Methods
 - Email/password authentication
-- Social logins (Google, Facebook, GitHub)
-- Magic link authentication
+- Social logins (Google, Facebook, GitHub) - UI only, not functional
+- Magic link authentication - planned
 - Remember me functionality
-- 2FA support (planned)
+- 2FA support - planned
+
+### Registration Flow (6 Steps)
+1. **Account Type Selection**
+   - Personal account (active)
+   - Business account (⚠️ DISABLED - refactoring needed)
+
+2. **Basic Information**
+   - Name (with "Não será divulgado" label)
+   - Username (unique)
+   - Email
+   - Password with strength indicator
+   - Birth date (18+ validation)
+
+3. **Gender & Preferences**
+   - "Eu sou/somos" field with 9 options:
+     - Casal, Casal (2 mulheres), Casal (2 homens)
+     - Homem, Homem Trans, Mulher, Mulher Trans
+     - Travesti, Cross-dressing (CD)
+   - "O que você procura" (same options)
+   - Bio text
+
+4. **Profile Photo**
+   - ⚠️ MISSING: Crop functionality needed
+   - ⚠️ MISSING: WebP conversion not implemented
+   - Optional upload
+
+5. **Location**
+   - City detection via OpenWeatherMap API
+   - ⚠️ ISSUE: iOS Safari doesn't request permission properly
+   - ⚠️ ISSUE: Returns "Região Metropolitana" instead of city name
+   - Manual city/state input fallback
+
+6. **Plan Selection**
+   - Free (limited features)
+   - Gold (R$25/month)
+   - Diamond (R$45/month)
+   - ~~Couple (R$69.90/month)~~ - DISABLED
 
 ### Form Features
 - Animated transitions between login/register
@@ -63,6 +102,7 @@ Handle all authentication flows including login, register, password recovery, an
 - Password strength indicator
 - Auto-focus management
 - Keyboard navigation support
+- Progressive disclosure (multi-step)
 
 ### Security Features
 - JWT token management
@@ -71,5 +111,84 @@ Handle all authentication flows including login, register, password recovery, an
 - Premium feature access control
 - Email verification requirements
 - Rate limiting protection
+- Age verification (18+)
 
 ## Component Architecture
+### RegisterForm Issues
+- **File:** `components/auth/register-form.tsx` (1300+ lines)
+- **Performance:** 50-100 re-renders per keystroke
+- **Bundle:** ~300KB uncompressed
+- **State:** Monolithic useState with 30+ fields
+- **Recommendation:** Split into smaller components with isolated state
+
+### Recommended Refactoring
+```typescript
+// Current (problematic)
+const [formData, setFormData] = useState<FormData>({
+  accountType, name, username, email, password,
+  birthDate, gender, lookingFor, bio, // ... 30+ fields
+})
+
+// Recommended
+const [step1Data, setStep1Data] = useState<Step1Data>({...})
+const [step2Data, setStep2Data] = useState<Step2Data>({...})
+// Or use React Hook Form with better performance
+```
+
+## Known Issues & TODOs
+
+### Critical Issues
+1. **Payment Modal Bug**: Modal opens AFTER redirect instead of before
+2. **Gender Enum Mismatch**: Frontend sends "prefer_not_to_say", backend expects "prefer_not_say"
+3. **Performance**: RegisterForm causes excessive re-renders
+4. **WebP Conversion**: Not implemented despite being required
+
+### Feature Gaps
+1. **Business Registration**: Disabled due to redundant fields and poor UX
+2. **Couple Plan**: Disabled - needs synchronized profiles implementation
+3. **Photo Crop**: Missing crop functionality for profile photos
+4. **iOS Geolocation**: Safari doesn't properly request permission
+
+### Database Schema Changes Needed
+- Remove redundant fields: `first_name`, `last_name`, `location`, `state`, `seeking`, `is_premium`, `profile_type`
+- Update gender enum to match frontend options
+- Add 'couple' to premium_type enum (but keep disabled)
+
+### API Inconsistencies
+- Test routes to remove: 40+ routes in `/app/api/test/`
+- Validation schemas don't match database constraints
+- Missing proper error handling for duplicate usernames/emails
+
+## File Structure
+```
+components/auth/
+├── register-form.tsx (1300+ lines - needs splitting)
+├── login-form.tsx (500+ lines)
+├── forgot-password-form.tsx
+├── social-login-buttons.tsx
+├── password-strength-indicator.tsx
+└── .context (this file)
+
+app/api/v1/auth/
+├── register/route.ts
+├── login/route.ts
+├── logout/route.ts
+└── refresh/route.ts
+```
+
+## Testing Checklist
+- [ ] Registration flow all 6 steps
+- [ ] Login with email/password
+- [ ] Password recovery flow
+- [ ] Plan selection and payment
+- [ ] Geolocation on different devices
+- [ ] Form validation errors
+- [ ] Age verification (under 18 block)
+- [ ] Username uniqueness check
+- [ ] Email uniqueness check
+- [ ] Performance monitoring
+
+## Documentation References
+- `/docs/REGISTRO_FLUXO_MERMAID.md` - Complete registration flowchart
+- `/docs/DATABASE_SCHEMA_ALTERACOES.md` - Required database changes
+- `/docs/features_correcao.md` - Disabled features tracking

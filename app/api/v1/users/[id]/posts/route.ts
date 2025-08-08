@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/app/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +10,9 @@ export async function GET(
     const resolvedParams = await params
     const rawUserId = resolvedParams.id
     
-    console.log('[UserPosts API] Fetching posts for user:', rawUserId)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserPosts API] Fetching posts for user:', rawUserId)
+    }
 
     // Get current user for additional info
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -37,7 +39,9 @@ export async function GET(
     // Calculate offset from page if provided
     const calculatedOffset = page > 1 ? (page - 1) * limit : offset
 
-    console.log('[UserPosts API] Query params:', { limit, offset: calculatedOffset, page })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserPosts API] Query params:', { limit, offset: calculatedOffset, page })
+    }
 
     // Get total count first
     const { count: totalCount, error: countError } = await supabase
@@ -82,7 +86,9 @@ export async function GET(
       )
     }
 
-    console.log('[UserPosts API] Found posts:', posts?.length || 0)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserPosts API] Found posts:', posts?.length || 0)
+    }
 
     // Get interaction counts for all posts if we have posts
     let interactionData: any = {}

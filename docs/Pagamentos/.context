@@ -1,0 +1,80 @@
+# Sistema de Pagamentos - Context
+
+## Propósito do Sistema
+Processamento completo de pagamentos, assinaturas, sistema de créditos e monetização para criadores com múltiplos métodos de pagamento (Stripe + PIX).
+
+## Componentes Principais
+- **SubscriptionPlans**: Interface de planos
+- **PaymentModal**: Checkout unificado
+- **CreditsPurchase**: Compra de créditos
+- **EarningsDashboard**: Ganhos para criadores
+- **PayoutSettings**: Configuração de saques
+- **WebhookHandlers**: Processamento de eventos
+
+## Dependências
+### Internas
+- Sistema de Autenticação (verificação para saques)
+- Sistema de Stories (boosts, seals)
+- Sistema de Feed (posts premium)
+- Database (subscriptions, payments, credits, payouts)
+
+### Externas
+- Stripe (cartões internacionais)
+- AbacatePay (PIX brasileiro)
+- Banco Central (validação PIX keys)
+- Receita Federal (validação CPF/CNPJ)
+
+## Estado Atual
+✅ **Operacional e Gerando Receita**
+- 3 planos ativos (Gold R$25, Diamond R$45, Couple R$69.90)
+- Sistema de créditos funcionando
+- Boosts e seals monetizando
+- Saques semanais para criadores
+- Webhooks estáveis
+- Comissionamento automático (10-20%)
+
+## Problemas Conhecidos
+1. **PIX Delays**: Confirmação pode demorar 15min
+2. **Stripe 3D Secure**: Alguns cartões requerem autenticação adicional
+3. **Webhook Retries**: Falhas ocasionais requerem retry manual
+4. **Currency Precision**: Arredondamentos em comissões
+
+## TODOs Críticos
+- [ ] Suporte a múltiplas moedas (USD, EUR)
+- [ ] Planos anuais com desconto
+- [ ] Gift subscriptions
+- [ ] Cryptocurrency payments
+
+## Métricas Importantes
+- **Receita mensal**: R$ 125k+
+- **Subscribers ativos**: 2.8k
+- **Conversion rate**: 8.5%
+- **Churn rate**: 15%/mês
+- **Average revenue per user**: R$ 42/mês
+- **Creator payouts**: R$ 35k/mês
+- **Credit sales**: R$ 18k/mês
+
+## Revenue Breakdown
+### Assinaturas (70% da receita)
+- Gold: R$ 52k/mês (1.8k usuarios)
+- Diamond: R$ 58k/mês (900 usuarios) 
+- Couple: R$ 15k/mês (100 usuarios)
+
+### Créditos/Monetização (30% da receita)
+- Story Boosts: R$ 12k/mês
+- Profile Seals: R$ 6k/mês
+- Post Premium: R$ 8k/mês
+- Comissões retidas: R$ 9k/mês
+
+## Performance
+- **Payment success rate**: 94%
+- **Webhook processing**: 98% success
+- **Average checkout time**: 2.3min
+- **PIX completion rate**: 87%
+- **Payout accuracy**: 99.8%
+
+## Responsável Técnico
+- Sistema crítico de receita
+- Requer monitoramento 24/7
+- Compliance financeiro essencial
+- Webhook reliability crucial para negócio

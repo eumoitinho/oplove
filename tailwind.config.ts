@@ -18,12 +18,15 @@ const config: Config = {
       },
     },
     screens: {
-      'xs': '360px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
-      '2xl': '1536px',
+      'xs': '360px',        // Extra small devices
+      'mobile': '384px',    // Mobile w-96 h-[800px]
+      'sm': '640px',        // Small devices
+      'md': '768px',        // Medium devices
+      'tablet': '1024px',   // Tablet 1024px x 1366px
+      'lg': '1024px',       // Large devices (same as tablet)
+      'xl': '1280px',       // Extra large
+      'desktop': '1440px',  // Desktop 1440px x 1024px - 8 columns grid
+      '2xl': '1536px',      // 2X Extra large
     },
     extend: {
       colors: {
@@ -132,6 +135,41 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+      },
+      // Grid system for responsive layout
+      gridTemplateColumns: {
+        'desktop-8': 'repeat(8, minmax(0, 1fr))', // 8 columns for desktop
+        'sidebar-timeline': '317px 1fr 317px', // Desktop: Left sidebar, timeline, right sidebar
+        'tablet-timeline': '240px 1fr 240px', // Tablet: Reduced sidebar widths
+        'mobile-timeline': '1fr', // Mobile: Full width
+      },
+      gridColumn: {
+        'span-4': 'span 4 / span 4', // Timeline spans 4 columns
+      },
+      spacing: {
+        '16': '1rem',        // 16px gutter
+        '64': '4rem',        // 64px margins
+        '240': '15rem',      // 240px tablet sidebar width
+        '317': '19.8125rem', // 317px desktop sidebar width
+      },
+      width: {
+        'sidebar-desktop': '317px',  // Desktop sidebar width
+        'sidebar-tablet': '240px',   // Tablet sidebar width
+        'desktop': '1440px',         // Desktop container
+        'tablet': '1024px',          // Tablet container
+        'mobile': '384px',           // Mobile container (w-96)
+      },
+      height: {
+        'desktop': '1024px',
+        'tablet': '1366px',
+        'mobile': '800px',
+      },
+      maxWidth: {
+        'desktop-container': '1440px', // Full desktop width
+        'tablet-container': '1024px',  // Full tablet width
+        'mobile-container': '384px',   // Mobile w-96
+        'timeline-desktop': '742px',   // Timeline width on desktop (1440 - 64*2 - 317*2 - 16*2)
+        'timeline-tablet': '480px',    // Timeline width on tablet
       },
     },
   },

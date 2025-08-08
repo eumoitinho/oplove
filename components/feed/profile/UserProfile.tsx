@@ -64,6 +64,8 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
+import { useMessagePermissions } from "@/hooks/useMessagePermissions"
+import { messagesService } from "@/lib/services/messages-service"
 import { useUserCredits } from "@/hooks/useUserCredits"
 import { PostCard } from "../post/PostCard"
 import { PostSkeleton } from "../PostSkeleton"
@@ -90,11 +92,9 @@ interface UserProfileProps {
 export function UserProfile({ userId }: UserProfileProps) {
   const { user: currentUser } = useAuth()
   const { features } = usePremiumFeatures()
+  const permissions = useMessagePermissions()
   const { credits } = useUserCredits()
   const router = useRouter()
-  
-  // Debug logs
-  console.log('[UserProfile] INIT - userId:', userId, 'currentUser:', currentUser?.id, 'currentUser full:', currentUser)
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [mediaItems, setMediaItems] = useState<any[]>([])
@@ -152,22 +152,13 @@ export function UserProfile({ userId }: UserProfileProps) {
     try {
       setMediaLoading(true)
       const targetUserId = userId || currentUser?.id
-      console.log('[UserProfile] Loading media for user:', targetUserId, 'type:', type)
       
       if (!targetUserId) {
-        console.log('[UserProfile] No target user ID for media, setting empty')
         setMediaItems([])
         return
       }
 
       const { data: mediaData, error } = await UserService.getUserMedia(targetUserId, type, 30)
-      
-      console.log('[UserProfile] Media API response:', { 
-        mediaCount: mediaData?.length || 0, 
-        error,
-        userId: targetUserId,
-        type 
-      })
       
       if (error) {
         console.error('Error loading user media:', error)
@@ -176,7 +167,6 @@ export function UserProfile({ userId }: UserProfileProps) {
       }
 
       setMediaItems(mediaData || [])
-      console.log('[UserProfile] Media set to state:', mediaData?.length || 0)
     } catch (error) {
       console.error('Error loading user media:', error)
       setMediaItems([])
@@ -186,12 +176,15 @@ export function UserProfile({ userId }: UserProfileProps) {
   }, [userId, currentUser?.id])
 
   const loadUserProfile = useCallback(async () => {
+    console.log('[UserProfile] Loading profile for:', userId || 'current user')
     try {
       setProfileLoading(true)
-      console.log('[UserProfile] loadUserProfile called')
       const targetUserId = userId || currentUser?.id
+      
+      console.log('[UserProfile] Target user ID:', targetUserId)
+      
       if (!targetUserId) {
-        console.log('[UserProfile] No target user ID in loadUserProfile')
+        console.warn('[UserProfile] No user ID available')
         setProfileLoading(false)
         return
       }
@@ -200,15 +193,18 @@ export function UserProfile({ userId }: UserProfileProps) {
 
       if (isOwnProfile && currentUser) {
         // Use current user data for own profile
+        console.log('[UserProfile] Using current user data for own profile')
         profileUser = currentUser
       } else if (userId) {
         // Load other user's profile from API
+        console.log('[UserProfile] Fetching user profile from API:', userId)
         const { data: fetchedUser, error } = await UserService.getUserProfile(userId)
         if (error) {
-          console.error('Error loading user profile:', error)
+          console.error('[UserProfile] Error loading user profile:', error)
           setProfileLoading(false)
           return
         }
+        console.log('[UserProfile] Fetched user:', fetchedUser)
         profileUser = fetchedUser
       }
 
@@ -312,32 +308,28 @@ export function UserProfile({ userId }: UserProfileProps) {
       setLoading(true)
       
       const targetUserId = userId || currentUser?.id
-      console.log('[UserProfile] Loading posts for user:', targetUserId)
       
       if (!targetUserId) {
-        console.log('[UserProfile] No target user ID, setting empty posts')
+        console.log('[UserProfile] No user ID available for loading posts')
         setPosts([])
         return
       }
       
+      console.log('[UserProfile] Loading posts for user:', targetUserId)
       const { data: userPosts, error } = await UserService.getUserPosts(targetUserId, 20)
       
-      console.log('[UserProfile] Posts API response:', { 
-        postsCount: userPosts?.length || 0, 
-        error,
-        userId: targetUserId 
-      })
-      
       if (error) {
-        console.error('Error loading user posts:', error)
+        console.warn('[UserProfile] Error loading user posts:', error)
+        // Don't show error to user, just show empty state
         setPosts([])
         return
       }
       
+      console.log('[UserProfile] Loaded posts:', userPosts?.length || 0)
       setPosts(userPosts || [])
-      console.log('[UserProfile] Posts set to state:', userPosts?.length || 0)
     } catch (error) {
-      console.error("Error loading posts:", error)
+      console.warn('[UserProfile] Exception loading posts:', error)
+      // Fail silently, show empty state
       setPosts([])
     } finally {
       setLoading(false)
@@ -401,14 +393,53 @@ export function UserProfile({ userId }: UserProfileProps) {
     if (!currentUser || !user) return
 
     // Check if user has permission to send messages
-    if (!features?.canSendMessage) {
-      toast.error("Apenas usuários Gold ou Diamond podem enviar mensagens.")
+    if (!permissions.canSendMessage()) {
+      if (permissions.isFreePlan) {
+        toast.error("Usuários gratuitos não podem enviar mensagens. Faça upgrade para Gold!")
+      } else if (permissions.isGoldPlan && !permissions.isVerified) {
+        const remaining = permissions.getRemainingMessages()
+        if (remaining === 0) {
+          toast.error('Limite diário de mensagens atingido. Verifique sua conta para mensagens ilimitadas!')
+        } else {
+          toast.error(`Você tem ${remaining} mensagens restantes hoje`)
+        }
+      } else {
+        toast.error("Erro ao verificar permissões de mensagem.")
+      }
       return
     }
 
-    // Navigate to chat
-    router.push(`/chat/${user.id}`)
-  }, [currentUser, user, features?.canSendMessage, router])
+    try {
+      // Create conversation using new API
+      const response = await fetch('/api/v1/conversations/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipientId: user.id
+        })
+      })
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        if (result.errorType === 'PLAN_LIMIT') {
+          toast.error(`${result.error}. Faça upgrade para ${result.requiredPlan}!`)
+        } else {
+          toast.error(result.error || "Erro ao iniciar conversa")
+        }
+        return
+      }
+      
+      // Navigate to messages view with the conversation selected
+      router.push(`/feed?view=messages&conversationId=${result.data.id}`)
+      toast.success(`Conversa iniciada com ${user.name}`)
+    } catch (error) {
+      console.error('Error creating conversation:', error)
+      toast.error('Erro ao iniciar conversa')
+    }
+  }, [currentUser, user, permissions, router])
 
   const copyProfileLink = useCallback(async () => {
     const profileUrl = `${window.location.origin}/profile/${user?.username}`
@@ -581,35 +612,68 @@ export function UserProfile({ userId }: UserProfileProps) {
 
   // Load profile data on component mount
   useEffect(() => {
-    console.log('[UserProfile] Component mounted, currentUser:', currentUser?.id, 'userId:', userId)
     if (currentUser || userId) {
-      console.log('[UserProfile] Loading profile data')
       loadUserProfile()
-    } else {
-      console.log('[UserProfile] No user available, waiting...')
     }
-  }, [loadUserProfile, currentUser, userId])
+  }, [currentUser, userId])
 
   // Load posts when activeTab changes to posts
   useEffect(() => {
     if (activeTab === 'posts' && (currentUser || userId)) {
-      console.log('[UserProfile] Posts tab activated, loading posts')
       loadUserPosts()
     }
-  }, [activeTab, loadUserPosts, currentUser, userId])
+  }, [activeTab, currentUser, userId])
 
   // Load media when activeTab changes to media or mediaFilter changes
   useEffect(() => {
     if (activeTab === 'media' && (currentUser || userId)) {
-      console.log('[UserProfile] Media tab activated, loading media with filter:', mediaFilter)
       const mediaType = mediaFilter === 'all' ? undefined : 
                         mediaFilter === 'photos' ? 'photo' : 
                         mediaFilter === 'videos' ? 'video' : undefined
       loadUserMedia(mediaType)
     }
-  }, [activeTab, mediaFilter, loadUserMedia, currentUser, userId])
+  }, [activeTab, mediaFilter, currentUser, userId])
 
-  if (profileLoading || !user) return <PostSkeleton />
+  // Enhanced loading state
+  if (profileLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+          <div className="animate-pulse">
+            <div className="flex items-start gap-6">
+              <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
+              <div className="flex-1 space-y-3">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <PostSkeleton />
+      </div>
+    )
+  }
+
+  // Handle no user found
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <div className="text-gray-400">
+          <UserMinus className="w-16 h-16" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+          Perfil não encontrado
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          O usuário que você está procurando não existe ou foi removido.
+        </p>
+        <Button onClick={() => window.history.back()} variant="outline">
+          Voltar
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -752,7 +816,7 @@ export function UserProfile({ userId }: UserProfileProps) {
                           <Button 
                             onClick={handleSendMessage}
                             variant="outline"
-                            disabled={isBlocked || !features?.canSendMessage}
+                            disabled={isBlocked || !permissions.canSendMessage()}
                             className="rounded-full border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/5"
                           >
                             <MessageCircle className="w-4 h-4 mr-2" />
@@ -1092,10 +1156,6 @@ export function UserProfile({ userId }: UserProfileProps) {
         </TabsList>
 
         <TabsContent value="posts" className="mt-6 space-y-6">
-          {(() => {
-            console.log('[UserProfile] Posts tab render:', { loading, postsCount: posts.length, posts: posts.slice(0, 2) })
-            return null
-          })()}
           {loading ? (
             <>
               <PostSkeleton />
@@ -1131,15 +1191,6 @@ export function UserProfile({ userId }: UserProfileProps) {
         </TabsContent>
 
         <TabsContent value="media" className="mt-6">
-          {(() => {
-            console.log('[UserProfile] Media tab render:', { 
-              mediaLoading, 
-              mediaItemsCount: mediaItems.length, 
-              mediaFilter,
-              mediaItems: mediaItems.slice(0, 2) 
-            })
-            return null
-          })()}
           {/* Media Filter */}
           <div className="flex items-center justify-between mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl">
             <div className="flex items-center gap-2">

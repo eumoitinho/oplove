@@ -121,7 +121,7 @@ class ExploreService {
   async getRecommendations(userId: string, limit: number = 10) {
     try {
       // Buscar perfil do usuário com interesses
-      const { data: currentUser } = await this.supabase
+      const { data: currentUser, error: userError } = await this.supabase
         .from('users')
         .select(`
           interests,
@@ -132,8 +132,10 @@ class ExploreService {
         .eq('id', userId)
         .single()
 
-      if (!currentUser) {
-        throw new Error('User not found')
+      if (userError || !currentUser) {
+        console.warn('[ExploreService] User not found or error:', userError)
+        // Return empty recommendations instead of throwing
+        return []
       }
 
       // Buscar usuários com interesses similares

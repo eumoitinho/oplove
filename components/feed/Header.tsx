@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UserAvatar } from "@/components/common/UserAvatar"
@@ -9,14 +10,13 @@ import { useAuth } from "@/hooks/useAuth"
 import { Search, Sun, Moon, Gem, Sparkles, Edit3 } from "lucide-react"
 
 interface HeaderProps {
-  isDarkMode: boolean
-  toggleTheme: () => void
   isMobileMenuOpen: boolean
   setIsMobileMenuOpen: (isOpen: boolean) => void
   onSearchClick?: () => void
 }
 
-export function Header({ isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileMenuOpen, onSearchClick }: HeaderProps) {
+export function Header({ isMobileMenuOpen, setIsMobileMenuOpen, onSearchClick }: HeaderProps) {
+  const { theme, setTheme } = useTheme()
   const router = useRouter()
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
@@ -102,12 +102,12 @@ export function Header({ isDarkMode, toggleTheme, isMobileMenuOpen, setIsMobileM
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleTheme}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-all duration-300 group"
               aria-label="Alternar tema claro/escuro"
             >
               <div className="group-hover:rotate-180 transition-transform duration-500">
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </div>
             </Button>
 

@@ -58,20 +58,26 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Hidden by default */
 ::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+/* Optional: Keep scrollbar for specific elements if needed */
+.show-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
 
-::-webkit-scrollbar-track {
+.show-scrollbar::-webkit-scrollbar-track {
   @apply bg-gray-100 dark:bg-gray-800;
 }
 
-::-webkit-scrollbar-thumb {
+.show-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-gray-300 dark:bg-gray-600 rounded-full;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400 dark:bg-gray-500;
 }
 
@@ -133,5 +139,227 @@
     z-index: 999999 !important;
     position: fixed !important;
     inset: 0 !important;
+  }
+}
+
+/* Safe area support for iOS devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.h-safe {
+  height: calc(56px + env(safe-area-inset-bottom, 0));
+}
+
+.h-safe-area-inset-bottom {
+  height: env(safe-area-inset-bottom, 0);
+}
+
+/* =================================================================
+   RESPONSIVE FEED GRID SYSTEM - Exact Specifications
+   ================================================================= */
+
+/* Desktop Grid System - 1440px x 1024px */
+/* Container: 1440px max-width | Margins: 64px | Grid: 8 columns | Gutter: 16px */
+/* Left Sidebar: Columns 1-2, 317px width, 1024px height, fixed position */
+/* Timeline: Columns 3-6 (4 columns in the middle) */
+/* Right Sidebar: Columns 7-8, 317px width, 1024px height, fixed position */
+@media (min-width: 1440px) {
+  .feed-container {
+    width: 100%;
+    max-width: 1440px;
+    height: 1024px;
+    margin: 0 auto;
+    padding: 0 64px; /* Exact 64px margins */
+  }
+
+  .feed-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr); /* 8-column grid system */
+    gap: 16px; /* 16px gutter between columns */
+    height: 1024px;
+  }
+
+  /* Left Sidebar - Columns 1-2, 317px fixed width, 1024px height */
+  .feed-left-sidebar {
+    grid-column: 1 / 3; /* Columns 1-2 */
+    width: 317px;
+    height: 1024px;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Timeline - Columns 3-6 (4 middle columns) */
+  .feed-timeline {
+    grid-column: 3 / 7; /* Columns 3-6 */
+    min-height: 1024px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Right Sidebar - Columns 7-8, 317px fixed width, 1024px height */
+  .feed-right-sidebar {
+    grid-column: 7 / 9; /* Columns 7-8 */
+    width: 317px;
+    height: 1024px;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Tablet Grid System - 1024px x 1366px */
+/* Grid: 12 columns | Left Sidebar: 3 columns | Timeline: 6 columns | Right Sidebar: 3 columns | Margins: 32px */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .feed-container {
+    width: 100%;
+    max-width: 1024px;
+    height: 1366px;
+    margin: 0 auto;
+    padding: 0 32px; /* Reduced margins: 32px */
+  }
+
+  .feed-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr); /* 12-column grid system */
+    gap: 16px;
+    height: 1366px;
+  }
+
+  /* Left Sidebar - 3 columns, 1366px height */
+  .feed-left-sidebar {
+    grid-column: 1 / 4; /* Columns 1-3 */
+    height: 1366px;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Timeline - 6 columns in the middle */
+  .feed-timeline {
+    grid-column: 4 / 10; /* Columns 4-9 (6 columns) */
+    min-height: 1366px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Right Sidebar - 3 columns, 1366px height */
+  .feed-right-sidebar {
+    grid-column: 10 / 13; /* Columns 10-12 */
+    height: 1366px;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Mobile Grid System - 384px x 800px */
+/* Layout: Stack vertical (flex-col) | Sidebars: Hidden | Timeline: Full width | Margins: 16px */
+@media (max-width: 1023px) {
+  .feed-container {
+    width: 100%;
+    max-width: 384px;
+    min-height: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column; /* Stack vertical */
+  }
+
+  .feed-grid {
+    display: block;
+    width: 100%;
+    min-height: 800px;
+  }
+
+  /* Hide sidebars on mobile */
+  .feed-left-sidebar,
+  .feed-right-sidebar {
+    display: none;
+  }
+
+  /* Timeline takes full width with 16px margins */
+  .feed-timeline {
+    width: 100%;
+    min-height: calc(100vh - 80px); /* Account for bottom nav */
+    padding: 0 16px; /* 16px margins */
+    padding-bottom: 80px; /* Space for bottom navigation */
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Responsive adjustments within mobile range */
+@media (max-width: 359px) {
+  .feed-container {
+    max-width: 100%;
+  }
+  
+  .feed-timeline {
+    padding: 0 8px; /* Reduced padding for very small screens */
+    padding-bottom: 80px;
+  }
+}
+
+/* Utility classes for sidebar styling */
+.sidebar-sticky {
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Responsive text and element sizing utilities */
+.text-responsive-sm {
+  font-size: 0.75rem; /* 12px */
+}
+
+@media (min-width: 1024px) {
+  .text-responsive-sm {
+    font-size: 0.875rem; /* 14px */
+  }
+}
+
+.text-responsive-md {
+  font-size: 0.875rem; /* 14px */
+}
+
+@media (min-width: 1024px) {
+  .text-responsive-md {
+    font-size: 1rem; /* 16px */
+  }
+}
+
+.button-responsive {
+  padding: 0.5rem 0.75rem; /* Mobile */
+}
+
+@media (min-width: 1024px) {
+  .button-responsive {
+    padding: 0.75rem 1rem; /* Tablet+ */
+  }
+}
+
+.p-responsive {
+  padding: 1rem; /* Mobile */
+}
+
+@media (min-width: 1024px) {
+  .p-responsive {
+    padding: 1.5rem; /* Tablet+ */
+  }
+}
+
+.space-responsive {
+  gap: 1rem; /* Mobile */
+}
+
+@media (min-width: 1024px) {
+  .space-responsive {
+    gap: 1.5rem; /* Tablet+ */
   }
 }

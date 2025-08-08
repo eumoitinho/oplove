@@ -78,18 +78,33 @@ export function NewConversationModal({ isOpen, onClose, onConversationCreated }:
 
     setIsCreatingConversation(true)
     try {
-      const result = await messagesService.createConversation({
-        participants: [user.id, targetUser.id],
-        type: 'direct'
+      console.log('🔍 MODAL - Creating conversation with:', targetUser.id)
+      
+      const response = await fetch('/api/v1/conversations/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipientId: targetUser.id
+        })
       })
 
-      if (result.success && result.data) {
-        onConversationCreated(result.data.id)
-        onClose()
-        toast.success(`Conversa iniciada com ${targetUser.name}`)
-      } else {
-        throw new Error(result.error || 'Erro ao criar conversa')
+      const result = await response.json()
+      
+      if (!result.success) {
+        if (result.errorType === 'PLAN_LIMIT') {
+          toast.error(`${result.error}. Faça upgrade para ${result.requiredPlan}!`)
+        } else {
+          toast.error(result.error || "Erro ao iniciar conversa")
+        }
+        return
       }
+      
+      console.log('🔍 MODAL - Conversation created:', result.data)
+      onConversationCreated(result.data.id)
+      onClose()
+      toast.success(`Conversa iniciada com ${targetUser.name}`)
     } catch (error) {
       console.error('Error creating conversation:', error)
       toast.error("Erro ao iniciar conversa")

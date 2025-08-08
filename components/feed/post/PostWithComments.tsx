@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { PostCard } from "./PostCard"
 import { CommentsModal } from "../comments/CommentsModal"
-import type { Post } from "@/types/common"
+import type { Post } from "@/types/post.types"
 import { useRealtimeDB } from "@/hooks/useRealtimeChannel"
 
 interface PostWithCommentsProps {

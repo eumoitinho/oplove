@@ -10,21 +10,28 @@ import { cn } from "@/lib/utils"
 interface PostActionsProps {
   post?: {
     id: string
+    likes_count?: number
+    comments_count?: number
+    shares_count?: number
+    saves_count?: number
+    user_liked?: boolean
+    user_saved?: boolean
+    // Legacy support for old format
     _count?: {
       likes?: number
       comments?: number
       shares?: number
     }
-    user_liked?: boolean
   }
   onLike?: (postId: string) => void
   onComment?: (postId: string) => void
   onShare?: (postId: string) => void
+  onSave?: (postId: string) => void
   userCanInteract: boolean
   className?: string
 }
 
-export function PostActions({ post, onLike, onComment, onShare, userCanInteract, className }: PostActionsProps) {
+export function PostActions({ post, onLike, onComment, onShare, onSave, userCanInteract, className }: PostActionsProps) {
   const { user } = useAuth()
   
   // Early return if post is undefined
@@ -33,7 +40,12 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
   }
   
   const [isLiked, setIsLiked] = useState(post.user_liked || false)
-  const [likeCount, setLikeCount] = useState(post._count?.likes || 0)
+  const [isSaved, setIsSaved] = useState(post.user_saved || false)
+  // Use new field names with fallback to old format
+  const [likeCount, setLikeCount] = useState(post.likes_count ?? post._count?.likes ?? 0)
+  const [commentCount] = useState(post.comments_count ?? post._count?.comments ?? 0)
+  const [shareCount] = useState(post.shares_count ?? post._count?.shares ?? 0)
+  const [saveCount, setSaveCount] = useState(post.saves_count ?? 0)
   const [isAnimating, setIsAnimating] = useState(false)
 
   const handleLike = async () => {
@@ -49,7 +61,7 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
     } catch (error) {
       // Revert on error
       setIsLiked(isLiked)
-      setLikeCount(post._count?.likes || 0)
+      setLikeCount(post.likes_count ?? post._count?.likes ?? 0)
     } finally {
       setTimeout(() => setIsAnimating(false), 300)
     }
@@ -63,6 +75,22 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
   const handleShare = () => {
     if (!userCanInteract || !onShare) return
     onShare(post.id)
+  }
+
+  const handleSave = async () => {
+    if (!userCanInteract || !onSave) return
+
+    // Optimistic update
+    setIsSaved(!isSaved)
+    setSaveCount((prev) => (isSaved ? prev - 1 : prev + 1))
+
+    try {
+      await onSave(post.id)
+    } catch (error) {
+      // Revert on error
+      setIsSaved(isSaved)
+      setSaveCount(post.saves_count ?? 0)
+    }
   }
 
   const formatCount = (count: number) => {
@@ -108,7 +136,7 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
           )}
         >
           <MessageCircle className="h-5 w-5" />
-          {post._count?.comments && post._count.comments > 0 && <span className="text-sm font-medium">{formatCount(post._count.comments)}</span>}
+          {commentCount > 0 && <span className="text-sm font-medium">{formatCount(commentCount)}</span>}
         </Button>
 
         {/* Share Button */}
@@ -123,14 +151,23 @@ export function PostActions({ post, onLike, onComment, onShare, userCanInteract,
           )}
         >
           <Share2 className="h-5 w-5" />
-          {post._count?.shares && post._count.shares > 0 && <span className="text-sm font-medium">{formatCount(post._count.shares)}</span>}
+          {shareCount > 0 && <span className="text-sm font-medium">{formatCount(shareCount)}</span>}
         </Button>
       </div>
 
       {/* Bookmark Button */}
       {userCanInteract && (
-        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-purple-500 transition-colors">
-          <Bookmark className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSave}
+          className={cn(
+            "flex items-center space-x-2 text-gray-500 hover:text-purple-500 transition-colors",
+            isSaved && "text-purple-500"
+          )}
+        >
+          <Bookmark className={cn("h-5 w-5", isSaved && "fill-current")} />
+          {saveCount > 0 && <span className="text-sm font-medium">{formatCount(saveCount)}</span>}
         </Button>
       )}
     </div>

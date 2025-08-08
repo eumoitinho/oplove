@@ -76,12 +76,15 @@ export function CommentsModal({ isOpen, onClose, postId, onCommentAdded }: Comme
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   
+  // Early return if modal is not open to prevent unnecessary renders
+  if (!isOpen) {
+    return null
+  }
+  
   const handleUserClick = (userId: string) => {
     onClose()
     router.push(`/feed?view=user-profile&userId=${userId}`)
   }
-  
-  console.log('[CommentsModal] Component rendered with postId:', postId, 'isOpen:', isOpen)
 
   // Load comments
   useEffect(() => {

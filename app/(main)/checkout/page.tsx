@@ -57,7 +57,7 @@ function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
-  const { showToast } = useToast()
+  const { toast } = useToast()
 
   useEffect(() => {
     const plan = searchParams.get("plan") as PlanType
@@ -102,57 +102,159 @@ function CheckoutContent() {
     e.preventDefault()
     
     if (!user || !checkoutData) {
-      showToast("Erro ao processar pagamento", "error")
+      toast({
+        title: "Erro ao processar pagamento",
+        variant: "destructive"
+      })
       return
     }
 
     setLoading(true)
-
+    
     try {
       if (paymentMethod === "credit_card") {
-        // TODO: Integrate with Stripe
-        showToast("Processando pagamento com cartão...", "info")
+        // Test mode for Stripe
+        const isTestMode = process.env.NODE_ENV === "development"
         
-        // Simulate payment processing
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        
-        const result = await paymentService.createSubscription({
-          planType: checkoutData.plan,
-          billingCycle: checkoutData.period === "annual" ? "yearly" : "monthly",
-          paymentMethodId: "pm_" + Date.now(), // This would come from Stripe
-        })
-        
-        if (result.success) {
-          showToast("Pagamento realizado com sucesso!", "success")
-          router.push("/dashboard")
+        if (isTestMode) {
+          toast({
+            title: "Modo de teste Stripe ativado",
+            description: "Simulando pagamento com cartão de teste..."
+          })
+          
+          // Use test card numbers
+          const testCards = {
+            success: "4242424242424242",
+            declined: "4000000000000002",
+            authentication: "4000002500003155"
+          }
+          
+          // Check if using test card
+          const cleanNumber = cardData.number.replace(/\s/g, "")
+          const isTestCard = Object.values(testCards).includes(cleanNumber)
+          
+          if (isTestCard) {
+            // Simulate Stripe payment
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            
+            if (cleanNumber === testCards.success) {
+              // Success scenario
+              const result = await paymentService.createSubscription({
+                planType: checkoutData.plan,
+                billingCycle: checkoutData.period,
+                paymentMethodId: "pm_card_visa_test",
+                testMode: true,
+                ...cardData,
+              })
+              
+              if (result.success) {
+                toast({
+                  title: "✅ Pagamento de teste realizado com sucesso!",
+                  description: `Plano ${checkoutData.plan} ativado (TESTE)`
+                })
+                
+                // Update user's premium status locally for testing
+                setTimeout(() => {
+                  router.push("/feed")
+                }, 1500)
+              }
+            } else if (cleanNumber === testCards.declined) {
+              toast({
+                title: "❌ Cartão recusado (teste)",
+                description: "Use 4242 4242 4242 4242 para teste de sucesso",
+                variant: "destructive"
+              })
+            } else if (cleanNumber === testCards.authentication) {
+              toast({
+                title: "🔐 Autenticação necessária (teste)",
+                description: "Simulando 3D Secure..."
+              })
+              // Simulate 3D Secure flow
+              await new Promise((resolve) => setTimeout(resolve, 3000))
+              toast({
+                title: "✅ Autenticação concluída",
+                description: "Pagamento aprovado após autenticação"
+              })
+              router.push("/feed")
+            }
+          } else {
+            // For non-test cards in dev mode
+            toast({
+              title: "Use um cartão de teste",
+              description: "Em desenvolvimento, use: 4242 4242 4242 4242",
+              variant: "destructive"
+            })
+          }
         } else {
-          showToast(result.error || "Erro ao processar pagamento", "error")
+          // Production mode - real Stripe integration
+          const result = await paymentService.createSubscription({
+            planType: checkoutData.plan,
+            billingCycle: checkoutData.period,
+            paymentMethodId: "credit_card",
+            ...cardData,
+          })
+          
+          if (result.success) {
+            toast({
+              title: "Pagamento realizado com sucesso!"
+            })
+            router.push("/feed")
+          } else {
+            toast({
+              title: result.error || "Erro ao processar pagamento",
+              variant: "destructive"
+            })
+          }
         }
       } else {
-        // PIX payment with AbacatePay
-        const response = await fetch("/api/v1/payments/create-pix", {
+        // PIX payment with AbacatePay (test mode)
+        toast({
+          title: "Gerando PIX de teste...",
+          description: "Aguarde enquanto criamos o código PIX"
+        })
+        
+        const response = await fetch("/api/test/abacatepay-pix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            plan_type: checkoutData.plan,
-            billing_period: checkoutData.period,
+            plan: checkoutData.plan,
+            customer_email: user.email || "test@example.com",
+            customer_name: user.name || "Test User",
+            billing_cycle: checkoutData.period === "monthly" ? "monthly" : "yearly",
+            simulate_payment: true,  // Auto-simulate payment
+            simulate_delay: 10       // Simulate after 10 seconds
           }),
         })
         
         const data = await response.json()
         
         if (data.success) {
+          toast({
+            title: "✅ PIX gerado com sucesso!",
+            description: "Pagamento será simulado em 10 segundos"
+          })
+          
           // Redirect to PIX payment page with real data
-          const pixData = data.data.payment
+          const pixData = data.data
           router.push(
-            `/payment/pix?code=${pixData.pix_code}&qr=${encodeURIComponent(pixData.qr_code_image)}&id=${pixData.id}&expires=${pixData.expires_at}`
+            `/payment/pix?code=${encodeURIComponent(pixData.pix_code)}&qr=${encodeURIComponent(pixData.qr_code_image)}&id=${pixData.payment_id}&expires=${pixData.expires_at}&test=true`
           )
         } else {
-          showToast(data.error || "Erro ao gerar PIX", "error")
+          toast({
+            title: data.error || "Erro ao gerar PIX",
+            description: "Verifique o console para mais detalhes",
+            variant: "destructive"
+          })
+          console.error("PIX Error:", data)
         }
       }
     } catch (error) {
-      showToast("Erro ao processar pagamento", "error")
+      console.error("Payment error:", error)
+      toast({
+        title: "Erro ao processar pagamento",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }
@@ -281,6 +383,35 @@ function CheckoutContent() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4"
                   >
+                    {/* Test Mode Banner */}
+                    {process.env.NODE_ENV === "development" && (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+                        <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                          🧪 Modo de Teste Ativado
+                        </h4>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                          Use os seguintes cartões de teste:
+                        </p>
+                        <div className="space-y-2 text-xs font-mono">
+                          <div className="flex justify-between items-center p-2 bg-white dark:bg-black/20 rounded">
+                            <span>✅ Sucesso:</span>
+                            <span className="select-all">4242 4242 4242 4242</span>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-white dark:bg-black/20 rounded">
+                            <span>❌ Recusado:</span>
+                            <span className="select-all">4000 0000 0000 0002</span>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-white dark:bg-black/20 rounded">
+                            <span>🔐 3D Secure:</span>
+                            <span className="select-all">4000 0025 0000 3155</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                          Use qualquer CVV (ex: 123) e data futura (ex: 12/25)
+                        </p>
+                      </div>
+                    )}
+                    
                     <div>
                       <Label htmlFor="cardNumber">Número do Cartão</Label>
                       <Input
@@ -354,18 +485,37 @@ function CheckoutContent() {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-50 dark:bg-white/5 rounded-xl p-6"
+                    className="space-y-4"
                   >
-                    <h3 className="font-semibold mb-3">Como funciona o PIX?</h3>
-                    <ol className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <li>1. Clique em "Gerar PIX" para criar o código de pagamento</li>
-                      <li>2. Escaneie o QR Code ou copie o código PIX</li>
-                      <li>3. Faça o pagamento usando seu app bancário</li>
-                      <li>4. Sua assinatura será ativada automaticamente</li>
-                    </ol>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
-                      O código PIX expira em 30 minutos
-                    </p>
+                    {/* Test Mode Banner for PIX */}
+                    {process.env.NODE_ENV === "development" && (
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                          🧪 PIX de Teste
+                        </h4>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          O pagamento será simulado automaticamente após 10 segundos.
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                          Você pode escanear o QR Code real ou aguardar a simulação automática.
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-6">
+                      <h3 className="font-semibold mb-3">Como funciona o PIX?</h3>
+                      <ol className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li>1. Clique em "Gerar PIX" para criar o código de pagamento</li>
+                        <li>2. Escaneie o QR Code ou copie o código PIX</li>
+                        <li>3. Faça o pagamento usando seu app bancário</li>
+                        <li>4. Sua assinatura será ativada automaticamente</li>
+                      </ol>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
+                        {process.env.NODE_ENV === "development" 
+                          ? "⚡ Em modo de teste, o pagamento será simulado em 10 segundos"
+                          : "O código PIX expira em 30 minutos"}
+                      </p>
+                    </div>
                   </motion.div>
                 )}
 

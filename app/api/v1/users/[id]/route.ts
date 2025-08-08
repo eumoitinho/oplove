@@ -90,20 +90,16 @@ export async function GET(
     const includeStories = searchParams.get('include_stories') === 'true'
     const includeSeals = searchParams.get('include_seals') === 'true'
 
-    console.log('[UserProfile API] Fetching profile for user:', userId, {
-      includeStats, includeRecentPosts, includeStories, includeSeals
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserProfile API] Fetching profile for user:', userId, {
+        includeStats, includeRecentPosts, includeStories, includeSeals
+      })
+    }
 
-    // Main user profile query with comprehensive data
+    // Main user profile query - simplified
     const { data: user, error } = await supabase
       .from("users")
-      .select(`
-        *,
-        followers:follows!following_id(count),
-        following:follows!follower_id(count),
-        posts:posts(count),
-        is_following:follows!inner(follower_id)
-      `)
+      .select("*")
       .eq("id", userId)
       .single()
 
@@ -118,17 +114,11 @@ export async function GET(
     // Base user data formatting
     let formattedUser = {
       ...user,
-      followers_count: user.followers?.[0]?.count || 0,
-      following_count: user.following?.[0]?.count || 0,
-      posts_count: user.posts?.[0]?.count || 0,
-      is_following: currentUser 
-        ? user.is_following?.some((follow: any) => follow.follower_id === currentUser.id)
-        : false,
+      followers_count: 0,
+      following_count: 0,
+      posts_count: 0,
+      is_following: false,
       is_current_user: currentUser?.id === userId,
-      // Remove nested arrays
-      followers: undefined,
-      following: undefined,
-      posts: undefined,
     }
 
     // Parallel queries for additional data if requested
@@ -236,15 +226,31 @@ export async function GET(
               id,
               name,
               icon_url,
-              color_hex,
-              rarity
+              description,
+              credit_cost
             )
           `)
           .eq('recipient_id', userId)
           .order('created_at', { ascending: false })
           .limit(6)
-          .then(result => ({ profile_seals: result.data || [] }))
-          .catch(() => ({ profile_seals: [] }))
+          .then(result => {
+            // Add default values for missing fields
+            const seals = result.data?.map(item => ({
+              ...item,
+              seal: item.seal ? {
+                ...item.seal,
+                color_hex: '#9333ea',
+                rarity: item.seal.credit_cost >= 100 ? 'legendary' :
+                        item.seal.credit_cost >= 75 ? 'epic' :
+                        item.seal.credit_cost >= 50 ? 'rare' : 'common'
+              } : null
+            })) || []
+            return { profile_seals: seals }
+          })
+          .catch((error) => {
+            console.error('[UserProfile API] Error fetching seals:', error)
+            return { profile_seals: [] }
+          })
       )
     }
 

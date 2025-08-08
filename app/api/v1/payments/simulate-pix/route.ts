@@ -18,7 +18,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { pixId } = simulatePixSchema.parse(body)
+    
+    // Validate request body
+    const validation = simulatePixSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { 
+          error: "Dados inválidos: pixId é obrigatório", 
+          success: false,
+          details: validation.error.errors
+        },
+        { status: 400 }
+      )
+    }
+    
+    const { pixId } = validation.data
 
     // Only allow simulation in development
     if (process.env.NODE_ENV === "production") {

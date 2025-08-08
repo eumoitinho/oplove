@@ -10,12 +10,27 @@ const urlsToCache = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
+      .then(async (cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Try to cache each URL individually to avoid failures
+        const cachePromises = urlsToCache.map(async (url) => {
+          try {
+            const response = await fetch(url);
+            if (response.ok) {
+              await cache.put(url, response);
+              console.log('Cached:', url);
+            } else {
+              console.log('Failed to fetch:', url, response.status);
+            }
+          } catch (error) {
+            console.log('Error caching', url, ':', error.message);
+          }
+        });
+        await Promise.all(cachePromises);
+        return cache;
       })
       .catch((error) => {
-        console.log('Error caching resources:', error);
+        console.log('Error opening cache:', error);
       })
   );
   self.skipWaiting();

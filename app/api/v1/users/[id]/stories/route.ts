@@ -36,7 +36,9 @@ export async function GET(
     // Calculate offset from page if provided
     const calculatedOffset = page > 1 ? (page - 1) * limit : offset
 
-    console.log('[UserStories API] Fetching stories for user:', userId, { status, limit, offset: calculatedOffset })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserStories API] Fetching stories for user:', userId, { status, limit, offset: calculatedOffset })
+    }
 
     try {
       // Build query based on status filter
@@ -167,7 +169,9 @@ export async function GET(
 
       const hasMore = totalCount ? calculatedOffset + limit < totalCount : stories?.length === limit
 
-      console.log('[UserStories API] Found stories:', formattedStories.length)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserStories API] Found stories:', formattedStories.length)
+      }
 
       return NextResponse.json({
         data: formattedStories,
@@ -198,7 +202,9 @@ export async function GET(
 
     } catch (tableError) {
       // Handle case where stories tables don't exist yet
-      console.log('[UserStories API] Stories tables not available yet')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[UserStories API] Stories tables not available yet')
+      }
       
       return NextResponse.json({
         data: [],

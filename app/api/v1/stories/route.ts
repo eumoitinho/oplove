@@ -6,11 +6,11 @@ const createStorySchema = z.object({
   mediaUrl: z.string().url(),
   mediaType: z.enum(['image', 'video']),
   thumbnailUrl: z.string().url().optional(),
-  caption: z.string().max(200).optional(),
+  caption: z.string().max(200).optional().or(z.literal('')),
   duration: z.number().min(1).max(15).optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  fileSize: z.number().optional(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
+  fileSize: z.number().positive().optional(),
   isPublic: z.boolean().optional()
 })
 
@@ -124,15 +124,33 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = createStorySchema.parse(body)
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Story creation request body:', body)
+      console.log('Validated story data:', validatedData)
+    }
 
     // Create story (trigger will check limits)
+    const storyData = {
+      user_id: user.id,
+      media_url: validatedData.mediaUrl,
+      media_type: validatedData.mediaType,
+      thumbnail_url: validatedData.thumbnailUrl,
+      caption: validatedData.caption || null,
+      duration: validatedData.duration || (validatedData.mediaType === 'image' ? 5 : 15),
+      width: validatedData.width,
+      height: validatedData.height,
+      file_size: validatedData.fileSize,
+      is_public: validatedData.isPublic !== false, // Default to true
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Story data for database:', storyData)
+    }
+
     const { data: story, error } = await supabase
       .from('stories')
-      .insert({
-        user_id: user.id,
-        ...validatedData,
-        duration: validatedData.duration || (validatedData.mediaType === 'image' ? 5 : 15)
-      })
+      .insert(storyData)
       .select(`
         *,
         user:users!user_id (
@@ -147,7 +165,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      if (error.message?.includes('Daily story limit reached')) {
+      console.error('Database error creating story:', error)
+      if (error.message?.includes('Daily story limit reached') || error.code === '23514') {
         return NextResponse.json(
           { error: 'Você atingiu o limite diário de stories' },
           { status: 429 }
@@ -156,21 +175,25 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Story created successfully:', story)
+    }
     return NextResponse.json(story, { status: 201 })
   } catch (error: any) {
     console.error('Error creating story:', error)
     
     if (error instanceof z.ZodError) {
+      console.error('Validation errors:', error.errors)
       return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
+        { error: 'Dados inválidos', details: error.errors },
         { status: 400 }
       )
     }
 
     return NextResponse.json(
       { 
-        error: 'Failed to create story',
-        details: error?.message || 'Unknown error',
+        error: 'Falha ao criar story',
+        details: error?.message || 'Erro desconhecido',
         code: error?.code
       },
       { status: 500 }

@@ -120,7 +120,7 @@ export interface PaymentIntent {
 
 export interface CreateSubscriptionData {
   planType: Exclude<PremiumType, "free">
-  billingCycle: "monthly" | "yearly"
+  billingCycle: "monthly" | "quarterly" | "semiannual" | "annual"
   paymentMethodId: string
   couponCode?: string
   billingAddress?: BillingAddress
@@ -128,7 +128,7 @@ export interface CreateSubscriptionData {
 
 export interface UpdateSubscriptionData {
   planType?: Exclude<PremiumType, "free">
-  billingCycle?: "monthly" | "yearly"
+  billingCycle?: "monthly" | "quarterly" | "semiannual" | "annual"
   paymentMethodId?: string
 }
 

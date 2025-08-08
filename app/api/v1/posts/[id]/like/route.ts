@@ -22,14 +22,16 @@ export async function POST(
     }
 
     // Check if already liked
-    const { data: existingLike } = await supabase
+    const { data: existingLike, error: checkError } = await supabase
       .from("post_likes")
       .select("id")
       .eq("post_id", postId)
       .eq("user_id", user.id)
       .single()
 
+    // single() returns error if no rows found, which is fine
     if (existingLike) {
+      console.log('[Like API] Post already liked by user')
       return NextResponse.json(
         { error: "Post já foi curtido", success: false },
         { status: 400 }
@@ -47,6 +49,13 @@ export async function POST(
 
     if (error) {
       console.error('[Like API] Error creating like:', error)
+      // Check if it's a duplicate key error
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: "Post já foi curtido", success: false },
+          { status: 400 }
+        )
+      }
       return NextResponse.json(
         { error: error.message, success: false },
         { status: 400 }
@@ -63,17 +72,25 @@ export async function POST(
     // Send notification to post author (if not liking own post)
     if (post && post.user_id !== user.id) {
       console.log('[Like API] Creating notification for post author:', post.user_id)
+      
+      // Get username of the user who liked
+      const { data: likerUser } = await supabase
+        .from("users")
+        .select("username, name")
+        .eq("id", user.id)
+        .single()
+      
       const { error: notificationError } = await supabase
         .from("notifications")
         .insert({
           recipient_id: post.user_id,
           sender_id: user.id,
           type: "like",
-          title: `${user.username || user.name || 'Alguém'} curtiu seu post`,
+          title: `${likerUser?.username || likerUser?.name || 'Alguém'} curtiu seu post`,
           message: "Seu post recebeu uma nova curtida!",
           entity_id: postId,
           entity_type: "post",
-          metadata: { post_id: postId },
+          is_read: false,
           created_at: new Date().toISOString()
         })
       

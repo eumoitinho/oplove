@@ -1,0 +1,66 @@
+# Sistema de Feed - Context
+
+## Propósito do Sistema
+Núcleo da experiência social - gerencia timeline, posts, interações e algoritmo de recomendação com foco em engajamento e monetização.
+
+## Componentes Principais
+- **TimelineFeed**: Feed principal com 3 abas (Para Você, Seguindo, Explorar)
+- **PostCard**: Card individual com todas interações
+- **CreatePost**: Interface de criação com restrições por plano
+- **MediaViewer**: Visualizador fullscreen otimizado
+- **Algorithm Service**: Motor ML de recomendações
+
+## Dependências
+### Internas
+- Sistema de Autenticação (permissões por plano)
+- Sistema de Pagamentos (posts premium, boosts)
+- Sistema de Perfil (dados do usuário)
+- Sistema de Stories (integração na interface)
+- Database (posts, likes, comments, shares)
+
+### Externas
+- Supabase Storage (mídia)
+- Redis Upstash (cache timeline)
+- Sharp/FFmpeg (processamento mídia)
+- CloudFront CDN (distribuição)
+
+## Estado Atual
+✅ **Funcional e Otimizado**
+- Algoritmo ML ativo e funcionando
+- Cache Redis implementado (70%+ hit rate)
+- Timeline responsiva e rápida
+- Upload de mídia otimizado
+- Boosts pagos operacionais
+- Analytics para Diamond+ users
+
+## Problemas Conhecidos
+1. **iOS Safari**: Scroll infinito com bugs ocasionais
+2. **Cache Invalidation**: Raramente timelines dessincronizadas
+3. **Video Processing**: Vídeos >50MB demoram muito
+4. **Algorithm Bias**: Favorece conteúdo visual vs texto
+
+## TODOs Críticos
+- [ ] Implementar Stories integration no feed
+- [ ] Sistema de hashtags automáticas
+- [ ] Cross-posting para outras redes
+- [ ] Feed personalizado por interesses
+
+## Métricas Importantes
+- Posts criados/dia: 2.5k+
+- Engagement rate médio: 8.5%
+- Cache hit ratio: 72%
+- Timeline load time: <500ms
+- Algoritmo accuracy: 85%+ relevance
+
+## Performance
+- **Timeline load**: 350ms average
+- **Post creation**: 1.2s average
+- **Image upload**: 850ms average
+- **Cache effectiveness**: 72% hit ratio
+- **CDN hit ratio**: 95%
+
+## Responsável Técnico
+- Sistema core da plataforma
+- Performance crítica para UX
+- Algoritmo requer tuning constante
+- Cache strategy essencial para escala

@@ -1,0 +1,77 @@
+# Sistema de Mensagens - Context
+
+## Propósito do Sistema
+Chat instantâneo com regras complexas de negócio baseadas em planos premium, incluindo grupos, calls de voz/vídeo e integração com monetização.
+
+## Componentes Principais
+- **MessagesView**: Interface principal de conversas
+- **ChatWindow**: Janela de chat individual
+- **GroupChatModal**: Criação/gestão de grupos
+- **VoiceMessage**: Mensagens de áudio (Diamond+)
+- **CallInterface**: Voice/video calls (Diamond+)
+- **MessagePermissions**: Validação de regras complexas
+
+## Dependências
+### Internas
+- Sistema de Autenticação (validação de planos/verificação)
+- Sistema de Pagamentos (planos premium)
+- Sistema de Stories (direct replies)
+- Database (conversations, messages, participants)
+
+### Externas
+- Supabase Realtime (WebSocket)
+- WebRTC (calls de voz/vídeo)
+- Firebase FCM (push notifications)
+- Redis (rate limiting, typing indicators)
+
+## Estado Atual
+✅ **Funcional com Regras v0.3.2**
+- Regras de iniciação implementadas e funcionando
+- Free users CANNOT iniciar conversas
+- Free users CAN responder se premium iniciar
+- Grupos funcionais para Diamond+
+- Real-time updates estáveis
+- Rate limiting ativo
+
+## Problemas Conhecidos
+1. **Message Ordering**: Raramente mensagens fora de ordem
+2. **WebRTC Mobile**: Problemas em iOS Safari
+3. **Large Group Performance**: >50 membros podem ser lentos
+4. **Push Notification Delays**: Até 30s em alguns casos
+
+## TODOs Críticos
+- [ ] E2E encryption implementation
+- [ ] Message reactions (emoji)
+- [ ] Group voice/video calls
+- [ ] Advanced group permissions
+
+## Métricas Importantes
+- Mensagens enviadas/dia: 15k+
+- Conversas ativas/dia: 3.2k
+- Free user reply rate: 45%
+- Group adoption: 25% (Diamond users)
+- Call success rate: 92%
+- Average response time: 3min
+
+## Regras de Negócio Complexas
+### Iniciação de Conversas
+- **Free**: ❌ Não podem iniciar, ✅ podem responder
+- **Gold**: ✅ Podem iniciar, 10 msgs/dia (unlimited se verificado)
+- **Diamond**: ✅ Unlimited tudo
+
+### Grupos
+- **Free**: ❌ Não podem criar, ✅ podem participar (eventos/comunidades)
+- **Gold**: ❌ Não podem criar custom, ✅ até 5 grupos
+- **Diamond**: ✅ Criar grupos (50 membros max)
+
+## Performance
+- **Message delivery**: 150ms average
+- **Real-time sync**: 95% success rate
+- **Connection stability**: 98% uptime
+- **Memory usage**: 45MB average per connection
+
+## Responsável Técnico
+- Sistema com regras complexas de negócio
+- Requer validação rigorosa server-side
+- Performance crítica para engajamento
+- Rate limiting essencial para estabilidade

@@ -71,12 +71,12 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
   }
 
   return (
-    <aside className={`sticky top-24 h-[calc(100vh-6rem)] flex flex-col ${className}`}>
-      <div className="flex-1 py-4 px-2 overflow-hidden">{/* Removed scroll */}
-        <div className="space-y-4">{/* Reduced spacing */}
+    <aside className={`sidebar-sticky scrollbar-hide ${className}`}>
+      <div className="flex-1 p-responsive overflow-hidden">
+        <div className="space-responsive">
         {/* Main Menu */}
         <div className="space-y-1">
-          <h2 className="px-4 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Menu</h2>
+          <h2 className="px-4 mb-1 text-responsive-sm font-semibold text-gray-400 uppercase tracking-wider">Menu</h2>
           <nav className="flex flex-col space-y-1">
             {primaryMenuItems.map((item: any) => {
               const isActive = currentView === item.view
@@ -85,14 +85,14 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
                   key={item.label}
                   variant={isActive ? "secondary" : "ghost"}
                   onClick={() => handleMenuItemClick(item.view)}
-                  className={`w-full justify-start text-base h-10 rounded-xl transition-all duration-300 relative ${
+                  className={`button-responsive w-full justify-start h-10 rounded-xl transition-all duration-300 relative ${
                     isActive
                       ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-semibold"
                       : "hover:bg-gray-100/50 dark:hover:bg-white/5"
                   }`}
                 >
-                  <item.icon className="w-5 h-5 mr-4" />
-                  <span>{item.label}</span>
+                  <item.icon className="w-4 h-4 tablet:w-5 tablet:h-5 mr-4" />
+                  <span className="text-responsive-md">{item.label}</span>
                   {item.hasNotification && item.view === 'notifications' && unreadCount > 0 && (
                     <div className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 rounded-full">
                       <span className="text-xs text-white font-bold">
@@ -113,7 +113,7 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
 
         {/* User Section */}
         <div className="space-y-1">
-          <h2 className="px-4 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Conta</h2>
+          <h2 className="px-4 mb-1 text-responsive-sm font-semibold text-gray-400 uppercase tracking-wider">Conta</h2>
           <nav className="flex flex-col space-y-1">
             {userMenuItems.map((item) => {
               const isActive = currentView === item.view
@@ -122,14 +122,14 @@ export function LeftSidebar({ className, onLinkClick, onViewChange, onItemClick,
                   key={item.label}
                   variant={isActive ? "secondary" : "ghost"}
                   onClick={() => handleMenuItemClick(item.view)}
-                  className={`w-full justify-start text-base h-10 rounded-xl transition-all duration-300 ${
+                  className={`button-responsive w-full justify-start h-10 rounded-xl transition-all duration-300 ${
                     isActive
                       ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-semibold"
                       : "hover:bg-gray-100/50 dark:hover:bg-white/5"
                   }`}
                 >
-                  <item.icon className="w-5 h-5 mr-4" />
-                  <span>{item.label}</span>
+                  <item.icon className="w-4 h-4 tablet:w-5 tablet:h-5 mr-4" />
+                  <span className="text-responsive-md">{item.label}</span>
                 </Button>
               )
             })}

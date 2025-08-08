@@ -448,7 +448,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               </button>
             ) : (
               <Link
-                href="/auth/login"
+                href="/login"
                 className="text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300 font-semibold"
               >
                 Sign in

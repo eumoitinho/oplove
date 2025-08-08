@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 3">
+<circle id="Ellipse 4" cx="10.5" cy="10.5" r="9.625" stroke="var(--stroke-0, #BBBBBB)" stroke-width="1.75"/>
+<g id="Group 2">
+<path id="Vector 1" d="M7 10.5H14" stroke="var(--stroke-0, #BBBBBB)" stroke-width="1.75" stroke-linecap="round"/>
+<path id="Vector 2" d="M10.5 14L10.5 7" stroke="var(--stroke-0, #BBBBBB)" stroke-width="1.75" stroke-linecap="round"/>
+</g>
+</g>
+</svg>

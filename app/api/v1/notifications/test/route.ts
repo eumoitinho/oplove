@@ -8,7 +8,7 @@ export async function GET() {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError || \!user) {
+    if (authError || !user) {
       return NextResponse.json({
         success: false,
         error: "Not authenticated",
@@ -21,7 +21,7 @@ export async function GET() {
       .from("notifications")
       .select(`
         *,
-        sender:users\!sender_id(
+        sender:users!sender_id(
           id,
           username,
           name,
@@ -35,7 +35,7 @@ export async function GET() {
       .limit(10)
     
     return NextResponse.json({
-      success: \!error,
+      success: !error,
       userId: user.id,
       userEmail: user.email,
       notificationsCount: notifications?.length || 0,

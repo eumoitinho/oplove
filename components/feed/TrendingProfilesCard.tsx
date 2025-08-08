@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Verified, Diamond, Star, Heart } from "lucide-react"
 import { UserAvatar } from "@/components/common/UserAvatar"
 import { exploreService } from "@/lib/services/explore-service"
+import { useRouter } from "next/navigation"
 import type { UserProfile } from "@/types/adult"
 
 interface TrendingProfilesCardProps {
@@ -16,6 +17,7 @@ interface TrendingProfilesCardProps {
 export function TrendingProfilesCard({ onViewChange }: TrendingProfilesCardProps) {
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const loadTrendingProfiles = async () => {
@@ -59,20 +61,20 @@ export function TrendingProfilesCard({ onViewChange }: TrendingProfilesCardProps
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300"
+      className="sidebar-card"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <TrendingUp className="w-5 h-5 text-orange-500" />
-          <h3 className="font-bold text-gray-900 dark:text-white">
+          <TrendingUp className="w-4 h-4 tablet:w-5 tablet:h-5 text-orange-500" />
+          <h3 className="text-responsive-md font-bold text-gray-900 dark:text-white">
             Em Alta Hoje
           </h3>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => onViewChange?.("explore")}
-          className="text-purple-600 hover:text-purple-700 p-0 h-auto font-medium"
+          onClick={() => router.push("/feed?view=explore")}
+          className="button-responsive text-purple-600 hover:text-purple-700 p-0 h-auto font-medium"
         >
           Ver mais
         </Button>
@@ -92,6 +94,7 @@ export function TrendingProfilesCard({ onViewChange }: TrendingProfilesCardProps
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
+              onClick={() => router.push(`/feed?view=user-profile&userId=${profile.id}`)}
               className="flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
             >
               <div className="relative">

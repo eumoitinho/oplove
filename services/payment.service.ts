@@ -6,7 +6,6 @@ import type {
   CreateSubscriptionData,
   UpdateSubscriptionData,
   PaymentIntent,
-  PlanType,
   BillingHistory,
 } from "@/types/payment.types"
 
@@ -74,7 +73,9 @@ export class PaymentService {
   /**
    * Create new subscription
    */
-  async createSubscription(subscriptionData: CreateSubscriptionData): Promise<ApiResponse<Subscription>> {
+  async createSubscription(
+    subscriptionData: CreateSubscriptionData,
+  ): Promise<ApiResponse<Subscription | { clientSecret: string }>> {
     try {
       const {
         data: { user },
@@ -99,7 +100,7 @@ export class PaymentService {
         }
       }
 
-      // Create payment intent via API
+      // Create subscription via API
       const paymentResponse = await apiClient.post<PaymentIntent>("/payments/create-subscription", {
         plan_type: subscriptionData.planType,
         payment_method_id: subscriptionData.paymentMethodId,
@@ -115,17 +116,28 @@ export class PaymentService {
         }
       }
 
-      // If payment requires confirmation, return payment intent
-      if (paymentResponse.data.status === "requires_confirmation") {
+      const { status, client_secret, subscription_id } = paymentResponse.data
+
+      // If payment requires action, return client secret for frontend confirmation
+      if (status === "requires_action" && client_secret) {
         return {
-          data: null,
-          error: "Pagamento requer confirmação",
+          data: { clientSecret: client_secret },
+          error: "Pagamento requer ação do usuário",
           success: false,
-          status: 402, // Payment required
+          status: 402, // Payment Required
         }
       }
 
-      // Create subscription record
+      if (status !== "succeeded" || !subscription_id) {
+        return {
+          data: null,
+          error: "Falha na criação da assinatura no Stripe",
+          success: false,
+          status: 400,
+        }
+      }
+
+      // Create subscription record in local DB
       const subscriptionRecord = {
         user_id: user.id,
         plan_type: subscriptionData.planType,
@@ -133,25 +145,26 @@ export class PaymentService {
         billing_cycle: subscriptionData.billingCycle,
         amount: this.getPlanPrice(subscriptionData.planType, subscriptionData.billingCycle),
         currency: "BRL",
-        stripe_subscription_id: paymentResponse.data.subscription_id,
+        stripe_subscription_id: subscription_id,
         current_period_start: new Date().toISOString(),
         current_period_end: this.calculatePeriodEnd(subscriptionData.billingCycle),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
 
-      const { data: subscription, error } = await this.supabase
+      const { data: newSubscription, error } = await this.supabase
         .from("subscriptions")
-        .insert([subscriptionRecord])
+        .insert(subscriptionRecord)
         .select()
         .single()
 
       if (error) {
+        // TODO: Handle potential Stripe refund/cancellation if local DB insert fails
         return {
           data: null,
-          error: "Erro ao criar assinatura",
+          error: "Erro ao salvar registro da assinatura",
           success: false,
-          status: 400,
+          status: 500,
         }
       }
 
@@ -165,7 +178,7 @@ export class PaymentService {
         .eq("id", user.id)
 
       return {
-        data: subscription as Subscription,
+        data: newSubscription as Subscription,
         error: null,
         success: true,
         status: 201,

@@ -253,7 +253,6 @@ export function SecureMedia({
           }}
           controlsList="nodownload nofullscreen noremoteplayback"
           disablePictureInPicture
-          disableRemotePlaybook
         />
 
         {/* Security Watermark */}

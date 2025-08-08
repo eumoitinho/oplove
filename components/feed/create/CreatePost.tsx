@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Camera, Video, Mic, BarChart2, Globe, Users, Lock, ChevronDown, Crown, Gem, X, Plus } from "lucide-react"
+import { Camera, Video, Mic, BarChart2, Globe, Users, Lock, ChevronDown, Crown, Gem, X, Plus, MapPin } from "lucide-react"
 import { UserAvatar } from "@/components/common/UserAvatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -52,6 +52,8 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
     { id: "2", text: "" }
   ])
   const [pollDuration, setPollDuration] = useState(24)
+  const [location, setLocation] = useState<string>("")
+  const [showLocationInput, setShowLocationInput] = useState(false)
 
   if (!user) return null
 
@@ -106,6 +108,23 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
       formData.append('content', postContent.trim())
       formData.append('visibility', postVisibility)
       
+      // Get location from user profile or input
+      let locationToUse = location.trim()
+      if (!locationToUse && user?.city && user?.uf) {
+        locationToUse = `${user.city}, ${user.uf}`
+      }
+      
+      // Add location if available
+      if (locationToUse) {
+        formData.append('location', locationToUse)
+      }
+      
+      // Add coordinates if available from user profile
+      if (user?.latitude && user?.longitude) {
+        formData.append('latitude', user.latitude.toString())
+        formData.append('longitude', user.longitude.toString())
+      }
+      
       // Adicionar enquete se existir
       if (poll) {
         formData.append('poll', JSON.stringify({
@@ -156,7 +175,13 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
         throw new Error(errorMsg)
       }
 
-      // Reset form
+      // Call success callback FIRST to ensure immediate feed update
+      if (onSuccess && result.data) {
+        console.log("[CREATE POST] Calling onSuccess with new post data:", result.data.id)
+        onSuccess(result.data)
+      }
+
+      // Reset form after callback to prevent UI glitches
       setPostContent("")
       setPostVisibility("public")
       setMediaFiles([])
@@ -169,10 +194,10 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
       setPollQuestion("")
       setPollOptions([{ id: "1", text: "" }, { id: "2", text: "" }])
       setPollDuration(24)
+      setLocation("")
+      setShowLocationInput(false)
 
       console.log("[CREATE POST] Form reset completed - all media cleared")
-
-      onSuccess?.(result.data)
     } catch (error) {
       console.error("Error creating post:", error)
       alert(error instanceof Error ? error.message : 'Erro ao criar post')
@@ -206,25 +231,25 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
   return (
     <div
       data-create-post
-      className="mb-4 xs:mb-6 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl xs:rounded-3xl p-4 xs:p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 animate-slide-in-from-top"
+      className="mb-4 xs:mb-6 bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-2xl xs:rounded-3xl p-3 xs:p-4 sm:p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 animate-slide-in-from-top"
     >
-      <div className="flex gap-4">
+      <div className="flex gap-2 xs:gap-3 sm:gap-4">
         <UserAvatar 
           user={user}
           size="lg" 
           showPlanBadge={false}
-          className="flex-shrink-0"
+          className="flex-shrink-0 w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14"
         />
-        <div className="flex-grow">
+        <div className="flex-grow min-w-0">
           <Textarea
             placeholder="O que está acontecendo? ✨"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            className="bg-transparent border-none text-lg p-0 focus-visible:ring-0 placeholder:text-gray-500 dark:placeholder:text-white/50 resize-none"
+            className="bg-transparent border-none text-base xs:text-lg p-0 focus-visible:ring-0 placeholder:text-gray-500 dark:placeholder:text-white/50 resize-none w-full"
             rows={3}
           />
-          <div className="flex items-center justify-between mt-4 flex-wrap xs:flex-nowrap gap-2">
-            <div className="flex gap-1 order-2 xs:order-1 flex-shrink-0">
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between mt-3 xs:mt-4 gap-2 xs:gap-2">
+            <div className="flex gap-1 flex-wrap xs:flex-nowrap">
               {/* Image Upload */}
               <TooltipProvider>
                 <Tooltip>
@@ -352,14 +377,38 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
                   )}
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Location */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowLocationInput(!showLocationInput)}
+                      className={cn(
+                        "relative rounded-full transition-all duration-300",
+                        showLocationInput || location
+                          ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10"
+                          : "text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                      )}
+                    >
+                      <MapPin className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="z-50">
+                    <p className="text-sm">Adicionar localização</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-            <div className="flex items-center gap-2 xs:gap-3 order-1 xs:order-2 w-full xs:w-auto justify-end xs:justify-start">
+            <div className="flex items-center gap-1 xs:gap-2 flex-shrink-0 xs:ml-auto">
               {/* Seletor de Visibilidade */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-full px-2 xs:px-3 py-2 text-sm text-gray-700 dark:text-white/80 hover:bg-white/80 dark:hover:bg-white/20 transition-all duration-300 flex items-center gap-1 xs:gap-2"
+                    className="bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-full px-2 xs:px-3 py-1.5 xs:py-2 text-xs xs:text-sm text-gray-700 dark:text-white/80 hover:bg-white/80 dark:hover:bg-white/20 transition-all duration-300 flex items-center gap-1 xs:gap-2"
                   >
                     {getVisibilityIcon()}
                     <span className="hidden xs:inline">{getVisibilityLabel()}</span>
@@ -396,14 +445,47 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
               <Button
                 onClick={handlePublish}
                 disabled={(!postContent.trim() && mediaFiles.length === 0 && !audioFile && !poll) || isSubmitting}
-                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-3 xs:px-6 py-2 text-sm xs:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-shrink-0 min-w-[80px] xs:min-w-[100px]"
+                className="rounded-full bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-white/90 px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 text-xs xs:text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-all duration-300 hover:shadow-lg flex-shrink-0 min-w-[60px] xs:min-w-[70px] sm:min-w-[100px]"
               >
-                {isSubmitting ? "Publicando..." : "Publicar"}
+                <span className="xs:hidden">{isSubmitting ? "..." : "+"}</span>
+                <span className="hidden xs:inline sm:hidden">{isSubmitting ? "..." : "Post"}</span>
+                <span className="hidden sm:inline">{isSubmitting ? "Publicando..." : "Publicar"}</span>
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Location Input */}
+      {showLocationInput && (
+        <div className="mt-4 p-4 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center gap-3">
+            <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Adicionar localização..."
+              maxLength={100}
+              className="flex-1 bg-transparent border-none focus:outline-none text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
+            />
+            <Button
+              onClick={() => {
+                setLocation("")
+                setShowLocationInput(false)
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            {location.length}/100
+          </div>
+        </div>
+      )}
 
       {/* Media Uploader */}
       {showMediaUploader && (

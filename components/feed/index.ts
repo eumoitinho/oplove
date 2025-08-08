@@ -28,6 +28,10 @@ export { PollCreator } from "./create/PollCreator"
 export { TrendingTopicsCard } from "./TrendingTopicsCard"
 export { UpcomingEventsCard } from "./UpcomingEventsCard"
 export { WhoToFollowCard } from "./WhoToFollowCard"
+export { TrendingProfilesCard } from "./TrendingProfilesCard"
+export { RecommendationsCard } from "./RecommendationsCard"
+export { AdultEventsCard } from "./AdultEventsCard"
+export { DiscoverPeopleCard } from "./DiscoverPeopleCard"
 
 // Ad components
 export { AdCard } from "./ads/AdCard"

@@ -1,9 +1,10 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import { useAuthStore } from "@/lib/stores/auth-store"
 import { createClient } from "@/app/lib/supabase-browser"
 import type { User } from "@/types/common"
+import { useRouter } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
@@ -17,171 +18,304 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, setUser, setLoading, clearUser, setSession } = useAuthStore()
+  const { user, setUser, setLoading, clearUser, setSession } = useAuthStore()
+  const [isLoading, setIsLoading] = useState(true) // Start loading immediately
   const [isInitialized, setIsInitialized] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
+  const initializationRef = useRef(false)
+  const authListenerRef = useRef<any>(null)
 
+  // Clear all app state when user changes
+  const clearAllAppState = useCallback(() => {
+    // Clear feed states, messages, notifications, etc.
+    if (typeof window !== 'undefined') {
+      // Clear any cached data in localStorage/sessionStorage related to the user
+      const keysToRemove = [
+        'feed-cache',
+        'messages-cache',
+        'notifications-cache'
+      ]
+      keysToRemove.forEach(key => {
+        try {
+          localStorage.removeItem(key)
+          sessionStorage.removeItem(key)
+        } catch (e) {
+          // Ignore storage errors
+        }
+      })
+    }
+    clearUser()
+  }, [clearUser])
+
+  // Check if session is expired
+  const isSessionExpired = useCallback((session: any) => {
+    if (!session || !session.expires_at) return true
+    const now = Date.now() / 1000
+    const buffer = 60 // 1 minute buffer
+    return (session.expires_at - buffer) <= now
+  }, [])
+
+  // Refresh user profile
   const refreshUser = useCallback(async () => {
     try {
-      const { data: { user: authUser }, error } = await supabase.auth.getUser()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      if (error) {
-        console.error("Auth error:", error)
-        clearUser()
+      if (sessionError) {
+        console.error("[AuthProvider] Session error:", sessionError)
+        clearAllAppState()
+        return
+      }
+
+      // Check if session is expired
+      if (!session || isSessionExpired(session)) {
+        console.log("[AuthProvider] Session expired, clearing user")
+        clearAllAppState()
         return
       }
       
-      if (authUser) {
-        const { data: profile } = await supabase
+      if (session.user) {
+        const { data: profile, error: profileError } = await supabase
           .from("users")
           .select("*")
-          .eq("id", authUser.id)
+          .eq("id", session.user.id)
           .single()
+        
+        if (profileError) {
+          console.error("[AuthProvider] Profile fetch error:", profileError)
+          clearAllAppState()
+          return
+        }
         
         if (profile) {
           setUser(profile as User)
-          // Get session for tokens
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session) {
-            setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            })
-          }
+          setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token
+          })
+        } else {
+          console.error("[AuthProvider] Profile not found")
+          clearAllAppState()
         }
       } else {
-        clearUser()
+        clearAllAppState()
       }
     } catch (error) {
-      console.error("Error refreshing user:", error)
-      clearUser()
+      console.error("[AuthProvider] Error refreshing user:", error)
+      clearAllAppState()
     }
-  }, [supabase, setUser, setSession, clearUser])
+  }, [supabase, setUser, setSession, clearAllAppState, isSessionExpired])
 
   // Initialize auth on mount
   useEffect(() => {
+    // Prevent double initialization
+    if (initializationRef.current) return
+    initializationRef.current = true
+
     let mounted = true
 
     const initializeAuth = async () => {
       if (!mounted) return
       
+      console.log("[AuthProvider] Starting authentication initialization...")
+      setIsLoading(true)
+      setLoading(true)
+      
       try {
-        setLoading(true)
-        const { data: { user: authUser }, error } = await supabase.auth.getUser()
+        const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.warn("Auth initialization - no valid session:", error.message)
+          console.warn("[AuthProvider] Session error:", error.message)
           if (mounted) {
-            clearUser()
+            clearAllAppState()
+            setIsLoading(false)
+            setLoading(false)
+            setIsInitialized(true)
           }
           return
         }
         
-        if (authUser && mounted) {
-          const { data: profile } = await supabase
+        // Check if session exists and is not expired
+        if (session && !isSessionExpired(session) && session.user) {
+          console.log("[AuthProvider] Valid session found for user:", session.user.id)
+          
+          const { data: profile, error: profileError } = await supabase
             .from("users")
             .select("*")
-            .eq("id", authUser.id)
+            .eq("id", session.user.id)
             .single()
           
-          if (profile && mounted) {
-            setUser(profile as User)
-            // Get session for tokens
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session) {
-              setSession({
-                access_token: session.access_token,
-                refresh_token: session.refresh_token
-              })
+          if (profileError) {
+            console.error("[AuthProvider] Profile error:", profileError)
+            if (mounted) {
+              clearAllAppState()
+              setIsLoading(false)
+              setLoading(false)
+              setIsInitialized(true)
             }
+            return
           }
-        } else if (mounted) {
-          clearUser()
+          
+          if (profile && mounted) {
+            console.log("[AuthProvider] Setting user:", profile.username)
+            setUser(profile as User)
+            setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            })
+          } else if (mounted) {
+            console.warn("[AuthProvider] Profile not found")
+            clearAllAppState()
+          }
+        } else {
+          console.log("[AuthProvider] No valid session found")
+          if (mounted) clearAllAppState()
         }
       } catch (error) {
-        console.error("Auth initialization error:", error)
-        if (mounted) {
-          clearUser()
-        }
+        console.error("[AuthProvider] Initialization error:", error)
+        if (mounted) clearAllAppState()
       } finally {
         if (mounted) {
+          console.log("[AuthProvider] Completing initialization...")
+          setIsLoading(false)
           setLoading(false)
           setIsInitialized(true)
+          console.log("[AuthProvider] Initialization complete, user:", user?.username || 'none')
+          
+          // Force a re-render if needed
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:initialized'))
+          }
         }
       }
     }
 
-    if (!isInitialized) {
-      initializeAuth()
-    }
+    // Run initialization immediately
+    initializeAuth()
 
     return () => {
       mounted = false
     }
-  }, [isInitialized, setLoading, setUser, clearUser, setSession])
+  }, [supabase, setUser, setLoading, setSession, clearAllAppState, isSessionExpired])
 
   // Set up auth state change listener
   useEffect(() => {
+    if (authListenerRef.current) return // Prevent duplicate listeners
+    
+    // Wait for initialization to complete before setting up listener
+    if (!isInitialized) {
+      console.log("[AuthProvider] Waiting for initialization before setting up listener")
+      return
+    }
+
     let mounted = true
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
 
-        console.log("Auth event:", event)
+        console.log("[AuthProvider] Auth event:", event)
 
         switch (event) {
           case "SIGNED_IN":
-            if (session?.user) {
-              const { data: profile } = await supabase
+            console.log("[AuthProvider] Processing SIGNED_IN event for user:", session?.user?.id)
+            if (session?.user && !isSessionExpired(session)) {
+              const { data: profile, error } = await supabase
                 .from("users")
                 .select("*")
                 .eq("id", session.user.id)
                 .single()
               
+              if (error) {
+                console.error("[AuthProvider] Error loading profile in SIGNED_IN:", error)
+                clearAllAppState()
+                return
+              }
+              
               if (profile && mounted) {
+                console.log("[AuthProvider] Profile loaded in SIGNED_IN:", profile.username)
                 setUser(profile as User)
                 setSession({
                   access_token: session.access_token,
                   refresh_token: session.refresh_token
                 })
+                setIsLoading(false)
+                setLoading(false)
+                if (!isInitialized) {
+                  setIsInitialized(true)
+                }
+                console.log("[AuthProvider] User state updated from SIGNED_IN event")
               }
+            } else {
+              console.log("[AuthProvider] Invalid or expired session in SIGNED_IN")
+              clearAllAppState()
             }
             break
+            
           case "SIGNED_OUT":
-            clearUser()
+            console.log("[AuthProvider] User signed out")
+            clearAllAppState()
+            // Redirect to login after clearing state
+            setTimeout(() => {
+              router.push('/login')
+            }, 100)
             break
+            
           case "TOKEN_REFRESHED":
-            console.log("Token refreshed")
+            console.log("[AuthProvider] Token refreshed")
+            if (session?.user && !isSessionExpired(session)) {
+              setSession({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token
+              })
+            } else {
+              console.log("[AuthProvider] Refreshed token is expired")
+              clearAllAppState()
+            }
             break
+            
           case "USER_UPDATED":
-            if (session?.user) {
+            if (session?.user && !isSessionExpired(session)) {
               await refreshUser()
+            } else {
+              clearAllAppState()
             }
             break
         }
       }
     )
 
+    authListenerRef.current = subscription
+
     return () => {
       mounted = false
-      subscription.unsubscribe()
+      if (authListenerRef.current) {
+        authListenerRef.current.unsubscribe()
+        authListenerRef.current = null
+      }
     }
-  }, [setUser, clearUser, setSession, refreshUser])
+  }, [supabase, setUser, setSession, clearAllAppState, refreshUser, router, isSessionExpired, isInitialized])
 
   const signIn = useCallback(async (email: string, password: string) => {
+    console.log("[AuthProvider] Signing in user...")
+    setIsLoading(true)
     setLoading(true)
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       
-      // Immediately fetch user profile after successful login
       if (data.session?.user) {
-        const { data: profile } = await supabase
+        console.log("[AuthProvider] Login successful, loading profile...")
+        const { data: profile, error: profileError } = await supabase
           .from("users")
           .select("*")
           .eq("id", data.session.user.id)
           .single()
+        
+        if (profileError) {
+          throw new Error("Failed to load user profile")
+        }
         
         if (profile) {
           setUser(profile as User)
@@ -189,30 +323,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token
           })
+          console.log("[AuthProvider] User profile loaded successfully")
         }
       }
       
       return { success: true, error: null }
     } catch (error) {
+      console.error("[AuthProvider] Sign in error:", error)
       return { success: false, error: (error as Error).message }
     } finally {
+      setIsLoading(false)
       setLoading(false)
     }
   }, [supabase, setUser, setSession, setLoading])
 
   const signOut = useCallback(async () => {
+    console.log("[AuthProvider] Signing out user...")
+    
     try {
       await supabase.auth.signOut()
+      // Clear state immediately - listener will handle redirect
+      clearAllAppState()
       return { success: true, error: null }
     } catch (error) {
+      console.error("[AuthProvider] Sign out error:", error)
+      // Even if sign out fails, clear local state
+      clearAllAppState()
       return { success: false, error: (error as Error).message }
     }
-  }, [supabase])
+  }, [supabase, clearAllAppState])
 
   const value: AuthContextType = {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && isInitialized,
     signIn,
     signOut,
     refreshUser,

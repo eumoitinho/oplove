@@ -99,18 +99,30 @@ export default function StoryCreator({
       const { url } = await uploadResponse.json()
 
       // Get media dimensions and duration
-      let width, height, duration = 5
+      let width = 1080, height = 1920, duration = 5
 
       if (mediaType === 'image') {
-        const img = new window.Image()
-        img.src = mediaPreview!
-        await new Promise(resolve => img.onload = resolve)
-        width = img.naturalWidth
-        height = img.naturalHeight
+        try {
+          const img = new window.Image()
+          img.src = mediaPreview!
+          await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = reject
+            setTimeout(reject, 5000) // timeout after 5 seconds
+          })
+          width = img.naturalWidth || 1080
+          height = img.naturalHeight || 1920
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Could not get image dimensions, using defaults:', error)
+          }
+          width = 1080
+          height = 1920
+        }
       } else if (mediaType === 'video' && videoRef.current) {
-        width = videoRef.current.videoWidth
-        height = videoRef.current.videoHeight
-        duration = Math.min(videoRef.current.duration, 15) // Max 15 seconds
+        width = videoRef.current.videoWidth || 1080
+        height = videoRef.current.videoHeight || 1920
+        duration = Math.min(videoRef.current.duration || 5, 15) // Max 15 seconds
       }
 
       // Create story
@@ -131,15 +143,30 @@ export default function StoryCreator({
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || 'Erro ao criar story')
+        console.error('Story creation failed:', error)
+        
+        if (response.status === 400) {
+          const details = error.details?.map((d: any) => d.message).join(', ') || ''
+          throw new Error(`Dados inválidos: ${details}`)
+        } else if (response.status === 429) {
+          throw new Error(error.error || 'Limite de stories atingido')
+        } else {
+          throw new Error(error.error || error.message || 'Erro ao criar story')
+        }
       }
 
       const story = await response.json()
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Story created successfully:', story)
+      }
+      
       onStoryCreated(story)
+      onClose() // Close modal on success
       toast.success('Story publicado com sucesso!')
     } catch (error) {
       console.error('Error creating story:', error)
-      toast.error(error instanceof Error ? error.message : 'Erro ao criar story')
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao criar story'
+      toast.error(errorMessage)
     } finally {
       setIsUploading(false)
     }
@@ -154,7 +181,7 @@ export default function StoryCreator({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-3 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isUploading) {
           onClose()
@@ -165,47 +192,48 @@ export default function StoryCreator({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="w-full max-w-md bg-white dark:bg-gray-900 rounded-xl overflow-hidden"
+        className="w-full max-w-md bg-white dark:bg-gray-900 rounded-xl overflow-hidden max-h-[90vh] flex flex-col"
       >
         {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-b flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-semibold">Criar Story</h2>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">
-              {remainingStories} restantes hoje
+            <span className="text-xs sm:text-sm text-gray-500">
+              {remainingStories} restantes
             </span>
             <Button
               size="icon"
               variant="ghost"
               onClick={onClose}
               disabled={isUploading}
+              className="w-8 h-8 sm:w-10 sm:h-10"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4 flex-1 overflow-y-auto">
           {!mediaFile ? (
             // File selection
             <div className="space-y-4">
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-[9/16] bg-gray-100 dark:bg-gray-800 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="aspect-[9/16] bg-gray-100 dark:bg-gray-800 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors touch-manipulation"
               >
-                <div className="space-y-4 text-center">
-                  <div className="flex justify-center space-x-4">
-                    <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
-                      <Camera className="w-8 h-8 text-purple-600" />
+                <div className="space-y-3 sm:space-y-4 text-center">
+                  <div className="flex justify-center space-x-3 sm:space-x-4">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
+                      <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
                     </div>
-                    <div className="w-16 h-16 bg-pink-100 dark:bg-pink-900/20 rounded-full flex items-center justify-center">
-                      <Video className="w-8 h-8 text-pink-600" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-pink-100 dark:bg-pink-900/20 rounded-full flex items-center justify-center">
+                      <Video className="w-6 h-6 sm:w-8 sm:h-8 text-pink-600" />
                     </div>
                   </div>
                   <div>
-                    <p className="font-medium">Adicionar foto ou vídeo</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-sm sm:text-base">Adicionar foto ou vídeo</p>
+                    <p className="text-xs sm:text-sm text-gray-500">
                       Toque para selecionar
                     </p>
                   </div>
@@ -220,7 +248,7 @@ export default function StoryCreator({
                 className="hidden"
               />
               
-              <div className="text-sm text-gray-500 space-y-1">
+              <div className="text-xs sm:text-sm text-gray-500 space-y-1">
                 <p>• Fotos: máximo 10MB</p>
                 <p>• Vídeos: máximo 100MB (15 segundos)</p>
                 <p>• Formatos: JPG, PNG, MP4, MOV</p>
@@ -257,7 +285,7 @@ export default function StoryCreator({
               </div>
               
               {/* Actions */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -268,33 +296,36 @@ export default function StoryCreator({
                     setCaption('')
                   }}
                   disabled={isUploading}
+                  className="flex-shrink-0"
                 >
                   Alterar
                 </Button>
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-shrink-0">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={handleCaptionToggle}
                     disabled={isUploading}
+                    className="w-8 h-8 sm:w-10 sm:h-10"
                   >
-                    <Type className="w-4 h-4" />
+                    <Type className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </Button>
                   
                   <Button
                     onClick={handleUpload}
                     disabled={isUploading}
+                    className="px-3 sm:px-4"
                   >
                     {isUploading ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Publicando...
+                        <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                        <span className="text-sm sm:text-base">Publicando...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Publicar
+                        <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                        <span className="text-sm sm:text-base">Publicar</span>
                       </>
                     )}
                   </Button>

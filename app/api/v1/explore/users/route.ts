@@ -33,23 +33,28 @@ export async function GET(request: NextRequest) {
       // Get current user location
       const { data: userData } = await supabase
         .from('users')
-        .select('location')
+        .select('latitude, longitude')
         .eq('id', currentUser.id)
         .single()
 
-      if (!userData?.location || !userData.location.latitude || !userData.location.longitude) {
-        console.log('ℹ️ User location not found for:', currentUser.id, '- using default São Paulo location')
-        // Use default location (São Paulo) if user has no location
-        userData.location = {
-          latitude: -23.5505,
-          longitude: -46.6333
+      // Set default location (São Paulo) if user has no location
+      let userLocation = {
+        latitude: -23.5505,
+        longitude: -46.6333
+      }
+      
+      if (userData?.latitude && userData?.longitude) {
+        userLocation = {
+          latitude: userData.latitude,
+          longitude: userData.longitude
         }
-      } else {
         console.log('📍 User location found:', {
           userId: currentUser.id,
-          lat: userData.location.latitude,
-          lng: userData.location.longitude
+          lat: userLocation.latitude,
+          lng: userLocation.longitude
         })
+      } else {
+        console.log('ℹ️ User location not found for:', currentUser.id, '- using default São Paulo location')
       }
 
       // Build query
@@ -61,7 +66,8 @@ export async function GET(request: NextRequest) {
           name,
           birth_date,
           gender,
-          location,
+          latitude,
+          longitude,
           avatar_url,
           bio,
           interests,
@@ -72,21 +78,10 @@ export async function GET(request: NextRequest) {
         `)
         .neq('id', currentUser.id)
 
-      // Apply filters - map frontend gender values to database enum values
+      // Apply filters - frontend now sends correct database values (v0.3.5)
       if (filters.gender.length > 0) {
-        // Map frontend gender values to database enum values
-        const mappedGenders = filters.gender.map(g => {
-          switch(g) {
-            case 'man': return 'male'
-            case 'woman': return 'female'
-            case 'trans': return 'trans'
-            case 'couple_mw': return 'couple_mf'
-            case 'couple_mm': return 'couple_mm'
-            case 'couple_ww': return 'couple_ff'
-            default: return g
-          }
-        })
-        query = query.in('gender', mappedGenders)
+        // No mapping needed - frontend values match database enum exactly
+        query = query.in('gender', filters.gender)
       }
 
       if (filters.verification_required) {
@@ -142,17 +137,6 @@ export async function GET(request: NextRequest) {
       // Execute query
       console.log('🔍 Explore API - Executing query with filters:', {
         gender: filters.gender,
-        mappedGenders: filters.gender.map(g => {
-          switch(g) {
-            case 'man': return 'male'
-            case 'woman': return 'female'
-            case 'trans': return 'trans'
-            case 'couple_mw': return 'couple_mf'
-            case 'couple_mm': return 'couple_mm'
-            case 'couple_ww': return 'couple_ff'
-            default: return g
-          }
-        }),
         verification_required: filters.verification_required,
         online_only: filters.online_only,
         premium_only: filters.premium_only,
@@ -189,7 +173,7 @@ export async function GET(request: NextRequest) {
           username: profiles[0].username,
           gender: profiles[0].gender,
           hasAvatar: !!profiles[0].avatar_url,
-          hasLocation: !!profiles[0].location,
+          hasLocation: !!(profiles[0].latitude && profiles[0].longitude),
           birthDate: profiles[0].birth_date
         })
       }
@@ -202,12 +186,12 @@ export async function GET(request: NextRequest) {
 
         // Calculate distance - if profile has no location, use a default distance
         let distance = 999 // Default high distance for profiles without location
-        if (profile.location?.latitude && profile.location?.longitude) {
+        if (profile.latitude && profile.longitude) {
           distance = calculateDistance(
-            userData.location.latitude,
-            userData.location.longitude,
-            profile.location.latitude,
-            profile.location.longitude
+            userLocation.latitude,
+            userLocation.longitude,
+            profile.latitude,
+            profile.longitude
           )
         }
 

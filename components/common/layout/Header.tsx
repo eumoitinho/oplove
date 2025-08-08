@@ -9,7 +9,7 @@ import { Button } from "../ui/Button"
 import { Input } from "../ui/Input"
 import { Modal } from "../ui/Modal"
 import { toast } from "../ui/Toast"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 
 export interface HeaderProps {
@@ -31,7 +31,7 @@ export interface HeaderProps {
  * ```
  */
 export function Header({ className, showSearch = true, showNotifications = true }: HeaderProps) {
-  const { user, logout } = useAuth()
+  const { user, signOut } = useAuth()
   const router = useRouter()
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
@@ -49,10 +49,15 @@ export function Header({ className, showSearch = true, showNotifications = true 
 
   const handleLogout = async () => {
     try {
-      await logout()
-      toast.success("Logout realizado", "Até logo!")
-      router.push("/auth/login")
+      const result = await signOut()
+      if (result.success) {
+        toast.success("Logout realizado", "Até logo!")
+        router.push("/login")
+      } else {
+        toast.error("Erro ao fazer logout", result.error || "Tente novamente.")
+      }
     } catch (error) {
+      console.error("[Header] Logout error:", error)
       toast.error("Erro ao fazer logout", "Tente novamente.")
     }
   }

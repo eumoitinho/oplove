@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { TimelineFeed } from "@/components/feed/timeline/TimelineFeed"
 import { FeedLayout } from "@/components/feed/FeedLayout"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Feather, Menu, Home, ArrowUp, X } from "lucide-react"
 import { useSecurityProtection } from "@/hooks/useSecurityProtection"
 import { useAuth } from "@/hooks/useAuth"
 import { Header, LeftSidebar, RightSidebar } from "@/components/feed"
+import { ResponsiveFeedLayout } from "@/components/feed/layouts"
 
 
 type MainContentType =
@@ -31,21 +33,30 @@ type MainContentType =
 
 export default function FeedPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const [currentMainContent, setCurrentMainContent] = useState<MainContentType>("timeline")
   const [activeTab, setActiveTab] = useState<"for-you" | "following" | "explore">("for-you")
-  const [isDarkMode, setIsDarkMode] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined)
   
   // Initialize engagement toasts
   useEngagementToasts()
   
   // Initialize security protection
   useSecurityProtection()
-
-  // Theme toggle function
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
-  }
+  
+  // Handle query parameters for navigation
+  useEffect(() => {
+    const view = searchParams.get('view') as MainContentType
+    const userId = searchParams.get('userId')
+    
+    if (view) {
+      setCurrentMainContent(view)
+      if (view === 'user-profile' && userId) {
+        setSelectedUserId(userId)
+      }
+    }
+  }, [searchParams])
 
   // Don't reset tab when returning to timeline - preserve user's choice
   // useEffect(() => {
@@ -104,7 +115,7 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-slate-950 dark:via-gray-900 dark:to-slate-950 text-gray-900 dark:text-white transition-colors duration-500">
       {/* Fixed Artistic Background */}
-      <div className="fixed inset-0" style={{ zIndex: 1 }}>
+      {/* <div className="fixed inset-0" style={{ zIndex: 1 }}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.05),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_at_center,rgba(219,39,119,0.15),rgba(0,0,0,0))]" />
         <div className="absolute top-[10%] left-[5%] w-32 md:w-64 h-32 md:h-64 rounded-full bg-gradient-to-r from-purple-500/5 to-pink-500/5 dark:from-purple-500/10 dark:to-pink-500/10 blur-3xl subtle-breathe" />
         <div
@@ -115,12 +126,10 @@ export default function FeedPage() {
           className="absolute bottom-[15%] left-[15%] w-36 md:w-72 h-36 md:h-72 rounded-full bg-gradient-to-r from-cyan-500/5 to-orange-500/5 dark:from-cyan-500/10 dark:to-orange-500/10 blur-3xl subtle-breathe"
           style={{ animationDelay: "2s" }}
         />
-      </div>
+      </div> */}
 
       {/* Header */}
       <Header
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
@@ -132,40 +141,44 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* Main Content Layout */}
+      {/* Main Content Layout - Using ResponsiveFeedLayout */}
       <main className={`relative pb-20 lg:pb-4 ${user ? '' : 'pt-20'}`} style={{ zIndex: 20 }}>
-        <div className="w-full layout-container px-4">
-          <div className="flex gap-6 max-w-screen-2xl mx-auto items-start">
-            {/* Left Sidebar (Desktop) */}
-            {!isMobileMenuOpen && (
-              <div className="hidden lg:block w-[280px] flex-shrink-0">
-                <LeftSidebar 
-                  onViewChange={handleViewChange} 
-                  currentView={currentMainContent} 
-                />
-              </div>
-            )}
-
-            {/* Main Content Area */}
-            <div className="flex-1 min-w-0 lg:px-4 xl:px-6">
-              <div className="max-w-2xl mx-auto lg:max-w-none">
-                <TimelineFeed
-                  currentMainContent={currentMainContent}
-                  onViewChange={handleTimelineViewChange}
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                />
-              </div>
-            </div>
-
-            {/* Right Sidebar (Desktop) - Hidden on messages view and mobile menu */}
-            {currentMainContent !== "messages" && !isMobileMenuOpen && (
-              <div className="hidden xl:block w-[320px] flex-shrink-0">
+        {/* Hide sidebars when mobile menu is open */}
+        {!isMobileMenuOpen ? (
+          <ResponsiveFeedLayout
+            leftSidebar={
+              <LeftSidebar 
+                onViewChange={handleViewChange} 
+                currentView={currentMainContent} 
+              />
+            }
+            rightSidebar={
+              // Hide right sidebar on messages view
+              currentMainContent !== "messages" ? (
                 <RightSidebar onViewChange={handleViewChange} currentView={currentMainContent} />
-              </div>
-            )}
+              ) : <div />
+            }
+          >
+            <TimelineFeed
+              currentMainContent={currentMainContent}
+              onViewChange={handleTimelineViewChange}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              userId={selectedUserId}
+            />
+          </ResponsiveFeedLayout>
+        ) : (
+          // Mobile menu is open - show only timeline in mobile layout
+          <div className="w-full max-w-[384px] mx-auto px-4">
+            <TimelineFeed
+              currentMainContent={currentMainContent}
+              onViewChange={handleTimelineViewChange}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              userId={selectedUserId}
+            />
           </div>
-        </div>
+        )}
       </main>
 
       {/* Mobile Sidebar Drawer */}

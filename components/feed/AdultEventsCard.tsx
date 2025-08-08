@@ -194,12 +194,12 @@ export function AdultEventsCard({ onViewChange }: AdultEventsCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10 p-6 hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300"
+      className="sidebar-card"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Flame className="w-5 h-5 text-red-500" />
-          <h3 className="font-bold text-gray-900 dark:text-white">
+          <Flame className="w-4 h-4 tablet:w-5 tablet:h-5 text-red-500" />
+          <h3 className="text-responsive-md font-bold text-gray-900 dark:text-white">
             Eventos
           </h3>
         </div>
@@ -207,7 +207,7 @@ export function AdultEventsCard({ onViewChange }: AdultEventsCardProps) {
           variant="ghost"
           size="sm"
           onClick={() => onViewChange?.("events")}
-          className="text-purple-600 hover:text-purple-700 p-0 h-auto font-medium"
+          className="button-responsive text-purple-600 hover:text-purple-700 p-0 h-auto font-medium"
         >
           Ver todos
         </Button>

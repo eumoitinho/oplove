@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Users, Star, Gem, Verified } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface WhoToFollowCardProps {
   onViewChange?: (view: string) => void
@@ -56,6 +57,7 @@ const PlanBadge = ({ plan }: { plan: "Free" | "Gold" | "Diamond" }) => {
 }
 
 export function WhoToFollowCard({ onViewChange }: WhoToFollowCardProps) {
+  const router = useRouter()
   return (
     <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-sm hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300">
       <div className="flex items-center gap-3 mb-6">
@@ -106,7 +108,7 @@ export function WhoToFollowCard({ onViewChange }: WhoToFollowCardProps) {
 
       <Button
         variant="ghost"
-        onClick={() => onViewChange?.("who-to-follow")}
+        onClick={() => router.push("/feed?view=who-to-follow")}
         className="w-full mt-4 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-2xl transition-all duration-300"
       >
         Ver Mais Sugestões

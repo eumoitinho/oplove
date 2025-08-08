@@ -56,6 +56,15 @@ export default function StoryViewer({
 }: StoryViewerProps) {
   const { user } = useAuth()
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  
+  // Debug logging (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('StoryViewer rendered:', { 
+      storiesLength: stories.length, 
+      initialIndex, 
+      currentIndex 
+    })
+  }
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [showReplyInput, setShowReplyInput] = useState(false)
@@ -71,6 +80,10 @@ export default function StoryViewer({
   
   const currentStory = stories[currentIndex]
   const isOwnStory = currentStory?.userId === user?.id
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Current story:', currentStory)
+  }
 
   useEffect(() => {
     if (currentStory) {
@@ -269,20 +282,20 @@ export default function StoryViewer({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black flex items-center justify-center story-viewer-modal"
+      className="fixed inset-0 bg-black flex items-center justify-center story-viewer-modal z-50"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose()
         }
       }}
     >
-      <div className="relative w-full max-w-md h-full max-h-[90vh] bg-gray-900 rounded-lg overflow-hidden">
+      <div className="relative w-full max-w-md h-full sm:max-h-[90vh] sm:h-auto bg-gray-900 sm:rounded-lg overflow-hidden">
         {/* Progress bars */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-2 flex space-x-1">
+        <div className="absolute top-0 left-0 right-0 z-20 p-2 sm:p-3 flex space-x-1">
           {stories.map((_, index) => (
             <div
               key={index}
-              className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
+              className="flex-1 h-1 sm:h-1.5 bg-white/30 rounded-full overflow-hidden"
             >
               <div
                 className="h-full bg-white transition-all duration-100"
@@ -296,11 +309,11 @@ export default function StoryViewer({
         </div>
 
         {/* Header */}
-        <div className="absolute top-6 left-0 right-0 z-20 px-4">
+        <div className="absolute top-6 sm:top-8 left-0 right-0 z-20 px-3 sm:px-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <Avatar 
-                className="w-10 h-10 border-2 border-white cursor-pointer"
+                className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-white cursor-pointer"
                 onClick={() => window.location.href = `/profile/${currentStory.user.username}`}
               >
                 <AvatarImage src={currentStory.user.avatarUrl} />
@@ -308,23 +321,23 @@ export default function StoryViewer({
               </Avatar>
               
               <div>
-                <div className="flex items-center space-x-2">
-                  <p className="text-white font-semibold">
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <p className="text-white font-semibold text-sm sm:text-base">
                     {currentStory.user.name}
                   </p>
                   {currentStory.user.isVerified && (
-                    <Badge variant="secondary" className="h-5">
+                    <Badge variant="secondary" className="h-4 sm:h-5">
                       <span className="text-xs">✓</span>
                     </Badge>
                   )}
                   {currentStory.isBoosted && (
-                    <Badge className="bg-yellow-500 text-black h-5">
-                      <Zap className="w-3 h-3 mr-1" />
-                      Impulsionado
+                    <Badge className="bg-yellow-500 text-black h-4 sm:h-5">
+                      <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                      <span className="text-xs">Impulsionado</span>
                     </Badge>
                   )}
                 </div>
-                <p className="text-white/70 text-sm">
+                <p className="text-white/70 text-xs sm:text-sm">
                   {new Date(currentStory.createdAt).toLocaleTimeString('pt-BR', {
                     hour: '2-digit',
                     minute: '2-digit'
@@ -333,23 +346,23 @@ export default function StoryViewer({
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               {isOwnStory && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-white"
+                  className="text-white px-2 sm:px-3"
                   onClick={() => setShowViewers(!showViewers)}
                 >
-                  <Eye className="w-4 h-4 mr-1" />
-                  {currentStory.viewCount}
+                  <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                  <span className="text-sm">{currentStory.viewCount}</span>
                 </Button>
               )}
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="ghost" className="text-white">
-                    <MoreVertical className="w-5 h-5" />
+                  <Button size="icon" variant="ghost" className="text-white w-8 h-8 sm:w-10 sm:h-10">
+                    <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -383,10 +396,10 @@ export default function StoryViewer({
               <Button
                 size="icon"
                 variant="ghost"
-                className="text-white"
+                className="text-white w-8 h-8 sm:w-10 sm:h-10"
                 onClick={onClose}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
@@ -402,12 +415,14 @@ export default function StoryViewer({
         >
           {/* Navigation areas */}
           <button
-            className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+            className="absolute left-0 top-0 bottom-0 w-1/3 z-10 touch-manipulation"
             onClick={handlePrevious}
+            aria-label="Story anterior"
           />
           <button
-            className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+            className="absolute right-0 top-0 bottom-0 w-1/3 z-10 touch-manipulation"
             onClick={handleNext}
+            aria-label="Próximo story"
           />
 
           {/* Media content */}
@@ -415,25 +430,32 @@ export default function StoryViewer({
             <Image
               src={currentStory.mediaUrl}
               alt="Story"
-              fill
-              className="object-contain"
+              width={400}
+              height={800}
+              className="w-full h-full object-contain"
+              priority
             />
           ) : (
             <video
               ref={videoRef}
-              src={currentStory.mediaUrl}
               className="w-full h-full object-contain"
               autoPlay
               playsInline
               muted
               loop={false}
-            />
+              controls={false}
+              webkit-playsinline="true"
+            >
+              <source src={currentStory.mediaUrl} type="video/mp4" />
+              <source src={currentStory.mediaUrl} type="video/webm" />
+              Seu navegador não suporta vídeo.
+            </video>
           )}
 
           {/* Caption */}
           {currentStory.caption && (
-            <div className="absolute bottom-20 left-4 right-4 z-10">
-              <p className="text-white text-center text-lg font-medium drop-shadow-lg">
+            <div className="absolute bottom-16 sm:bottom-20 left-3 right-3 sm:left-4 sm:right-4 z-10">
+              <p className="text-white text-center text-base sm:text-lg font-medium drop-shadow-lg">
                 {currentStory.caption}
               </p>
             </div>
@@ -441,28 +463,28 @@ export default function StoryViewer({
         </div>
 
         {/* Actions */}
-        <div className="absolute bottom-4 left-4 right-4 z-20">
+        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 z-20">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <button
-                className="text-white"
+                className="text-white touch-manipulation"
                 onClick={() => setShowReactions(!showReactions)}
               >
                 {currentStory.reaction ? (
-                  <span className="text-2xl">
+                  <span className="text-xl sm:text-2xl">
                     {REACTIONS.find(r => r.type === currentStory.reaction)?.icon}
                   </span>
                 ) : (
-                  <Heart className="w-7 h-7" />
+                  <Heart className="w-6 h-6 sm:w-7 sm:h-7" />
                 )}
               </button>
               
               {!isOwnStory && (
                 <button
-                  className="text-white"
+                  className="text-white touch-manipulation"
                   onClick={() => setShowReplyInput(!showReplyInput)}
                 >
-                  <MessageCircle className="w-7 h-7" />
+                  <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
                 </button>
               )}
             </div>

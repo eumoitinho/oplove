@@ -94,7 +94,7 @@ export const CONTENT_LIMITS = {
   gold: {
     maxPhotosPerPost: 10,
     maxVideoLength: 300, // 5 minutes
-    dailyMessageLimit: 200, // unlimited if verified
+    dailyMessageLimit: 10, // unlimited if verified
     storageLimit: 1024 * 1024 * 1024, // 1GB
     maxGroupMembers: 0,
   },

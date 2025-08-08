@@ -20,7 +20,14 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error) {
-      // Create credits record if doesn't exist
+      console.log('[Credits API] No credits found for user, creating new record')
+      
+      // Check if it's a not found error (expected) or a real error
+      if (error.code !== 'PGRST116') {
+        console.error('[Credits API] Error fetching credits:', error)
+      }
+      
+      // Try to create credits record if doesn't exist
       const { data: newCredits, error: insertError } = await supabase
         .from('user_credits')
         .insert({
@@ -34,17 +41,41 @@ export async function GET(request: NextRequest) {
         .select()
         .single()
 
-      if (insertError) throw insertError
-      credits = newCredits
+      if (insertError) {
+        // If insert fails, it might be because the record already exists
+        // Try to fetch again
+        const { data: retryCredits, error: retryError } = await supabase
+          .from('user_credits')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+          
+        if (retryError || !retryCredits) {
+          console.error('[Credits API] Failed to create or fetch credits:', insertError, retryError)
+          // Return default values instead of throwing
+          return NextResponse.json({
+            userId: user.id,
+            creditBalance: 0,
+            totalPurchased: 0,
+            totalSpent: 0,
+            totalGifted: 0,
+            totalReceived: 0
+          })
+        }
+        
+        credits = retryCredits
+      } else {
+        credits = newCredits
+      }
     }
 
     return NextResponse.json({
       userId: user.id,
-      creditBalance: credits.credit_balance,
-      totalPurchased: credits.total_purchased,
-      totalSpent: credits.total_spent,
-      totalGifted: credits.total_gifted,
-      totalReceived: credits.total_received
+      creditBalance: credits?.credit_balance || 0,
+      totalPurchased: credits?.total_purchased || 0,
+      totalSpent: credits?.total_spent || 0,
+      totalGifted: credits?.total_gifted || 0,
+      totalReceived: credits?.total_received || 0
     })
   } catch (error) {
     console.error('Error fetching credit balance:', error)

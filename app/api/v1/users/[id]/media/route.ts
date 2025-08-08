@@ -10,7 +10,9 @@ export async function GET(
     const resolvedParams = await params
     const rawUserId = resolvedParams.id
     
-    console.log('[UserMedia API] Fetching media for user:', rawUserId)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserMedia API] Fetching media for user:', rawUserId)
+    }
 
     // Get current user for additional info
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -38,7 +40,9 @@ export async function GET(
     // Calculate offset from page if provided
     const calculatedOffset = page > 1 ? (page - 1) * limit : offset
 
-    console.log('[UserMedia API] Query params:', { mediaType, limit, offset: calculatedOffset, page })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserMedia API] Query params:', { mediaType, limit, offset: calculatedOffset, page })
+    }
 
     // Get total count of media posts
     let countQuery = supabase
@@ -107,7 +111,9 @@ export async function GET(
       )
     }
 
-    console.log('[UserMedia API] Found media items:', media?.length || 0)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[UserMedia API] Found media items:', media?.length || 0)
+    }
 
     // Format media posts with interaction data
     const formattedMedia = media?.map(post => {

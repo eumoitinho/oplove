@@ -2,20 +2,22 @@ import { createClient } from '@/app/lib/supabase-browser'
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import type { NotificationData, User } from '@/types/common'
 
-// Extended notification interface with more details
-export interface Notification extends NotificationData {
-  recipient_id: string
-  sender_id?: string
-  sender?: User
+// Extended notification interface matching actual database columns
+export interface Notification {
+  id: string
+  user_id: string  // who receives the notification
+  from_user_id?: string  // who triggered the notification
+  sender?: User  // populated from join
+  type: 'like' | 'comment' | 'follow' | 'message' | 'post'
+  title: string
+  message: string
+  read: boolean
   entity_id?: string // ID of the related entity (post, comment, etc)
   entity_type?: 'post' | 'comment' | 'message' | 'follow'
   action_taken?: boolean // For follow notifications - if user followed back
-  metadata?: Record<string, any>
-  is_read?: boolean
-  read_at?: string | null
-  content?: string
-  message?: string
-  related_data?: Record<string, any>
+  metadata?: any // JSONB field
+  created_at: string
+  content?: string  // Alternative to message for display
 }
 
 export interface NotificationFilters {
@@ -43,13 +45,12 @@ class NotificationsService {
     filters?: NotificationFilters
   ) {
     try {
-      console.log('🔔 NotificationsService - getNotifications called:', { userId, page, limit, filters })
-      
+      // Query notifications with sender info
       let query = this.supabase
         .from('notifications')
         .select(`
           *,
-          sender:users!sender_id(
+          sender:users!from_user_id(
             id,
             username,
             name,
@@ -58,45 +59,39 @@ class NotificationsService {
             premium_type
           )
         `)
-        .eq('recipient_id', userId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
-
-      // Apply filters
-      if (filters?.type && filters.type !== 'all') {
-        query = query.eq('type', filters.type)
+        .limit(Math.min(limit, 20))
+      
+      let data, error, count
+      try {
+        const result = await Promise.race([
+          query,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Query timeout after 3s')), 8000)
+          )
+        ]) as any
+        data = result.data
+        error = result.error
+        count = result.count
+      } catch (queryError) {
+        error = queryError
+        data = null
+        count = 0
       }
-
-      if (filters?.read !== undefined && filters.read !== 'all') {
-        query = query.eq('is_read', filters.read)
-      }
-
-      if (filters?.dateRange) {
-        query = query
-          .gte('created_at', filters.dateRange.from.toISOString())
-          .lte('created_at', filters.dateRange.to.toISOString())
-      }
-
-      // Pagination
-      const start = (page - 1) * limit
-      const end = start + limit - 1
-      query = query.range(start, end)
-
-      const { data, error, count } = await query
-
-      console.log('🔔 NotificationsService - Query result:', { 
-        dataLength: data?.length, 
-        count,
-        error: error?.message,
-        firstNotification: data?.[0]
-      })
 
       if (error) {
-        console.error('🔔 NotificationsService - Error getting notifications:', error)
-        throw error
+        console.error('NotificationsService - Error getting notifications:', error)
+        
+        // Return empty data if query fails
+        return {
+          notifications: [],
+          total: 0,
+          page,
+          limit,
+          hasMore: false
+        }
       }
-
-      console.log('🔔 NotificationsService - Success:', { count, dataLength: data?.length })
-      console.log('🔔 NotificationsService - First 3 notifications:', data?.slice(0, 3))
 
       return {
         notifications: data as Notification[],
@@ -106,7 +101,7 @@ class NotificationsService {
         hasMore: (count || 0) > page * limit
       }
     } catch (error) {
-      console.error('🔔 NotificationsService - Catch error:', error)
+      console.error('NotificationsService - Catch error:', error)
       throw error
     }
   }
@@ -114,23 +109,20 @@ class NotificationsService {
   // Get unread notification count
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      console.log('🔔 NotificationsService - getUnreadCount called:', { userId })
-      
       const { count, error } = await this.supabase
         .from('notifications')
         .select('*', { count: 'exact' })
-        .eq('recipient_id', userId)
-        .eq('is_read', false)
+        .eq('user_id', userId)
+        .eq('read', false)
 
       if (error) {
-        console.error('🔔 NotificationsService - getUnreadCount error:', error)
+        console.error('NotificationsService - getUnreadCount error:', error)
         throw error
       }
       
-      console.log('🔔 NotificationsService - getUnreadCount success:', { count })
       return count || 0
     } catch (error) {
-      console.error('🔔 NotificationsService - getUnreadCount catch:', error)
+      console.error('NotificationsService - getUnreadCount catch:', error)
       return 0
     }
   }
@@ -140,7 +132,7 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ is_read: true })
+        .update({ read: true })
         .eq('id', notificationId)
 
       if (error) throw error
@@ -154,9 +146,9 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ is_read: true })
-        .eq('recipient_id', userId)
-        .eq('is_read', false)
+        .update({ read: true })
+        .eq('user_id', userId)
+        .eq('read', false)
 
       if (error) throw error
     } catch (error) {

@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useAuth } from '@/hooks/useAuth'
-import { useToast } from '@/hooks/useToast'
+import { toast } from 'sonner'
 import { notificationsService, type Notification, type NotificationFilters } from '@/lib/services/notifications-service'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
 import type { NotificationData } from '@/types/common'
@@ -33,7 +33,6 @@ interface NotificationsViewProps {
 export function NotificationsView({ className }: NotificationsViewProps) {
   const router = useRouter()
   const { user } = useAuth()
-  const { showToast } = useToast()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<NotificationFilters>({
@@ -51,12 +50,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
       user.id,
       (notification) => {
         setNotifications(prev => [notification, ...prev])
-        showToast(notification.message, 'info')
+        toast.info(notification.message)
       }
     )
 
     return unsubscribe
-  }, [user, showToast])
+  }, [user])
 
   // Infinite scroll fetch function
   const fetchNotifications = useCallback(async (pageNum: number) => {
@@ -73,15 +72,16 @@ export function NotificationsView({ className }: NotificationsViewProps) {
       )
       
       return {
-        data: result.notifications,
-        hasMore: result.hasMore,
-        total: result.total
+        data: result.notifications || [],
+        hasMore: result.hasMore || false,
+        total: result.total || 0
       }
     } catch (error) {
-      showToast('Erro ao carregar notificações', 'error')
+      console.error('[NotificationsView] Error fetching notifications:', error)
+      toast.error('Erro ao carregar notificações')
       return { data: [], hasMore: false }
     }
-  }, [user, filters, showToast])
+  }, [user, filters])
 
   // Use infinite scroll hook
   const {
@@ -115,7 +115,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
         prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
       )
     } catch (error) {
-      showToast('Erro ao marcar como lida', 'error')
+      toast.error('Erro ao marcar como lida')
     }
   }
 
@@ -126,9 +126,9 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     try {
       await notificationsService.markAllAsRead(user.id)
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
-      showToast('Todas as notificações foram marcadas como lidas', 'success')
+      toast.success('Todas as notificações foram marcadas como lidas')
     } catch (error) {
-      showToast('Erro ao marcar todas como lidas', 'error')
+      toast.error('Erro ao marcar todas como lidas')
     }
   }
 
@@ -137,9 +137,9 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     try {
       await notificationsService.deleteNotification(notificationId)
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
-      showToast('Notificação removida', 'success')
+      toast.success('Notificação removida')
     } catch (error) {
-      showToast('Erro ao remover notificação', 'error')
+      toast.error('Erro ao remover notificação')
     }
   }
 
@@ -151,22 +151,20 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     switch (notification.type) {
       case 'like':
       case 'comment':
-        if (notification.entity_id) {
-          router.push(`/post/${notification.entity_id}`)
-        }
+        // For posts, we could navigate to feed or show post details
+        // For now, stay in current view since posts are displayed in timeline
         break
       case 'follow':
         if (notification.sender_id) {
-          router.push(`/profile/${notification.sender?.username}`)
+          router.push(`/feed?view=user-profile&userId=${notification.sender_id}`)
         }
         break
       case 'message':
-        router.push('/messages')
+        router.push('/feed?view=messages')
         break
       case 'post':
-        if (notification.entity_id) {
-          router.push(`/post/${notification.entity_id}`)
-        }
+        // Stay in timeline since new posts will appear there
+        router.push('/feed')
         break
     }
   }
@@ -174,22 +172,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
   // Handle user profile click
   const handleUserClick = (notification: Notification, e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log('[NotificationsView] Clicking user:', {
-      username: notification.sender?.username,
-      senderId: notification.sender_id,
-      sender: notification.sender
-    })
     
-    if (notification.sender?.username) {
-      const profileUrl = `/profile/${notification.sender.username}`
-      console.log('[NotificationsView] Navigating to:', profileUrl)
+    if (notification.sender_id) {
+      const profileUrl = `/feed?view=user-profile&userId=${notification.sender_id}`
       router.push(profileUrl)
-    } else if (notification.sender_id) {
-      console.log('[NotificationsView] No username, using ID route')
-      router.push(`/users/${notification.sender_id}`)
     } else {
-      console.log('[NotificationsView] No user data available')
-      showToast('Perfil não encontrado', 'error')
+      toast.error('Perfil não encontrado')
     }
   }
 
@@ -200,12 +188,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     try {
       await notificationsService.performQuickAction(notification.id, 'follow_back')
       // TODO: Call follow API
-      showToast('Seguindo de volta!', 'success')
+      toast.success('Seguindo de volta!')
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, action_taken: true } : n)
       )
     } catch (error) {
-      showToast('Erro ao seguir de volta', 'error')
+      toast.error('Erro ao seguir de volta')
     }
   }
 

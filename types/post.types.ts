@@ -5,30 +5,79 @@
 import type { User } from "./user.types"
 
 export interface Post {
+  is_saved: boolean
+  is_liked: boolean
   id: string
   user_id: string
+  couple_id?: string | null
   content: string
-  media: PostMedia[]
-  poll: PostPoll | null
-  location: PostLocation | null
-  visibility?: PostVisibility
-  is_pinned: boolean
-  is_edited: boolean
-  edit_history: PostEdit[]
+  
+  // Media arrays (matching DB schema)
+  media_urls: string[]
+  media_types: string[]
+  media_thumbnails: string[]
+  
+  // Visibility & Premium
+  visibility: PostVisibility
+  is_premium_content: boolean
+  price?: number | null
+  
+  // Location & Tags
+  location?: string | null
+  latitude?: number | null
+  longitude?: number | null
   hashtags: string[]
   mentions: string[]
-  stats: PostStats
-  user_interaction: PostUserInteraction | null
+  
+  // Post Type & Features
+  post_type: PostType
+  story_expires_at?: string | null
+  is_event: boolean
+  event_id?: string | null
+  
+  // Poll Features
+  poll_id?: string | null
+  poll_question?: string | null
+  poll_options?: string[] | null
+  poll_expires_at?: string | null
+  
+  // Audio Features
+  audio_duration?: number | null
+  
+  // Statistics & Counters (from DB)
+  stats?: any // JSONB field
+  likes_count: number
+  comments_count: number
+  shares_count: number
+  saves_count: number
+  
+  // Reaction Counters (from DB)
+  like_count?: number
+  love_count?: number
+  laugh_count?: number
+  wow_count?: number
+  sad_count?: number
+  angry_count?: number
+  
+  // Moderation
+  is_reported: boolean
+  is_hidden: boolean
+  report_count: number
+  
+  // Timestamps
   created_at: string
   updated_at: string
 
-  // Relations
-  user: User
-  comments: Comment[]
-  interactions: PostInteraction[]
+  // Relations (optional, populated by API)
+  user?: User
+  users?: User // Supabase returns 'users' from join, not 'user'
+  comments?: Comment[]
+  poll?: PostPoll | null
+  user_interaction?: PostUserInteraction | null
 }
 
-export type PostVisibility = "public" | "friends" | "private" | "premium"
+export type PostVisibility = "public" | "friends" | "private"
+export type PostType = "regular" | "story" | "event"
 
 export interface PostMedia {
   id: string

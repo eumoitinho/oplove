@@ -1,28 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 import { createServerClient } from "@/lib/supabase/server"
-import { withAuth } from "@/lib/auth/server"
-import { CONTENT_LIMITS, FILE_LIMITS } from "@/utils/constants"
-import { randomUUID } from "crypto"
-import { UserProfileService } from "@/lib/services/user-profile-service"
-
-const createPostSchema = z.object({
-  content: z.string().min(1).max(5000),
-  visibility: z.enum(["public", "friends", "private"]).default("public"),
-  poll: z.object({
-    question: z.string().min(1).max(200),
-    options: z.array(z.string().min(1).max(100)).min(2).max(4),
-    expires_in_hours: z.number().min(1).max(168).default(24)
-  }).optional(),
-  location: z.object({
-    city: z.string(),
-    state: z.string(),
-    country: z.string(),
-    latitude: z.number(),
-    longitude: z.number()
-  }).optional(),
-  scheduled_for: z.string().datetime().optional()
-})
 
 // GET /api/v1/posts - List posts
 export async function GET(request: NextRequest) {
@@ -30,48 +7,58 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get("limit") || "20")
     const offset = parseInt(searchParams.get("offset") || "0")
-    const userId = searchParams.get("userId")
-    const following = searchParams.get("following") === "true"
 
     const supabase = await createServerClient()
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-
-    let query = supabase
-      .from("posts")
+    // Query with poll and audio columns
+    const { data: posts, error } = await supabase
+      .from('posts')
       .select(`
-        *,
-        user:users(id, username, full_name, name, avatar_url, premium_type, is_verified, location)
+        id,
+        user_id,
+        couple_id,
+        content,
+        media_urls,
+        media_types,
+        media_thumbnails,
+        visibility,
+        is_premium_content,
+        price,
+        location,
+        latitude,
+        longitude,
+        hashtags,
+        mentions,
+        post_type,
+        story_expires_at,
+        is_event,
+        event_id,
+        poll_id,
+        poll_question,
+        poll_options,
+        poll_expires_at,
+        audio_duration,
+        likes_count,
+        comments_count,
+        shares_count,
+        saves_count,
+        is_reported,
+        is_hidden,
+        report_count,
+        created_at,
+        updated_at,
+        users!inner(
+          id,
+          username,
+          name,
+          avatar_url,
+          is_verified,
+          premium_type
+        )
       `)
-      .order("created_at", { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit)
-      .offset(offset)
-
-    // Filter by user if specified
-    if (userId) {
-      query = query.eq("user_id", userId)
-    }
-
-    // Filter by following if specified
-    if (following && user) {
-      const { data: followingUsers } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", user.id)
-
-      const followingIds = followingUsers?.map(f => f.following_id) || []
-      query = query.in("user_id", [...followingIds, user.id])
-    }
-
-    // Filter by visibility
-    if (!user) {
-      query = query.eq("visibility", "public")
-    } else {
-      query = query.or(`visibility.eq.public,user_id.eq.${user.id}`)
-    }
-
-    const { data: posts, error } = await query
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error("[GET POSTS] Database error:", error)
@@ -81,25 +68,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Debug log to check what's being returned
-    if (posts && posts.length > 0) {
-      console.log("[GET POSTS] Found", posts.length, "posts")
-      console.log("[GET POSTS] Sample post:", posts[0].id, posts[0].content?.substring(0, 50))
-    }
-
     // Format response
     const formattedPosts = posts?.map((post: any) => {
+      // Format poll data if exists
+      let pollData = null
+      if (post.poll_question && post.poll_options) {
+        pollData = {
+          id: `${post.id}_poll`,
+          question: post.poll_question,
+          options: post.poll_options.map((option: string, index: number) => ({
+            id: `${post.id}_option_${index}`,
+            text: option,
+            votes_count: 0, // TODO: Get real vote counts
+            percentage: 0
+          })),
+          total_votes: 0, // TODO: Get real total votes
+          expires_at: post.poll_expires_at,
+          multiple_choice: false,
+          user_has_voted: false,
+          user_votes: []
+        }
+      }
+
       return {
         ...post,
+        user: post.users,
         media_urls: post.media_urls || [],
-        is_liked: false, // TODO: implement likes check
-        is_saved: false, // TODO: implement saves
+        poll: pollData,
+        is_liked: false,
+        is_saved: false,
         likes_count: post.likes_count || 0,
         comments_count: post.comments_count || 0,
         shares_count: post.shares_count || 0,
-        saves_count: post.saves_count || 0,
-        likes: [], // TODO: implement likes
-        comments: [], // TODO: implement comments
+        saves_count: 0,
+        likes: [],
+        comments: [],
       }
     })
 
@@ -118,6 +121,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
+    console.error("[GET POSTS] Fatal error:", error)
     return NextResponse.json(
       { 
         success: false,
@@ -133,654 +137,350 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/v1/posts - Create a new post
+// POST /api/v1/posts - Create new post
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient()
     
-    // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json(
-        { 
-          success: false,
-          error: "Não autorizado",
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0"
-          }
-        },
+        { error: "Não autorizado", success: false },
         { status: 401 }
       )
     }
 
-    // Get user data to check plan and limits
-    let { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id, premium_type, is_verified")
-      .eq("id", user.id)
+    // Get user profile with plan info and location data
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('premium_type, is_verified, monthly_photos_uploaded, monthly_photo_limit, latitude, longitude, location, city, uf')
+      .eq('id', user.id)
       .single()
 
-    console.log("[POST CREATE] User query result:", { userData, userError })
-
-    if (userError || !userData) {
-      console.log("[POST CREATE] User not found, creating one for user:", user.id)
-      console.log("[POST CREATE] User email:", user.email)
-      console.log("[POST CREATE] User error:", userError)
-      
-      // Try to ensure user exists in users table
-      const profileResult = await UserProfileService.ensureUserProfile(user)
-      
-      if (!profileResult.success) {
-        console.error("[POST CREATE] Failed to create user profile:", profileResult.error)
-        console.error("[POST CREATE] Error code:", profileResult.code)
-        
-        // If it's a unique constraint error, the userData might already exist
-        if (profileResult.code === '23505') {
-          console.log("[POST CREATE] Profile already exists, trying to fetch again...")
-          // Try once more to get the userData
-          const { data: existingProfile } = await supabase
-            .from("users")
-            .select("id, premium_type, is_verified")
-            .eq("id", user.id)
-            .single()
-            
-          if (existingProfile) {
-            userData = existingProfile
-            console.log("[POST CREATE] Found existing userData on retry")
-          } else {
-            return NextResponse.json(
-              { 
-                success: false,
-                error: "Erro ao carregar perfil do usuário",
-                data: null,
-                metadata: {
-                  timestamp: new Date().toISOString(),
-                  version: "1.0",
-                  userId: user.id
-                }
-              },
-              { status: 500 }
-            )
-          }
-        } else {
-          // Last attempt - force create userData with upsert
-          console.log("[POST CREATE] Final attempt with upsert...")
-          
-          const forceProfile = {
-            id: user.id,
-            auth_id: user.id,
-            email: user.email!,
-            username: `user${Date.now()}`,
-            name: user.email?.split('@')[0] || 'User',
-            premium_type: 'free',
-            is_verified: false,
-            created_at: new Date().toISOString()
-          }
-          
-          const { data: upsertProfile, error: upsertError } = await supabase
-            .from("users")
-            .upsert(forceProfile, { 
-              onConflict: 'id',
-              ignoreDuplicates: false 
-            })
-            .select("id, premium_type, is_verified")
-            .single()
-          
-          if (upsertError || !upsertProfile) {
-            console.error("[POST CREATE] Upsert also failed:", upsertError)
-            return NextResponse.json(
-              { 
-                success: false,
-                error: "Falha nas políticas RLS do banco",
-                details: "Execute o SQL de correção no Supabase Dashboard",
-                sql_file: "/supabase/migrations/20250802_fix_all_rls_policies.sql",
-                original_error: upsertError?.message || profileResult.error
-              },
-              { status: 403 }
-            )
-          }
-          
-          userData = upsertProfile
-          console.log("[POST CREATE] Profile created with upsert:", userData)
-        }
-      } else {
-        console.log("[POST CREATE] Profile created successfully")
-        
-        // Refresh userData data after creation
-        const { data: newProfile } = await supabase
-          .from("users")
-          .select("id, premium_type, is_verified")
-          .eq("id", user.id)
-          .single()
-          
-        if (!newProfile) {
-          return NextResponse.json(
-            { 
-              success: false,
-              error: "Erro ao carregar perfil criado",
-              data: null,
-              metadata: {
-                timestamp: new Date().toISOString(),
-                version: "1.0"
-              }
-            },
-            { status: 500 }
-          )
-        }
-        
-        userData = newProfile
-        console.log("[POST CREATE] Profile loaded successfully for user:", user.id)
-      }
+    if (profileError || !userProfile) {
+      return NextResponse.json(
+        { error: "Perfil não encontrado", success: false },
+        { status: 404 }
+      )
     }
 
-    // Process FormData
+    // Parse form data
     const formData = await request.formData()
-    const content = formData.get("content") as string
-    const visibility = formData.get("visibility") as string || "public"
-    const pollData = formData.get("poll") as string | null
-    
-    console.log("[POST CREATE] User:", {
-      id: user.id,
-      email: user.email,
-      plan: userData.premium_type,
-      verified: userData.is_verified
-    })
-    console.log("[POST CREATE] Content length:", content?.length || 0)
-    console.log("[POST CREATE] FormData keys:", Array.from(formData.keys()))
-    console.log("[POST CREATE] Has poll:", !!pollData)
-    
+    const content = formData.get('content') as string
+    const visibility = formData.get('visibility') as string || 'public'
+    // Fix visibility value if it's 'followers' (old value) to 'friends' (DB enum)
+    const correctedVisibility = visibility === 'followers' ? 'friends' : visibility
+    const pollData = formData.get('poll') as string
+    const audioDuration = formData.get('audio_duration') as string
+    const location = formData.get('location') as string | null
+    const latitude = formData.get('latitude') as string | null
+    const longitude = formData.get('longitude') as string | null
+
     // Validate content
-    if (!content || content.trim().length === 0) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: "Conteúdo do post é obrigatório",
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0"
-          }
-        },
-        { status: 400 }
-      )
-    }
-
-    // Check text length limits based on plan
-    const maxLength = userData.premium_type === "free" ? 280 : 
-                     userData.premium_type === "gold" ? 500 : 1000
-    
-    if (content.length > maxLength) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: `LIMIT_EXCEEDED`,
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0",
-            limit_type: "text_length",
-            current: content.length,
-            limit: maxLength
-          }
-        },
-        { status: 403 }
-      )
-    }
-
-    // Validate poll if provided
-    let poll = null
-    if (pollData) {
-      // Check if user can create polls (Gold+ plan)
-      if (userData.premium_type === "free") {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: "PLAN_REQUIRED",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0",
-              required_plan: "gold",
-              feature: "create_polls"
-            }
-          },
-          { status: 403 }
-        )
+    if (!content?.trim() && !formData.get('audio') && !pollData) {
+      let hasMedia = false
+      for (const [key] of formData.entries()) {
+        if (key.startsWith('media_')) {
+          hasMedia = true
+          break
+        }
       }
-
-      try {
-        poll = JSON.parse(pollData)
-        
-        // Validate poll structure
-        if (!poll.question || !poll.options || poll.options.length < 2 || poll.options.length > 4) {
-          throw new Error("Invalid poll structure")
-        }
-        
-        // Validate question length
-        if (poll.question.length > 200) {
-          throw new Error("Poll question too long")
-        }
-        
-        // Validate options
-        for (const option of poll.options) {
-          if (!option || option.length > 100) {
-            throw new Error("Invalid poll option")
-          }
-        }
-        
-        // Validate duration
-        if (!poll.expires_in_hours || poll.expires_in_hours < 1 || poll.expires_in_hours > 168) {
-          poll.expires_in_hours = 24 // Default to 24 hours
-        }
-      } catch (error) {
+      if (!hasMedia) {
         return NextResponse.json(
-          { 
-            success: false,
-            error: "Invalid poll data",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0"
-            }
-          },
+          { error: "Post deve ter conteúdo, mídia, áudio ou enquete", success: false },
           { status: 400 }
         )
       }
     }
 
-    // Process media files
-    const mediaFiles: File[] = []
-    let audioFile: File | null = null
-    
-    console.log("[POST CREATE] Processing FormData entries...")
-    for (const [key, value] of formData.entries()) {
-      console.log(`[POST CREATE] FormData entry: ${key} = ${value instanceof File ? `File(${value.name})` : value}`)
-      
-      if (key.startsWith("media_") && value instanceof File) {
-        mediaFiles.push(value)
-        console.log("[POST CREATE] Media file detected:", { 
-          key,
-          name: value.name, 
-          type: value.type, 
-          size: value.size,
-          isVideo: value.type.startsWith("video/")
-        })
-      } else if (key === "audio" && value instanceof File) {
-        audioFile = value
-        console.log("[POST CREATE] Audio file detected:", { 
-          name: value.name, 
-          type: value.type, 
-          size: value.size 
-        })
-      }
-    }
-    
-    console.log("[POST CREATE] Media files count:", mediaFiles.length)
-    console.log("[POST CREATE] Has audio file:", !!audioFile)
-
     // Check media upload permissions for free users
-    const isPremium = userData.premium_type !== "free"
-    
-    // Free users can upload 1 image if verified, but no videos or audio
-    if (userData.premium_type === "free") {
-      // Check if user is verified for free uploads
-      if (!userData.is_verified && (mediaFiles.length > 0 || audioFile)) {
+    if (userProfile.premium_type === 'free' && !userProfile.is_verified) {
+      const hasMedia = Array.from(formData.entries()).some(([key]) => key.startsWith('media_') || key === 'audio')
+      if (hasMedia) {
         return NextResponse.json(
           { 
-            success: false,
             error: "VERIFICATION_REQUIRED",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0",
-              required_verification: true,
-              feature: "media_upload"
-            }
-          },
-          { status: 403 }
-        )
-      }
-
-      // Free users can only upload 1 image, no videos or audio
-      if (mediaFiles.length > 1) {
-        return NextResponse.json(
-          { 
             success: false,
-            error: "LIMIT_EXCEEDED",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0",
-              limit_type: "media_per_post",
-              current: mediaFiles.length,
-              limit: 1
-            }
-          },
-          { status: 403 }
-        )
-      }
-
-      // Free users cannot upload videos or audio
-      const hasVideo = mediaFiles.some(f => f.type.startsWith("video/"))
-      if (hasVideo || audioFile) {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: "PLAN_REQUIRED",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0",
-              required_plan: "gold",
-              feature: hasVideo ? "video_upload" : "audio_upload"
-            }
+            message: "Usuários gratuitos precisam verificar a conta para fazer upload de mídia"
           },
           { status: 403 }
         )
       }
     }
 
-    // Check media count limits
-    if (userData.premium_type === "gold" && mediaFiles.length > 5) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: "LIMIT_EXCEEDED",
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0",
-            limit_type: "media_per_post",
-            current: mediaFiles.length,
-            limit: 5
+    // Handle media files
+    const mediaUrls: string[] = []
+    const mediaTypes: string[] = []
+    const mediaThumbnails: string[] = []
+    
+    try {
+      // Process regular media files
+      for (const [key, file] of formData.entries()) {
+        if (key.startsWith('media_') && file instanceof File) {
+          console.log(`[POST POSTS] Processing ${key}: ${file.name} (${file.type}, ${file.size} bytes)`)
+          
+          // Validate file type
+          if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+            return NextResponse.json(
+              { error: `Tipo de arquivo não suportado: ${file.type}`, success: false },
+              { status: 400 }
+            )
           }
-        },
-        { status: 403 }
+
+          // Check video permission for free users
+          if (file.type.startsWith('video/') && userProfile.premium_type === 'free') {
+            return NextResponse.json(
+              { 
+                error: "PLAN_REQUIRED",
+                success: false,
+                message: "Upload de vídeo requer plano Gold ou superior"
+              },
+              { status: 403 }
+            )
+          }
+
+          // Upload to Supabase Storage
+          const fileName = `${user.id}/${Date.now()}-${file.name}`
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('media')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            })
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError)
+            return NextResponse.json(
+              { error: `Erro ao fazer upload: ${uploadError.message}`, success: false },
+              { status: 500 }
+            )
+          }
+
+          // Get public URL
+          const { data: publicUrlData } = supabase.storage
+            .from('media')
+            .getPublicUrl(uploadData.path)
+
+          mediaUrls.push(publicUrlData.publicUrl)
+          mediaTypes.push(file.type)
+          // TODO: Generate thumbnail for images/videos
+          mediaThumbnails.push(publicUrlData.publicUrl) // For now, use same URL
+        }
+      }
+
+      // Process audio file
+      const audioFile = formData.get('audio') as File
+      if (audioFile && audioFile instanceof File) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[POST POSTS] Processing audio: ${audioFile.name} (${audioFile.type}, ${audioFile.size} bytes)`)
+        }
+        
+        // Validate audio file type
+        const supportedAudioTypes = [
+          'audio/webm',
+          'audio/webm;codecs=opus',
+          'audio/mp4',
+          'audio/mp4;codecs=aac',
+          'audio/wav',
+          'audio/wave',
+          'audio/x-wav'
+        ]
+        
+        if (!supportedAudioTypes.includes(audioFile.type)) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[POST POSTS] Unsupported audio type: ${audioFile.type}`)
+          }
+          return NextResponse.json(
+            { 
+              error: `Formato de áudio não suportado: ${audioFile.type}. Use WebM, MP4 ou WAV.`,
+              success: false 
+            },
+            { status: 400 }
+          )
+        }
+        
+        // Check audio permission
+        if (userProfile.premium_type === 'free' && !userProfile.is_verified) {
+          return NextResponse.json(
+            { 
+              error: "VERIFICATION_REQUIRED",
+              success: false,
+              message: "Upload de áudio requer verificação da conta"
+            },
+            { status: 403 }
+          )
+        }
+
+        // Upload audio file
+        const audioFileName = `${user.id}/audio/${Date.now()}-${audioFile.name}`
+        const { data: audioUploadData, error: audioUploadError } = await supabase.storage
+          .from('media')
+          .upload(audioFileName, audioFile, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (audioUploadError) {
+          console.error('Audio upload error:', audioUploadError)
+          return NextResponse.json(
+            { error: `Erro ao fazer upload do áudio: ${audioUploadError.message}`, success: false },
+            { status: 500 }
+          )
+        }
+
+        // Get public URL for audio
+        const { data: audioPublicUrlData } = supabase.storage
+          .from('media')
+          .getPublicUrl(audioUploadData.path)
+
+        mediaUrls.push(audioPublicUrlData.publicUrl)
+        mediaTypes.push(audioFile.type)
+      }
+
+    } catch (uploadError) {
+      console.error('Media processing error:', uploadError)
+      return NextResponse.json(
+        { error: "Erro ao processar mídia", success: false },
+        { status: 500 }
       )
     }
 
-    // Skip monthly limits check - columns don't exist
-    // TODO: Implement monthly limits when columns are added to database
+    // Parse poll data
+    let pollOptions: string[] = []
+    let pollExpiresAt: string | null = null
     
-    // Free users can't upload videos (Gold+ can)
-    if (userData.premium_type === "free") {
-      const videoFiles = mediaFiles.filter(f => f.type.startsWith("video/"))
-      if (videoFiles.length > 0) {
+    if (pollData) {
+      try {
+        const poll = JSON.parse(pollData)
+        if (poll.question && poll.options && Array.isArray(poll.options)) {
+          pollOptions = poll.options.filter((opt: string) => opt.trim())
+          if (poll.expires_in_hours) {
+            const expiresDate = new Date()
+            expiresDate.setHours(expiresDate.getHours() + poll.expires_in_hours)
+            pollExpiresAt = expiresDate.toISOString()
+          }
+        }
+      } catch (e) {
+        console.error('Poll parsing error:', e)
         return NextResponse.json(
-          { 
-            success: false,
-            error: "PLAN_REQUIRED",
-            data: null,
-            metadata: {
-              timestamp: new Date().toISOString(),
-              version: "1.0",
-              required_plan: "gold",
-              feature: "video_upload"
-            }
-          },
-          { status: 403 }
+          { error: "Dados da enquete inválidos", success: false },
+          { status: 400 }
         )
       }
     }
+
+    // Extract hashtags and mentions from content
+    const hashtags = content ? [...content.matchAll(/#[a-zA-Z0-9_]+/g)].map(m => m[0]) : []
+    const mentions = content ? [...content.matchAll(/@[a-zA-Z0-9_]+/g)].map(m => m[0]) : []
+
+    // Use user's location from profile if no location provided in form
+    const finalLatitude = latitude ? parseFloat(latitude) : userProfile.latitude
+    const finalLongitude = longitude ? parseFloat(longitude) : userProfile.longitude
+    const finalLocation = location || userProfile.location || (userProfile.city && userProfile.uf ? `${userProfile.city}, ${userProfile.uf}` : null)
 
     // Create post
-    console.log("[POST CREATE] Creating post with data:", {
+    const postData = {
       user_id: user.id,
-      content: content.trim(),
-      visibility,
-      mediaCount: mediaFiles.length,
-      hasPoll: !!poll,
-    })
-    
-    const { data: post, error } = await supabase
-      .from("posts")
-      .insert({
-        user_id: user.id,
-        content: content.trim(),
-        visibility,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("[POST CREATE] Database error:", error)
-      return NextResponse.json(
-        { 
-          success: false,
-          error: error.message || "Erro ao criar post",
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0"
-          }
-        },
-        { status: 500 }
-      )
+      content: content?.trim() || null,
+      visibility: correctedVisibility,
+      media_urls: mediaUrls.length > 0 ? mediaUrls : [],
+      media_types: mediaTypes.length > 0 ? mediaTypes : [],
+      media_thumbnails: mediaThumbnails.length > 0 ? mediaThumbnails : [],
+      location: finalLocation,
+      latitude: finalLatitude,
+      longitude: finalLongitude,
+      hashtags: hashtags.length > 0 ? hashtags : [],
+      mentions: mentions.length > 0 ? mentions : [],
+      post_type: 'regular',
+      is_premium_content: false,
+      is_event: false,
+      is_reported: false,
+      is_hidden: false,
+      report_count: 0,
+      audio_duration: audioDuration ? parseInt(audioDuration) : null,
+      poll_question: pollData ? JSON.parse(pollData).question : null,
+      poll_options: pollOptions.length > 0 ? pollOptions : null,
+      poll_expires_at: pollExpiresAt,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
 
-    // Check if post was created successfully
-    if (!post || !post.id) {
-      console.error("[POST CREATE] Post created but no ID returned")
-      return NextResponse.json(
-        { 
-          success: false,
-          error: "Erro ao criar post - ID não retornado",
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0"
-          }
-        },
-        { status: 500 }
-      )
-    }
+    console.log('[POST POSTS] Creating post with data:', postData)
 
-    console.log("[POST CREATE] Post created successfully with ID:", post.id)
-
-    // Upload media files and collect URLs
-    const mediaUrls = []
-    const mediaTypes = []
-    
-    // Upload images/videos
-    for (const file of mediaFiles) {
-      const fileExt = file.name.split(".").pop()
-      const fileName = `posts/${user.id}/${post.id}/${randomUUID()}.${fileExt}`
-      const isVideo = file.type.startsWith("video/")
-      
-      // Handle MOV files with video/quicktime MIME type
-      let uploadFile: File | Blob = file
-      let contentType = file.type
-      
-      if (file.type === "video/quicktime" || (fileExt?.toLowerCase() === "mov" && isVideo)) {
-        console.log("[POST CREATE] Converting quicktime file to mp4 blob for upload")
-        // Convert the file to a blob with mp4 content type
-        const arrayBuffer = await file.arrayBuffer()
-        uploadFile = new Blob([arrayBuffer], { type: "video/mp4" })
-        contentType = "video/mp4"
-      }
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(fileName, uploadFile, {
-          contentType: contentType,
-          upsert: false
-        })
-
-      if (!uploadError && uploadData) {
-        const { data: { publicUrl } } = supabase.storage
-          .from("media")
-          .getPublicUrl(fileName)
-
-        mediaUrls.push(publicUrl)
-        mediaTypes.push(isVideo ? "video" : "image")
-      } else {
-        console.error("[POST CREATE] Upload error:", uploadError)
-      }
-    }
-
-    // Upload audio
-    if (audioFile) {
-      const fileExt = audioFile.name.split(".").pop()
-      const fileName = `posts/${user.id}/${post.id}/audio_${randomUUID()}.${fileExt}`
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(fileName, audioFile, {
-          contentType: audioFile.type,
-          upsert: false
-        })
-
-      if (!uploadError && uploadData) {
-        const { data: { publicUrl } } = supabase.storage
-          .from("media")
-          .getPublicUrl(fileName)
-
-        mediaUrls.push(publicUrl)
-        mediaTypes.push("audio")
-      }
-    }
-
-    // Update post with media URLs if any were uploaded
-    if (mediaUrls.length > 0) {
-      const { error: updateError } = await supabase
-        .from("posts")
-        .update({ 
-          media_urls: mediaUrls,
-          media_types: mediaTypes 
-        })
-        .eq("id", post.id)
-        
-      if (updateError) {
-        console.error("[POST CREATE] Error updating post with media:", updateError)
-      }
-    }
-
-    // Create poll if provided
-    if (poll) {
-      const { data: createdPoll, error: pollError } = await supabase
-        .from("polls")
-        .insert({
-          creator_id: user.id,
-          question: poll.question,
-          options: poll.options,
-          max_options: poll.options.length,
-          allows_multiple: false,
-          expires_at: new Date(Date.now() + poll.expires_in_hours * 60 * 60 * 1000).toISOString(),
-        })
-        .select()
-        .single()
-
-      if (!pollError && createdPoll) {
-        // Link poll to post
-        await supabase
-          .from("posts")
-          .update({ poll_id: createdPoll.id })
-          .eq("id", post.id)
-      }
-    }
-
-    // Skip updating monthly counters - columns don't exist
-    // TODO: Implement when columns are added
-
-    // Fetch complete post with relationships
-    const { data: completePost, error: fetchError } = await supabase
-      .from("posts")
+    const { data: newPost, error: createError } = await supabase
+      .from('posts')
+      .insert(postData)
       .select(`
         *,
-        user:users(id, username, name, avatar_url, premium_type, is_verified, location),
-        poll:polls(*)
+        users!inner(
+          id,
+          username,
+          name,
+          avatar_url
+        )
       `)
-      .eq("id", post.id)
       .single()
-      
-    if (fetchError) {
-      console.error("[POST CREATE] Error fetching complete post:", fetchError)
-      // Retornar o post básico mesmo se houver erro
-      return NextResponse.json({
-        success: true,
-        data: {
-          ...post,
-          user: {
-            id: user.id,
-            username: userData.username || user.email?.split('@')[0],
-            name: userData.name || user.email?.split('@')[0],
-            avatar_url: userData.avatar_url || null,
-            premium_type: userData.premium_type,
-            is_verified: userData.is_verified
-          },
-          media_urls: mediaUrls,
-          audio_url: null,
-          poll: null,
-          likes_count: 0,
-          comments_count: 0,
-          shares_count: 0,
-          saves_count: 0,
-          is_liked: false,
-          is_saved: false
-        }
-      })
+
+    if (createError) {
+      console.error('Post creation error:', createError)
+      return NextResponse.json(
+        { error: `Erro ao criar post: ${createError.message}`, success: false },
+        { status: 500 }
+      )
     }
+
+    // Format poll data if exists
+    let pollData = null
+    if (newPost.poll_question && newPost.poll_options) {
+      pollData = {
+        id: `${newPost.id}_poll`,
+        question: newPost.poll_question,
+        options: newPost.poll_options.map((option: string, index: number) => ({
+          id: `${newPost.id}_option_${index}`,
+          text: option,
+          votes_count: 0,
+          percentage: 0
+        })),
+        total_votes: 0,
+        expires_at: newPost.poll_expires_at,
+        multiple_choice: false,
+        user_has_voted: false,
+        user_votes: []
+      }
+    }
+
+    // Format response
+    const formattedPost = {
+      ...newPost,
+      user: newPost.users,
+      media_urls: newPost.media_urls || [],
+      poll: pollData,
+      is_liked: false,
+      is_saved: false,
+      likes_count: 0,
+      comments_count: 0,
+      shares_count: 0,
+      saves_count: 0,
+      likes: [],
+      comments: [],
+    }
+
+    console.log('[POST POSTS] Post created successfully:', formattedPost.id)
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...completePost,
-        poll: completePost?.poll ? {
-          id: completePost.poll.id,
-          question: completePost.poll.question,
-          options: completePost.poll.options,
-          expires_at: completePost.poll.expires_at,
-          total_votes: 0,
-          user_has_voted: false,
-          user_votes: []
-        } : null,
-        likes_count: 0,
-        comments_count: 0,
-        shares_count: 0,
-        saves_count: 0,
-        is_liked: false,
-        is_saved: false
-      },
-      error: null,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        version: "1.0"
-      }
+      data: formattedPost,
+      message: "Post criado com sucesso"
     })
-  } catch (error) {
-    console.error("[POST CREATE] Fatal error:", error)
-    console.error("[POST CREATE] Error stack:", error instanceof Error ? error.stack : 'No stack')
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          success: false,
-          error: error.errors[0].message,
-          data: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            version: "1.0"
-          }
-        },
-        { status: 400 }
-      )
-    }
 
+  } catch (error) {
+    console.error('[POST POSTS] Fatal error:', error)
     return NextResponse.json(
       { 
+        error: "Erro interno do servidor", 
         success: false,
-        error: "Erro interno do servidor",
-        data: null,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          version: "1.0"
-        }
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

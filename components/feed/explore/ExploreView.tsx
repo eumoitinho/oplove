@@ -19,6 +19,7 @@ import {
   Users
 } from "lucide-react"
 import { UserAvatar } from "@/components/common/UserAvatar"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { usePremiumFeatures } from "@/hooks/usePremiumFeatures"
 import { PaymentModal } from "@/components/common/PaymentModal"
@@ -29,12 +30,15 @@ import type { UserProfile, ExploreFilters, Gender, AdultInterest } from "@/types
 
 // Opções de filtros
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'man', label: 'Homem' },
-  { value: 'woman', label: 'Mulher' },
-  { value: 'trans', label: 'Trans' },
-  { value: 'couple_mw', label: 'Casal H+M' },
-  { value: 'couple_mm', label: 'Casal H+H' },
-  { value: 'couple_ww', label: 'Casal M+M' }
+  { value: 'male', label: 'Homem' },
+  { value: 'female', label: 'Mulher' },
+  { value: 'male_trans', label: 'Trans Masculino' },
+  { value: 'female_trans', label: 'Trans Feminino' },
+  { value: 'travesti', label: 'Travesti' },
+  { value: 'crossdressing', label: 'Crossdressing' },
+  { value: 'couple', label: 'Casal (H+M)' },
+  { value: 'couple_male', label: 'Casal (H+H)' },
+  { value: 'couple_female', label: 'Casal (M+M)' }
 ]
 
 const ADULT_INTERESTS: { value: AdultInterest; label: string; category: string }[] = [

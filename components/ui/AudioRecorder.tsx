@@ -43,18 +43,134 @@ export function AudioRecorder({
     }
   }, [audioUrl])
 
+  // Verificar e solicitar permissão de microfone
+  const requestMicrophonePermission = async () => {
+    try {
+      // Primeiro, verificar se já temos permissão
+      const permission = await navigator.permissions?.query({ name: 'microphone' as PermissionName })
+      
+      if (permission?.state === 'denied') {
+        setError('Acesso ao microfone foi negado. Clique no ícone do microfone na barra de endereços para permitir o acesso.')
+        return false
+      }
+      
+      // Tentar acessar o microfone para solicitar permissão
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
+      })
+      
+      // Sucesso! Parar as tracks imediatamente (apenas teste de permissão)
+      stream.getTracks().forEach(track => track.stop())
+      return true
+      
+    } catch (err) {
+      console.error('Erro ao solicitar permissão do microfone:', err)
+      
+      let errorMessage = 'Erro ao acessar o microfone.'
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Permissão do microfone foi negada. Por favor, clique no ícone do microfone na barra de endereços e permita o acesso.'
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'Microfone não encontrado. Verifique se você tem um microfone conectado.'
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone.'
+      } else if (err.name === 'SecurityError') {
+        errorMessage = 'Acesso ao microfone bloqueado. Certifique-se de estar em uma conexão HTTPS.'
+      }
+      
+      setError(errorMessage)
+      return false
+    }
+  }
+
   // Iniciar gravação
   const startRecording = async () => {
     try {
       setError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Seu navegador não suporta gravação de áudio. Use Chrome, Firefox ou Safari atualizado.')
+        return
+      }
+      
+      // Check if MediaRecorder is supported
+      if (!window.MediaRecorder) {
+        setError('Gravação de áudio não suportada neste navegador.')
+        return
+      }
+      
+      // Solicitar permissão primeiro
+      const hasPermission = await requestMicrophonePermission()
+      if (!hasPermission) {
+        return
+      }
+      
+      // Agora realmente iniciar a gravação
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
       })
+      
+      // Detectar o dispositivo/navegador e escolher o formato mais compatível
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      
+      let mimeType = ''
+      let fileExtension = '.webm'
+      
+      if (isIOS || isSafari) {
+        // Para iOS/Safari, usar MP4 se suportado, senão WAV
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4'
+          fileExtension = '.mp4'
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav'
+          fileExtension = '.wav'
+        } else {
+          mimeType = 'audio/webm'
+          fileExtension = '.webm'
+        }
+      } else {
+        // Para outros navegadores, preferir WebM
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus'
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm'
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4'
+          fileExtension = '.mp4'
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav'
+          fileExtension = '.wav'
+        } else {
+          mimeType = ''
+        }
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎤 AudioRecorder - Selected MIME type:', mimeType, 'Extension:', fileExtension)
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, 
+        mimeType ? { mimeType: mimeType } : undefined
+      )
       
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
+      
+      // Store the mime type and extension for later use
+      mediaRecorder.selectedMimeType = mimeType
+      mediaRecorder.selectedExtension = fileExtension
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -63,8 +179,13 @@ export function AudioRecorder({
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' })
+        const finalMimeType = mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: finalMimeType })
         setAudioBlob(blob)
+        
+        // Store metadata for file creation
+        blob.selectedMimeType = finalMimeType
+        blob.selectedExtension = fileExtension
         
         // Criar URL para preview
         const url = URL.createObjectURL(blob)
@@ -92,7 +213,22 @@ export function AudioRecorder({
 
     } catch (err) {
       console.error('Erro ao acessar microfone:', err)
-      setError('Não foi possível acessar o microfone. Verifique as permissões.')
+      
+      let errorMessage = 'Erro desconhecido ao acessar o microfone.'
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Permissão negada. Clique no ícone do microfone na barra de endereços e permita o acesso ao microfone.'
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'Microfone não encontrado. Verifique se você tem um microfone conectado.'
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone.'
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Configurações do microfone não suportadas.'
+      } else if (err.name === 'SecurityError') {
+        errorMessage = 'Acesso ao microfone bloqueado por questões de segurança. Certifique-se de estar em uma conexão HTTPS.'
+      }
+      
+      setError(errorMessage)
     }
   }
 
@@ -165,9 +301,18 @@ export function AudioRecorder({
   // Enviar áudio
   const handleSend = () => {
     if (audioBlob) {
-      const file = new File([audioBlob], `audio-${Date.now()}.webm`, {
-        type: 'audio/webm;codecs=opus'
+      // Use the stored mime type and extension from the blob
+      const mimeType = audioBlob.selectedMimeType || 'audio/webm'
+      const extension = audioBlob.selectedExtension || '.webm'
+      
+      const fileName = `audio-${Date.now()}${extension}`
+      
+      console.log('🎤 AudioRecorder - Creating file:', { fileName, mimeType, size: audioBlob.size })
+      
+      const file = new File([audioBlob], fileName, {
+        type: mimeType
       })
+      
       onAudioReady(file, duration)
     }
   }
@@ -183,7 +328,30 @@ export function AudioRecorder({
     <div className={cn("p-4 bg-white dark:bg-gray-800 rounded-lg border shadow-lg", className)}>
       {error && (
         <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-          {error}
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              {error}
+            </div>
+            {error.includes('Permissão negada') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Show help modal or instructions
+                  alert(`Como permitir acesso ao microfone:
+
+1. Chrome/Edge: Clique no ícone do cadeado/microfone na barra de endereços
+2. Firefox: Clique no ícone do microfone na barra de endereços
+3. Safari: Vá em Safari > Preferências > Sites > Microfone
+
+Depois clique em "Permitir" e tente novamente.`)
+                }}
+                className="text-red-600 hover:text-red-700 text-xs h-auto py-1 px-2"
+              >
+                Ajuda
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

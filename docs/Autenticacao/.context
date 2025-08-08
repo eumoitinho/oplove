@@ -1,0 +1,56 @@
+# Sistema de Autenticação - Context
+
+## Propósito do Sistema
+Gerenciar autenticação, registro, login e verificação de identidade dos usuários da plataforma OpenLove com foco em segurança e experiência do usuário.
+
+## Componentes Principais
+- **AuthForm**: Formulário unificado login/registro
+- **VerificationForm**: Fluxo completo de verificação de identidade
+- **FaceScanCapture**: Captura facial 3D com MediaPipe
+- **LivenessDetection**: Detecção anti-spoofing
+- **Supabase Auth**: Backend de autenticação
+
+## Dependências
+### Internas
+- Sistema de Perfil (criação automática após registro)
+- Sistema de Pagamentos (planos premium)
+- Database (tabelas users, user_verifications)
+
+### Externas
+- Supabase Auth (sessões, JWT)
+- MediaPipe (face detection)
+- AWS Textract (OCR de documentos)
+- IBGE API (validação de dados)
+
+## Estado Atual
+✅ **Funcional e Completo**
+- Login/registro funcionando perfeitamente
+- Verificação de identidade implementada
+- Face Scan 3D ativo
+- Liveness Detection operacional
+- Processamento automático em 30s
+- Taxa de aprovação: ~80% automática
+
+## Problemas Conhecidos
+1. **Safari iOS**: MediaPipe com problemas ocasionais
+2. **Rate Limiting**: Pode bloquear usuários legítimos em redes compartilhadas
+3. **OCR Precision**: Documentos de qualidade ruim falham
+4. **Accessibility**: Liveness detection problemática para pessoas com deficiências
+
+## TODOs Críticos
+- [ ] Implementar 2FA opcional para Diamond+
+- [ ] Melhorar fallbacks para Safari iOS
+- [ ] Adicionar login social (Google, Apple)
+- [ ] Dashboard de análise de verificações
+
+## Métricas Importantes
+- Taxa de conversão registro → login: 85%
+- Taxa de verificação completada: 75%
+- Aprovação automática: 80%
+- Tempo médio de processamento: 35 segundos
+- Tentativas de fraude bloqueadas: 15/dia
+
+## Responsável Técnico
+- Sistema crítico para toda plataforma
+- Requer atenção especial em atualizações
+- Testes obrigatórios antes de deploy

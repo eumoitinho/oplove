@@ -1,7 +1,17 @@
 // OpenLove - Adult Social Network Types
 // Esta é uma plataforma adulta (+18) para relacionamentos e conteúdo adulto
 
-export type Gender = 'man' | 'woman' | 'trans' | 'couple_mm' | 'couple_ww' | 'couple_mw'
+// Updated to match database gender_type enum (v0.3.5)
+export type Gender = 
+  | 'male' 
+  | 'female' 
+  | 'male_trans' 
+  | 'female_trans'
+  | 'travesti'
+  | 'crossdressing'
+  | 'couple'
+  | 'couple_male'
+  | 'couple_female'
 
 export type AdultInterest = 
   // Orientações e preferências

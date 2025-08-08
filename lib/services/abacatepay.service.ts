@@ -230,7 +230,7 @@ export const getAbacatePayService = (): AbacatePayService => {
     const config: AbacatePayConfig = {
       apiKey: process.env.ABACATEPAY_API_KEY!,
       baseUrl: process.env.ABACATEPAY_BASE_URL || "https://api.abacatepay.com/v1",
-      webhookUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/v1/payments/webhook/abacatepay`,
+      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL}/api/v1/payments/webhook/abacatepay`,
     }
 
     if (!config.apiKey) {

@@ -5,41 +5,91 @@
 export type PremiumType = "free" | "gold" | "diamond" | "couple"
 export type AccountType = "personal" | "business"
 
+// Updated Gender type to match new DB enum (9 options)
+export type GenderType = 
+  | "couple"           // General couple
+  | "couple_female"    // Female couple
+  | "couple_male"      // Male couple
+  | "male"            // Cisgender male
+  | "male_trans"      // Transgender male
+  | "female"          // Cisgender female
+  | "female_trans"    // Transgender female
+  | "travesti"        // Travesti identity (Brazilian context)
+  | "crossdressing"   // Crossdressing identity
+
+export type ProfileType = "single" | "couple" | "trans" | "other"
+
 export interface User {
   id: string
+  auth_id?: string // Reference to auth.users
   email: string
   username: string
-  name: string // Changed from full_name to match database
+  name: string
+  birth_date: string | null
+  
+  // Gender & Identity (Updated with new enum)
+  gender: GenderType | null
+  profile_type?: ProfileType | null
+  
+  // Location (Updated - no more "location" field, separated)
+  city?: string | null
+  uf?: string | null // State abbreviation (2 chars)
+  latitude?: number | null
+  longitude?: number | null
+  
+  // Premium & Verification
+  premium_type: PremiumType
+  premium_status?: "active" | "inactive" | "cancelled" | "pending" | "trial"
+  premium_expires_at?: string | null
+  is_verified: boolean
+  is_business?: boolean
+  
+  // Couple Features
+  couple_id?: string | null
+  is_in_couple?: boolean
+  
+  // Profile Details
   avatar_url: string | null
   cover_url: string | null
-  bio: string
-  location: string
-  website: string
-  birth_date: string | null
-  gender: "male" | "female" | "other" | "prefer_not_to_say" | null
-  looking_for: "friendship" | "dating" | "relationship" | "networking" | null
-  premium_type: PremiumType
-  account_type?: AccountType // New field for account type
-  business_id?: string | null // Reference to business if account is business type
-  is_verified: boolean
-  is_online: boolean
-  last_seen: string | null
-  phone: string | null
-  cpf: string | null
-  address: UserAddress | null
-  preferences: UserPreferences
-  stats: UserStats
-  created_at: string
-  updated_at: string
+  bio?: string | null
+  looking_for?: string[] | null // Array of preferences
+  relationship_goals?: string[] | null
+  interests?: string[] | null
   
-  // Usage limits and counters
-  daily_message_count: number
-  daily_message_limit: number
-  monthly_photo_count: number
-  monthly_photo_limit: number
-  monthly_video_count: number
-  monthly_video_limit: number
-  storage_used: number // in bytes
+  // Settings (JSONB in DB)
+  privacy_settings?: any
+  notification_settings?: any
+  
+  // Statistics
+  stats?: any // JSONB field
+  daily_messages_sent?: number
+  daily_message_limit?: number
+  
+  // Status
+  status?: "active" | "suspended" | "banned" | "deactivated" | "pending_verification"
+  last_seen_at?: string | null
+  
+  // Timestamps
+  created_at: string
+  updated_at?: string
+  
+  // Legacy/Optional fields for compatibility
+  website?: string
+  phone?: string | null
+  cpf?: string | null
+  address?: UserAddress | null
+  preferences?: UserPreferences
+  is_online?: boolean
+  account_type?: AccountType
+  business_id?: string | null
+  
+  // Usage counters (might be calculated)
+  daily_message_count?: number
+  monthly_photo_count?: number
+  monthly_photo_limit?: number
+  monthly_video_count?: number
+  monthly_video_limit?: number
+  storage_used?: number // in bytes
 }
 
 export interface UserAddress {

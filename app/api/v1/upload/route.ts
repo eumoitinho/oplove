@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    console.log(`Processing upload: type=${type}, file=${file.name}, size=${file.size}`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Processing upload: type=${type}, file=${file.name}, size=${file.size}`)
+    }
 
     // Use the storage service for upload
     const result = await StorageServerService.uploadFile({
@@ -34,7 +36,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
-    console.log(`Upload successful: ${result.url}`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Upload successful: ${result.url}`)
+    }
 
     return NextResponse.json({ 
       url: result.url,
