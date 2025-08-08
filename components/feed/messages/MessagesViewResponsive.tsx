@@ -50,7 +50,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
   const searchParams = useSearchParams()
   const { user } = useAuth()
   const permissions = useMessagePermissions()
-  const { toast: notification } = useToast()
+  const { toast } = useToast()
   const supabase = createClient()
   
   // State
@@ -143,7 +143,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
       setConversations(conversations)
     } catch (error) {
       console.error('Error loading conversations:', error)
-      notification({
+      toast({
         title: 'Erro',
         description: 'Erro ao carregar conversas',
         variant: 'destructive'
@@ -159,7 +159,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
       setMessages(data)
     } catch (error) {
       console.error('Error loading messages:', error)
-      notification({
+      toast({
         title: 'Erro',
         description: 'Erro ao carregar mensagens',
         variant: 'destructive'
@@ -231,7 +231,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
     
     if (!permissions.canSendMessage(conversation)) {
       if (permissions.isFreePlan) {
-        notification({
+        toast({
           title: 'Plano Gratuito',
           description: 'Usuários gratuitos não podem enviar mensagens. Faça upgrade para Gold!',
           variant: 'destructive'
@@ -250,7 +250,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
       removeTypingIndicator()
     } catch (error) {
       console.error('Error sending message:', error)
-      notification({
+      toast({
         title: 'Erro',
         description: 'Erro ao enviar mensagem',
         variant: 'destructive'
@@ -280,7 +280,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification({
+      toast({
         title: 'Plano Premium',
         description: 'Apenas usuários Diamond ou Dupla Hot podem fazer chamadas',
         variant: 'destructive'
@@ -317,7 +317,7 @@ export function MessagesViewResponsive({ className }: MessagesViewProps) {
     if (!selectedConversation || !user) return
 
     if (!permissions.canMakeCalls()) {
-      notification({
+      toast({
         title: 'Plano Premium',
         description: 'Apenas usuários Diamond ou Dupla Hot podem fazer chamadas',
         variant: 'destructive'
