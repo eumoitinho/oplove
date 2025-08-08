@@ -1,8 +1,33 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Post } from '@/types/common'
-import type { UserProfile, FeedAlgorithmWeights, AdultInterest, LocationData } from '@/types/adult'
+import type { Post, User } from '@/types/database.types'
 import { TimelineCacheService, type TimelineFeedResult } from '@/lib/cache/timeline-cache'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/supabase'
+
+// Define local interfaces for feed algorithm
+interface FeedAlgorithmWeights {
+  location: number
+  interests: number
+  activity: number
+  premium: number
+  verification: number
+}
+
+interface AdultInterest {
+  id: string
+  name: string
+  category: string
+}
+
+interface LocationData {
+  latitude: number
+  longitude: number
+  city?: string
+  state?: string
+  country?: string
+}
+
+// Use User as UserProfile
+type UserProfile = User
 
 class FeedAlgorithmService {
   private supabase = createClient<Database>(

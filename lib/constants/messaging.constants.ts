@@ -3,7 +3,7 @@
  * Centralized business rules and limits for the messaging system
  */
 
-import { PremiumType } from '@/types/user.types'
+import { PremiumType } from '@/types/database.types'
 
 /**
  * Message limits by plan type

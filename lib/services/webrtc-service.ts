@@ -1,6 +1,6 @@
 import { createClient } from '@/app/lib/supabase-browser'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { User } from '@/types/common'
+import type { User } from '@/types/database.types'
 import { PlanLimitError } from './messages-service'
 
 export interface CallParticipant {

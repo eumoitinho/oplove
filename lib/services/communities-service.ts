@@ -1,6 +1,22 @@
 import { createClient } from "@/app/lib/supabase-browser"
 import type { Community, CommunityMember } from "@/types/database.types"
-import type { ApiResponse, PaginatedResponse } from "@/types/common"
+
+// Define response types locally
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    hasMore: boolean
+  }
+}
 
 // TODO: These types should be added to database.types.ts when available
 type CommunityPost = any

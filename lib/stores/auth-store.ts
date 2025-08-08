@@ -1,6 +1,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { User, AuthError } from "@/types/common"
+import type { User } from "@/types/database.types"
+
+// Define AuthError locally for now
+interface AuthError {
+  message: string
+  statusCode?: number
+}
 
 interface AuthState {
   user: User | null

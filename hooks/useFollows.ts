@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "./useAuth"
 import { supabase } from "@/lib/supabase"
-import type { User } from "@/types/common"
+import type { User } from "@/types/database.types"
 
 interface FollowStats {
   followersCount: number

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { communityService } from '@/lib/services/community.service'
 import { useAuth } from './useAuth'
-import type { Community } from '@/types/community.types'
+import type { Community } from '@/types/database.types'
 
 export function useCommunities() {
   const { user } = useAuth()

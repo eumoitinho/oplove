@@ -1,7 +1,12 @@
 import { create } from "zustand"
 import { supabase } from "@/lib/supabase"
-import type { Conversation, Message, MessagePermissions } from "@/types/chat"
-import type { User } from "@/types/common"
+import type { Conversation, Message, User } from "@/types/database.types"
+
+// Define MessagePermissions locally
+interface MessagePermissions {
+  canSend: boolean
+  reason: string | null
+}
 
 interface ChatState {
   conversations: Conversation[]

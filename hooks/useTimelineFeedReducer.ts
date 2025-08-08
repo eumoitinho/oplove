@@ -1,7 +1,7 @@
 "use client"
 
 import { useReducer, useCallback, useMemo } from "react"
-import type { Post } from "@/types/common"
+import type { Post } from "@/types/database.types"
 
 interface TimelineFeedState {
   posts: Post[]

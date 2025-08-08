@@ -3,7 +3,10 @@
 import { useMemo, useCallback } from "react"
 import { useAuth } from "./useAuth"
 import { CONTENT_LIMITS } from "@/utils/constants"
-import type { PremiumPlan } from "@/types/common"
+import type { PremiumType } from "@/types/database.types"
+
+// Type alias for backward compatibility
+type PremiumPlan = PremiumType
 
 interface PremiumFeatures {
   // Messaging

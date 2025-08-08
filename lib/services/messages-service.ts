@@ -1,6 +1,6 @@
 import { createClient } from '@/app/lib/supabase-browser'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { User } from '@/types/common'
+import type { User } from '@/types/database.types'
 import { CONTENT_LIMITS } from '@/utils/constants'
 
 export interface Message {

@@ -1,6 +1,22 @@
 import { createClient } from "@/app/lib/supabase-browser"
 import type { Event, EventParticipant, UserBasic } from "@/types/database.types"
-import type { ApiResponse, PaginatedResponse } from "@/types/common"
+
+// Define response types locally
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    hasMore: boolean
+  }
+}
 
 export class EventsService {
   private static supabase = createClient()

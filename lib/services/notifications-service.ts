@@ -1,7 +1,11 @@
 import { createSupabaseClient } from '@/lib/supabase/client'
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
-import type { NotificationData } from '@/types/common'
 import type { UserBasic, Notification as DBNotification } from '@/types/database.types'
+
+// Define NotificationData locally for now
+interface NotificationData {
+  type: 'like' | 'comment' | 'follow' | 'message' | 'subscription' | 'system'
+}
 
 // Extended notification interface with sender info
 export interface Notification extends DBNotification {

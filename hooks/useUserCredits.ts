@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './useAuth'
-import { UserCredits } from '@/types/stories.types'
+import { UserCredit } from '@/types/database.types'
+
+// Helper interface for the hook's return data structure  
+interface UserCreditsData {
+  userId: string
+  creditBalance: number
+  totalPurchased: number
+  totalSpent: number
+  totalGifted: number
+  totalReceived: number
+}
 
 export function useUserCredits() {
   const { user } = useAuth()
-  const [credits, setCredits] = useState<UserCredits | null>(null)
+  const [credits, setCredits] = useState<UserCreditsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
