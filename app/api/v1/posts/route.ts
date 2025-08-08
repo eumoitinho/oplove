@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     const profileResult = await getUserProfileOrError(
       supabase,
       user.id,
-      'id, username, premium_type, is_verified, monthly_photos_uploaded, monthly_photo_limit, latitude, longitude, location, city, uf',
+      'id, username, premium_type, is_verified, monthly_photos_uploaded, monthly_photo_limit, latitude, longitude, city, uf',
       'POST /api/v1/posts'
     )
     
@@ -388,7 +388,7 @@ export async function POST(request: NextRequest) {
     // Use user's location from profile if no location provided in form
     const finalLatitude = latitude ? parseFloat(latitude) : userProfile.latitude
     const finalLongitude = longitude ? parseFloat(longitude) : userProfile.longitude
-    const finalLocation = location || userProfile.location || (userProfile.city && userProfile.uf ? `${userProfile.city}, ${userProfile.uf}` : null)
+    const finalLocation = location || (userProfile.city && userProfile.uf ? `${userProfile.city}, ${userProfile.uf}` : null)
 
     // Create post
     const postData = {
