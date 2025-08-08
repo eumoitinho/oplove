@@ -28,7 +28,7 @@ export class PostsService {
           user:users(*),
           media:post_media(*),
           interactions:post_interactions(count),
-          comments:comments(count),
+          comments:post_comments(count)
           user_interaction:post_interactions!inner(type)
         `)
         .order("created_at", { ascending: false })
@@ -110,10 +110,10 @@ export class PostsService {
           user:users(*),
           media:post_media(*),
           interactions:post_interactions(count),
-          comments:comments(
+          comments:post_comments(
             *,
             user:users(*),
-            replies:comments(
+            replies:post_comments(
               *,
               user:users(*)
             )
@@ -532,7 +532,7 @@ export class PostsService {
       }
 
       const { data: comment, error } = await this.supabase
-        .from("comments")
+        .from("post_comments")
         .insert([
           {
             post_id: postId,
@@ -586,7 +586,7 @@ export class PostsService {
           .eq("post_id", postId)
           .eq("type", "like"),
 
-        this.supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
+        this.supabase.from("post_comments").select("*", { count: "exact", head: true }).eq("post_id", postId),
 
         this.supabase
           .from("post_interactions")

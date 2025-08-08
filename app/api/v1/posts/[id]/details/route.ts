@@ -42,7 +42,7 @@ export async function GET(
 
     // Get comments
     const { data: comments } = await supabase
-      .from("comments")
+      .from("post_comments")
       .select(`
         id,
         content,

@@ -7,7 +7,7 @@ export async function GET() {
     
     // Simple test to get all comments
     const { data: comments, error } = await supabase
-      .from('comments')
+      .from('post_comments')
       .select('id, content, created_at, post_id, user_id')
       .limit(5)
     
@@ -23,7 +23,7 @@ export async function GET() {
     
     // Count total comments
     const { count, error: countError } = await supabase
-      .from('comments')
+      .from('post_comments')
       .select('*', { count: 'exact', head: true })
     
     return NextResponse.json({

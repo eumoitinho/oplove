@@ -8,7 +8,7 @@ import { useInView } from "react-intersection-observer"
 import { PostWithComments } from "../post/PostWithComments"
 import { AdCard } from "../ads/AdCard"
 import { FeedAd } from "../ads/FeedAd"
-import CreatePost from "../create/CreatePost"
+import { CreatePost } from "../create/CreatePost"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
@@ -33,14 +33,14 @@ import { ViewManager } from "../ViewManager"
 import { StoriesCarousel } from "../../stories"
 
 // Memoized CreatePost wrapper to prevent re-renders
-const MemoizedCreatePost = memo(({ onSuccess, isMobile }: { onSuccess: (newPost: any) => void; isMobile?: boolean }) => (
+const MemoizedCreatePost = memo(({ onSuccess }: { onSuccess: (newPost: any) => void }) => (
   <motion.div
     initial={{ opacity: 0, y: -20 }}
     animate={{ opacity: 1, y: 0 }}
-    className={isMobile ? "" : "mb-6"}
+    className="mb-6"
     data-create-post
   >
-    <CreatePost onSuccess={onSuccess} isMobile={isMobile} />
+    <CreatePost onSuccess={onSuccess} />
   </motion.div>
 ))
 
@@ -85,6 +85,7 @@ export function TimelineFeed({
   
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [newPostsCount, setNewPostsCount] = useState(0)
   const [isChangingTab, setIsChangingTab] = useState(false)
   
   // Get current state from feed state manager
@@ -340,6 +341,7 @@ export function TimelineFeed({
     
     console.log('[TimelineFeed] Refreshing posts for tab:', activeTab)
     setIsRefreshing(true)
+    setNewPostsCount(0)
     
     // Clear the cache for this tab to force fresh data
     feedState.clearState(activeTab)
@@ -390,6 +392,16 @@ export function TimelineFeed({
     }
   }, [isAuthenticated, effectiveUserId, activeTab, feedState])
 
+  // Simulate real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (Math.random() > 0.7) {
+        setNewPostsCount((prev: number) => prev + 1)
+      }
+    }, 30000) // Check every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Insert ads based on user's plan and frequency
   const postsWithAds = useMemo(() => {
@@ -448,16 +460,7 @@ export function TimelineFeed({
       <div className={cn("space-y-6", className)}>
         {/* Create Post - Outside of tab content to prevent re-renders */}
         {user ? (
-          <>
-            {/* Desktop CreatePost */}
-            <div className="hidden lg:block">
-              <MemoizedCreatePost onSuccess={handleNewPost} />
-            </div>
-            {/* Mobile Floating Button */}
-            <div className="lg:hidden">
-              <MemoizedCreatePost onSuccess={handleNewPost} isMobile={true} />
-            </div>
-          </>
+          <MemoizedCreatePost onSuccess={handleNewPost} />
         ) : (
           <div className="mb-6 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-gray-200 dark:border-white/10">
             <p className="text-center text-gray-500 dark:text-gray-400">Faça login para criar posts</p>
@@ -563,6 +566,33 @@ export function TimelineFeed({
               )}
             </AnimatePresence>
 
+            {/* New Posts Toast - Twitter Style */}
+            <AnimatePresence>
+              {newPostsCount > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -50, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -50, scale: 0.95 }}
+                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
+                >
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="bg-white/95 dark:bg-black/95 backdrop-blur-sm border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white hover:bg-white dark:hover:bg-black shadow-xl rounded-full px-6 py-3 flex items-center space-x-3"
+                  >
+                    <div className="flex -space-x-2">
+                      {/* Mock avatars */}
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 border-2 border-white dark:border-black"></div>
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 border-2 border-white dark:border-black"></div>
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-yellow-400 border-2 border-white dark:border-black"></div>
+                    </div>
+                    <span className="font-medium">
+                      {newPostsCount} {newPostsCount === 1 ? "novo post" : "novos posts"}
+                    </span>
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Posts with smooth transition */}
             {/* Show loading skeleton on initial load */}
@@ -763,6 +793,7 @@ export function TimelineFeed({
     onTabChange,
     isChangingTab,
     posts.length,
+    newPostsCount,
     handleRefresh,
     isRefreshing,
     postsWithAds,

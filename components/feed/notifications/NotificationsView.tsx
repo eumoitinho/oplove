@@ -14,8 +14,8 @@ import {
   Filter,
   X
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { formatTimeAgo } from '@/utils/notification-formatter'
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -59,16 +59,27 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     }
   }
 
+  // Use real-time notifications hook
+  useRealtimeNotifications({
+    enabled: true,
+    showToast: true,
+    playSound: true,
+    onNotification: (notification) => {
+      // Add to the notifications list
+      addNotification(notification as any)
+    }
+  })
 
-  // Subscribe to real-time notifications
+  // Subscribe to real-time notifications (legacy - will be removed)
   useEffect(() => {
     if (!user) return
 
     const unsubscribe = notificationsService.subscribeToNotifications(
       user.id,
       (notification) => {
+        // Already handled by useRealtimeNotifications
+        // Just add to list without toast (to avoid duplicates)
         addNotification(notification)
-        toast.info(notification.content || notification.message || 'Nova notificação')
       }
     )
 
@@ -453,10 +464,7 @@ export function NotificationsView({ className }: NotificationsViewProps) {
                           
                           <div className="flex items-center gap-4 mt-2">
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatDistanceToNow(new Date(notification.created_at), {
-                                addSuffix: true,
-                                locale: ptBR
-                              })}
+                              {formatTimeAgo(notification.created_at)}
                             </p>
                             
                             {/* Quick Actions */}

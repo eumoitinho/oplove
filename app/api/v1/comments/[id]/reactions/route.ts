@@ -31,7 +31,7 @@ export async function POST(
 
     // Verificar se o comentário existe e está acessível
     const { data: comment, error: commentError } = await supabase
-      .from('comments')
+      .from('post_comments')
       .select(`
         id, 
         user_id,
@@ -72,7 +72,7 @@ export async function POST(
 
         // Buscar contadores atualizados
         const { data: updatedComment } = await supabase
-          .from('comments')
+          .from('post_comments')
           .select(`
             like_count, love_count, laugh_count, 
             wow_count, sad_count, angry_count
@@ -103,7 +103,7 @@ export async function POST(
 
         // Buscar contadores atualizados
         const { data: updatedComment } = await supabase
-          .from('comments')
+          .from('post_comments')
           .select(`
             like_count, love_count, laugh_count, 
             wow_count, sad_count, angry_count
@@ -151,7 +151,7 @@ export async function POST(
 
       // Buscar contadores atualizados
       const { data: updatedComment } = await supabase
-        .from('comments')
+        .from('post_comments')
         .select(`
           like_count, love_count, laugh_count, 
           wow_count, sad_count, angry_count
@@ -190,7 +190,7 @@ export async function GET(
 
     // Verificar se o comentário existe e está acessível
     const { data: comment, error: commentError } = await supabase
-      .from('comments')
+      .from('post_comments')
       .select(`
         id, 
         user_id,
@@ -255,7 +255,7 @@ export async function GET(
 
     // Buscar contadores de reações
     const { data: countsData } = await supabase
-      .from('comments')
+      .from('post_comments')
       .select(`
         like_count, love_count, laugh_count, 
         wow_count, sad_count, angry_count

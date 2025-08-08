@@ -305,6 +305,89 @@
   }
 }
 
+/* =================================================================
+   MESSAGES VIEW SPECIFIC STYLES
+   ================================================================= */
+
+/* Desktop - Messages occupy FULL SCREEN like Twitter/X */
+@media (min-width: 1440px) {
+  .messages-active .feed-container {
+    max-width: 100vw;
+    padding: 0;
+  }
+  
+  .messages-active .feed-grid {
+    display: block;
+    height: calc(100vh - 80px);
+  }
+  
+  .messages-active .feed-timeline {
+    position: fixed;
+    top: 80px; /* Header height */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: calc(100vh - 80px);
+    overflow: hidden;
+    padding: 0;
+    max-width: none;
+  }
+  
+  /* Hide BOTH sidebars when in messages view */
+  .messages-active .feed-left-sidebar,
+  .messages-active .feed-right-sidebar {
+    display: none;
+  }
+}
+
+/* Tablet - Messages view adapted - FULL SCREEN */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .messages-active .feed-container {
+    max-width: 100vw;
+    padding: 0;
+  }
+  
+  .messages-active .feed-grid {
+    display: block;
+    height: calc(100vh - 80px);
+  }
+  
+  .messages-active .feed-timeline {
+    position: fixed;
+    top: 80px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: calc(100vh - 80px);
+    overflow: hidden;
+    padding: 0;
+    max-width: none;
+  }
+  
+  .messages-active .feed-left-sidebar,
+  .messages-active .feed-right-sidebar {
+    display: none;
+  }
+}
+
+/* Mobile - Messages fixed between header and bottom */
+@media (max-width: 1023px) {
+  .messages-active .feed-timeline {
+    position: fixed;
+    top: 64px; /* Header height */
+    bottom: 80px; /* Bottom bar height */
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: calc(100vh - 144px); /* Total minus header and bottom */
+    padding: 0;
+    overflow: hidden;
+    max-width: none;
+  }
+}
+
 /* Utility classes for sidebar styling */
 .sidebar-sticky {
   position: sticky;

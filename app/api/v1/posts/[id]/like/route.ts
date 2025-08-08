@@ -22,44 +22,58 @@ export async function POST(
     }
 
     // Check if already liked
-    const { data: existingLike, error: checkError } = await supabase
+    const { data: existingLike } = await supabase
       .from("post_likes")
       .select("id")
       .eq("post_id", postId)
       .eq("user_id", user.id)
       .single()
 
-    // single() returns error if no rows found, which is fine
+    let isLiked = false
+    let likesCount = 0
+
     if (existingLike) {
-      console.log('[Like API] Post already liked by user')
-      return NextResponse.json(
-        { error: "Post já foi curtido", success: false },
-        { status: 400 }
-      )
-    }
+      // Unlike - remove existing like
+      console.log('[Like API] Unlike - removing existing like')
+      const { error: deleteError } = await supabase
+        .from("post_likes")
+        .delete()
+        .eq("id", existingLike.id)
 
-    // Create like
-    const { error } = await supabase
-      .from("post_likes")
-      .insert({
-        post_id: postId,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      })
-
-    if (error) {
-      console.error('[Like API] Error creating like:', error)
-      // Check if it's a duplicate key error
-      if (error.code === '23505') {
+      if (deleteError) {
+        console.error('[Like API] Error removing like:', deleteError)
         return NextResponse.json(
-          { error: "Post já foi curtido", success: false },
+          { error: deleteError.message, success: false },
           { status: 400 }
         )
       }
-      return NextResponse.json(
-        { error: error.message, success: false },
-        { status: 400 }
-      )
+      isLiked = false
+    } else {
+      // Like - create new like
+      console.log('[Like API] Like - creating new like')
+      const { error: insertError } = await supabase
+        .from("post_likes")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+        })
+
+      if (insertError) {
+        console.error('[Like API] Error creating like:', insertError)
+        // Check if it's a duplicate key error (race condition)
+        if (insertError.code === '23505') {
+          return NextResponse.json(
+            { error: "Conflito de concorrência, tente novamente", success: false },
+            { status: 409 }
+          )
+        }
+        return NextResponse.json(
+          { error: insertError.message, success: false },
+          { status: 400 }
+        )
+      }
+      isLiked = true
     }
 
     // Get updated post with like count and author info
@@ -69,8 +83,11 @@ export async function POST(
       .eq("id", postId)
       .single()
 
-    // Send notification to post author (if not liking own post)
-    if (post && post.user_id !== user.id) {
+    // Send notification to post author (only if liking, not unliking, and not own post)
+    let isMutualLike = false
+    let mutualUserData = null
+    
+    if (post && post.user_id !== user.id && isLiked) {
       console.log('[Like API] Creating notification for post author:', post.user_id)
       
       // Get username of the user who liked
@@ -80,14 +97,47 @@ export async function POST(
         .eq("id", user.id)
         .single()
       
+      // Check for mutual like - does the post author like any of this user's posts?
+      const { data: mutualLikes } = await supabase
+        .from("post_likes")
+        .select("id")
+        .eq("user_id", post.user_id)
+        .in("post_id", 
+          supabase
+            .from("posts")
+            .select("id")
+            .eq("user_id", user.id)
+        )
+        .limit(1)
+      
+      if (mutualLikes && mutualLikes.length > 0) {
+        isMutualLike = true
+        
+        // Get post author's info for mutual like notification
+        const { data: postAuthor } = await supabase
+          .from("users")
+          .select("id, username, name")
+          .eq("id", post.user_id)
+          .single()
+        
+        mutualUserData = postAuthor
+      }
+      
+      // Create notification with proper format
+      const notificationTitle = `${likerUser?.username || 'Alguém'} curtiu sua foto`
+      const notificationMessage = isMutualLike 
+        ? `${likerUser?.username || 'Alguém'} também curtiu você! 💕 Que tal mandar uma mensagem?`
+        : `${likerUser?.username || 'Alguém'} curtiu sua foto`
+      
       const { error: notificationError } = await supabase
         .from("notifications")
         .insert({
           recipient_id: post.user_id,
           sender_id: user.id,
-          type: "like",
-          title: `${likerUser?.username || likerUser?.name || 'Alguém'} curtiu seu post`,
-          message: "Seu post recebeu uma nova curtida!",
+          type: isMutualLike ? "mutual_like" : "like",
+          title: notificationTitle,
+          message: notificationMessage,
+          content: notificationMessage, // Use content field for new format
           entity_id: postId,
           entity_type: "post",
           is_read: false,
@@ -103,7 +153,11 @@ export async function POST(
       success: true,
       data: {
         likes_count: post?.likes_count || 0,
-        is_liked: true,
+        is_liked: isLiked,
+        action: isLiked ? 'liked' : 'unliked',
+        mutual_like: isMutualLike,
+        mutual_user: mutualUserData?.username,
+        mutual_user_id: mutualUserData?.id
       },
     })
   } catch (error) {

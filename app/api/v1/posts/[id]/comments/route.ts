@@ -23,7 +23,7 @@ export async function GET(
 
     // First try a simple query to see if the table exists
     const { data: comments, error } = await supabase
-      .from("comments")
+      .from("post_comments")
       .select("*")
       .eq("post_id", postId)
       .order("created_at", { ascending: false })
@@ -101,7 +101,7 @@ export async function POST(
     
     // Create comment
     const { data: comment, error } = await supabase
-      .from("comments")
+      .from("post_comments")
       .insert({
         post_id: postId,
         user_id: user.id,
@@ -131,15 +131,31 @@ export async function POST(
     // Send notification to post author (if not commenting on own post)
     if (post && post.user_id !== user.id) {
       console.log('[Comments API] Creating notification for post author:', post.user_id)
+      
+      // Get username of the commenter
+      const { data: commenterUser } = await supabase
+        .from("users")
+        .select("username, name")
+        .eq("id", user.id)
+        .single()
+      
+      const username = commenterUser?.username || commenterUser?.name || 'Alguém'
+      const commentPreview = content.length > 50 
+        ? content.substring(0, 50) + '...'
+        : content
+      
+      // Create notification with proper format
+      const notificationMessage = `${username} comentou: "${commentPreview}"`
+      
       const { error: notificationError } = await supabase
         .from("notifications")
         .insert({
           recipient_id: post.user_id,
           sender_id: user.id,
           type: "comment",
-          title: `Novo comentário`,
-          content: `${user.email?.split('@')[0] || 'Alguém'} comentou no seu post`,
-          message: `${user.email?.split('@')[0] || 'Alguém'} comentou no seu post`,
+          title: notificationMessage,
+          content: notificationMessage,
+          message: notificationMessage, // For backward compatibility
           entity_id: postId,
           entity_type: "post",
           related_data: JSON.stringify({ 

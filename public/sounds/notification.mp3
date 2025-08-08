@@ -1,0 +1,18 @@
+# Notification Sound File
+This is a placeholder for the notification sound file.
+You should add a real MP3 file here for notification sounds.
+
+Recommended: A short, pleasant notification sound (0.5-1 second)
+- Format: MP3
+- Size: < 50KB
+- Volume: Moderate (will be played at 50% volume)
+
+You can use free sounds from:
+- https://freesound.org
+- https://zapsplat.com
+- https://soundbible.com
+
+Or generate one with:
+- Web Audio API
+- Tone.js
+- Audio synthesis tools

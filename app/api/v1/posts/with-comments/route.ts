@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       
       // Get comments for all posts
       supabase
-        .from("comments")
+        .from("post_comments")
         .select(`
           id,
           post_id,

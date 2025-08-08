@@ -10,7 +10,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { Post } from "@/types/post.types"
 import { SecureMedia } from "@/components/common/SecureMedia"
 import { usePostInteractions } from "@/hooks/usePostInteractions"
+import { useOptimisticLike } from "@/hooks/useOptimisticLike"
 import { CommentsModal } from "@/components/feed/comments/CommentsModal"
+import { RepostModal } from "./RepostModal"
 import { AudioPlayer } from "@/components/common/ui/AudioPlayer"
 import { PostPoll } from "./PostPoll"
 import { useRestrictionModal } from "@/components/common/RestrictionModal"
@@ -26,8 +28,8 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   const { user } = useAuth()
   const router = useRouter()
   const [post] = useState(initialPost)
-  const [isLikeAnimating, setIsLikeAnimating] = useState(false)
   const [showComments, setShowComments] = useState(false)
+  const [showRepost, setShowRepost] = useState(false)
   const [showMediaViewer, setShowMediaViewer] = useState(false)
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const { showRestriction } = useRestrictionModal()
@@ -51,15 +53,27 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
     }
   }
   
+  // Use optimistic like hook for instant feedback
   const {
     isLiked,
-    isSaved,
     likesCount,
+    isAnimating: isLikeAnimating,
+    isPending: isLikePending,
+    toggleLike,
+    handleDoubleTap
+  } = useOptimisticLike({
+    postId: post.id,
+    initialLiked: post.is_liked || false,
+    initialCount: post.likes_count || 0
+  })
+  
+  // Use regular interactions for other actions
+  const {
+    isSaved,
     commentsCount,
     sharesCount,
     savesCount,
     isLoading,
-    handleLike: hookHandleLike,
     handleSave: hookHandleSave,
     handleShare: hookHandleShare,
     handleComment,
@@ -75,8 +89,6 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   })
 
   const handleLike = () => {
-    if (isLoading) return
-    
     // Check if user is logged in
     if (!user) {
       showRestriction('premium_required', {
@@ -86,9 +98,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
       return
     }
     
-    setIsLikeAnimating(true)
-    setTimeout(() => setIsLikeAnimating(false), 600)
-    hookHandleLike()
+    toggleLike()
   }
 
   const handleSave = () => {
@@ -97,8 +107,15 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
   }
   
   const handleShare = () => {
-    if (isLoading) return
-    hookHandleShare()
+    if (!user) {
+      showRestriction('premium_required', {
+        feature: 'repostar',
+        requiredPlan: 'free'
+      })
+      return
+    }
+    
+    setShowRepost(true)
   }
   
   const handleCommentClick = () => {
@@ -213,7 +230,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           </div>
 
           {/* Post Content */}
-          <div className="mt-3 space-y-4">
+          <div className="mt-3 space-y-4" onDoubleClick={handleDoubleTap}>
             {post.content && (
               <div className="whitespace-pre-wrap text-gray-800 dark:text-white/90 leading-relaxed">
                 {post.content.split(/(\s+)/).map((word, index) => {
@@ -440,7 +457,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
             <Button
               variant="ghost"
               onClick={handleLike}
-              disabled={isLoading}
+              disabled={isLikePending}
               className={`hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-all duration-300 group/btn ${
                 isLiked
                   ? "text-orange-500 dark:text-orange-400"
@@ -450,7 +467,7 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
               <Flame
                 className={`w-5 h-5 mr-2 transition-all duration-300 ${
                   isLiked ? "fill-current" : ""
-                } ${isLikeAnimating ? "animate-fire-like" : "group-hover/btn:scale-110"}`}
+                } ${isLikeAnimating ? "animate-fire-like scale-125" : "group-hover/btn:scale-110"}`}
                 style={{
                   background: isLiked ? "linear-gradient(45deg, #db2777, #a855f7, #06b6d4, #f97316)" : undefined,
                   WebkitBackgroundClip: isLiked ? "text" : undefined,
@@ -486,6 +503,19 @@ export function PostCard({ post: initialPost, onCommentClick }: PostCardProps) {
           onCommentAdded={() => {
             // Update comment count when a new comment is added
             incrementCommentCount()
+          }}
+        />
+      )}
+      
+      {/* Repost Modal */}
+      {showRepost && (
+        <RepostModal
+          post={post}
+          isOpen={showRepost}
+          onClose={() => setShowRepost(false)}
+          onSuccess={() => {
+            // Could update share count here if needed
+            hookHandleShare()
           }}
         />
       )}

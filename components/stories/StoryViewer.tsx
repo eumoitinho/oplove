@@ -212,23 +212,48 @@ export default function StoryViewer({
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!replyMessage.trim()) return
+    if (!replyMessage.trim() || !currentStory?.user?.id) return
 
     try {
-      const response = await fetch(`/api/v1/stories/${currentStory.id}/reply`, {
+      // First, create or get conversation with the story owner
+      const convResponse = await fetch('/api/v1/conversations/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ message: replyMessage })
+        body: JSON.stringify({ recipientId: currentStory.user.id })
       })
 
-      if (response.ok) {
+      const convResult = await convResponse.json()
+      
+      if (!convResult.success) {
+        toast.error(convResult.error || 'Erro ao criar conversa')
+        return
+      }
+
+      // Then send the message referencing the story
+      const msgResponse = await fetch(`/api/v1/conversations/${convResult.data.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          content: `[Resposta ao story]: ${replyMessage}`,
+          metadata: {
+            story_id: currentStory.id,
+            story_media_url: currentStory.media_url
+          }
+        })
+      })
+
+      if (msgResponse.ok) {
         toast.success('Mensagem enviada!')
         setReplyMessage('')
         setShowReplyInput(false)
+      } else {
+        const error = await msgResponse.json()
+        toast.error(error.message || 'Erro ao enviar mensagem')
       }
     } catch (error) {
-      console.error('Error sending reply:', error)
+      console.error('Error sending story reply:', error)
       toast.error('Erro ao enviar mensagem')
     }
   }

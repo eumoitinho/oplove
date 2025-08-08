@@ -60,7 +60,8 @@
       "Bash(npm run lint)",
       "Bash(del \"D:\\MSYNC PESSOAL\\oplove\\contexts\\ThemeContext.tsx\")",
       "Bash(del run-video-calls-migration.js)",
-      "Bash(timeout 120 npm run build)"
+      "Bash(timeout 120 npm run build)",
+      "WebFetch(domain:supabase.com)"
     ],
     "deny": []
   }

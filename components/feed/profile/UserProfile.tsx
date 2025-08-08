@@ -413,34 +413,32 @@ export function UserProfile({ userId }: UserProfileProps) {
     }
 
     try {
-      // Create conversation using new API
-      const response = await fetch('/api/v1/conversations/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recipientId: user.id
-        })
-      })
-
-      const result = await response.json()
+      // Import chat service
+      const { chatService } = await import('@/lib/services/chat-service')
       
-      if (!result.success) {
-        if (result.errorType === 'PLAN_LIMIT') {
-          toast.error(`${result.error}. Faça upgrade para ${result.requiredPlan}!`)
-        } else {
-          toast.error(result.error || "Erro ao iniciar conversa")
-        }
+      // Create or get existing conversation
+      const conversation = await chatService.getOrCreateDirectConversation(
+        currentUser.id,
+        user.id
+      )
+      
+      if (!conversation) {
+        toast.error('Erro ao iniciar conversa')
         return
       }
       
-      // Navigate to messages view with the conversation selected
-      router.push(`/feed?view=messages&conversationId=${result.data.id}`)
-      toast.success(`Conversa iniciada com ${user.name}`)
+      // Navigate to chat view with the conversation selected
+      router.push(`/feed?view=chat&conversationId=${conversation.id}`)
+      toast.success(`Conversa iniciada com ${user.name || user.username}`)
     } catch (error) {
       console.error('Error creating conversation:', error)
-      toast.error('Erro ao iniciar conversa')
+      
+      // Check for specific error messages
+      if (error?.message?.includes('gratuitos')) {
+        toast.error('Usuários gratuitos não podem iniciar conversas. Faça upgrade para Gold!')
+      } else {
+        toast.error('Erro ao iniciar conversa')
+      }
     }
   }, [currentUser, user, permissions, router])
 
