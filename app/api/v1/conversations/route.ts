@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     )
 
     return NextResponse.json({
-      conversations,
+      success: true,
+      data: conversations,
       pagination: {
         limit,
         offset,
@@ -42,7 +43,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching conversations:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch conversations' },
+      { 
+        success: false,
+        error: 'Failed to fetch conversations',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

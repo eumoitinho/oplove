@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/client'
-import { Database } from '@/types/supabase'
+import { createSupabaseClient } from '@/lib/supabase/client'
+import { Database } from '@/types/database'
 import { ConversationCacheService } from '@/lib/cache/conversation-cache.service'
 
 type Message = Database['public']['Tables']['messages']['Row']
@@ -38,7 +38,7 @@ export interface MessageWithSender extends Message {
 }
 
 export class MessageService {
-  private supabase = createClient()
+  private supabase = createSupabaseClient()
   private cacheService = new ConversationCacheService()
 
   /**

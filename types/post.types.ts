@@ -8,8 +8,8 @@ import type {
   UserPostInteractions,
   PostComment,
   PostLike,
-  PostShare,
-  PostSave
+  PostShare as InteractionPostShare,
+  PostSave as InteractionPostSave
 } from "./interactions.types"
 
 export interface Post extends Partial<PostInteractionCounters>, Partial<UserPostInteractions> {
@@ -78,8 +78,8 @@ export interface Post extends Partial<PostInteractionCounters>, Partial<UserPost
   users?: User // Supabase returns 'users' from join, not 'user'
   comments?: PostComment[]
   likes?: PostLike[]
-  shares?: PostShare[]
-  saves?: PostSave[]
+  shares?: InteractionPostShare[]
+  saves?: InteractionPostSave[]
   poll?: PostPoll | null
   user_interaction?: PostUserInteraction | null
 }

@@ -5,13 +5,13 @@ import type { NotificationData, User } from '@/types/common'
 // Extended notification interface matching actual database columns
 export interface Notification {
   id: string
-  user_id: string  // who receives the notification
-  from_user_id?: string  // who triggered the notification
+  recipient_id: string  // who receives the notification (corrected column name)
+  sender_id?: string  // who triggered the notification (corrected column name)
   sender?: User  // populated from join
   type: 'like' | 'comment' | 'follow' | 'message' | 'post'
   title: string
   message: string
-  read: boolean
+  is_read: boolean  // corrected column name
   entity_id?: string // ID of the related entity (post, comment, etc)
   entity_type?: 'post' | 'comment' | 'message' | 'follow'
   action_taken?: boolean // For follow notifications - if user followed back
@@ -50,7 +50,7 @@ class NotificationsService {
         .from('notifications')
         .select(`
           *,
-          sender:users!from_user_id(
+          sender:users!sender_id(
             id,
             username,
             name,
@@ -59,7 +59,7 @@ class NotificationsService {
             premium_type
           )
         `)
-        .eq('user_id', userId)
+        .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .limit(Math.min(limit, 20))
       
@@ -112,8 +112,8 @@ class NotificationsService {
       const { count, error } = await this.supabase
         .from('notifications')
         .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('read', false)
+        .eq('recipient_id', userId)
+        .eq('is_read', false)
 
       if (error) {
         console.error('NotificationsService - getUnreadCount error:', error)
@@ -132,7 +132,7 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ is_read: true })
         .eq('id', notificationId)
 
       if (error) throw error
@@ -146,9 +146,9 @@ class NotificationsService {
     try {
       const { error } = await this.supabase
         .from('notifications')
-        .update({ read: true })
-        .eq('user_id', userId)
-        .eq('read', false)
+        .update({ is_read: true })
+        .eq('recipient_id', userId)
+        .eq('is_read', false)
 
       if (error) throw error
     } catch (error) {

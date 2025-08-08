@@ -52,10 +52,28 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
+    // Test 3: Try the SQL function directly
+    let functionResult = null
+    try {
+      const { data: funcData, error: funcError } = await supabase
+        .rpc('get_user_conversations', {
+          p_user_id: user.id,
+          p_limit: 5,
+          p_offset: 0
+        })
+      
+      functionResult = { data: funcData, error: funcError }
+      console.log('🔍 Function result:', functionResult)
+    } catch (funcErr) {
+      console.log('🔍 Function error:', funcErr)
+      functionResult = { error: funcErr }
+    }
+
     return NextResponse.json({
       conversations: conversations || [],
       userParticipants,
-      conversationIds
+      conversationIds,
+      functionResult
     })
   } catch (error: any) {
     console.error('🔍 Test API error:', error)
