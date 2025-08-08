@@ -1,0 +1,25 @@
+# Ignore test files and folders
+**/*test*
+**/*Test*
+**/test/**
+**/tests/**
+**/__tests__/**
+*.test.*
+*.spec.*
+
+# Ignore debug files
+**/debug/**
+**/*debug*
+
+# Ignore backup files
+*.bak
+*.backup
+*~
+
+# Ignore development files
+.env.local
+.env.development
+
+# Ignore admin folder issues
+app/\(admin\)/**
+app/admin-backup/**
