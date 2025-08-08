@@ -46,14 +46,6 @@ export type StoryDailyLimitUpdate = Database['public']['Tables']['story_daily_li
 // Story reaction enum
 export type StoryReaction = Database['public']['Enums']['story_reaction']
 
-export type ProfileSeal = Database['public']['Tables']['profile_seals']['Row']
-export type ProfileSealInsert = Database['public']['Tables']['profile_seals']['Insert']
-export type ProfileSealUpdate = Database['public']['Tables']['profile_seals']['Update']
-
-export type UserProfileSeal = Database['public']['Tables']['user_profile_seals']['Row']
-export type UserProfileSealInsert = Database['public']['Tables']['user_profile_seals']['Insert']
-export type UserProfileSealUpdate = Database['public']['Tables']['user_profile_seals']['Update']
-
 // User related enums
 export type PremiumType = Database['public']['Enums']['premium_type']
 
@@ -145,13 +137,14 @@ export type DatingProfile = Database['public']['Tables']['dating_profiles']['Row
 export type DatingProfileInsert = Database['public']['Tables']['dating_profiles']['Insert']
 export type DatingProfileUpdate = Database['public']['Tables']['dating_profiles']['Update']
 
-export type Match = Database['public']['Tables']['matches']['Row']
-export type MatchInsert = Database['public']['Tables']['matches']['Insert']
-export type MatchUpdate = Database['public']['Tables']['matches']['Update']
+// TODO: These tables don't exist yet in current schema
+// export type Match = Database['public']['Tables']['matches']['Row']
+// export type MatchInsert = Database['public']['Tables']['matches']['Insert']
+// export type MatchUpdate = Database['public']['Tables']['matches']['Update']
 
-export type Swipe = Database['public']['Tables']['swipes']['Row']
-export type SwipeInsert = Database['public']['Tables']['swipes']['Insert']
-export type SwipeUpdate = Database['public']['Tables']['swipes']['Update']
+// export type Swipe = Database['public']['Tables']['swipes']['Row']
+// export type SwipeInsert = Database['public']['Tables']['swipes']['Insert']
+// export type SwipeUpdate = Database['public']['Tables']['swipes']['Update']
 
 // ============================================================================
 // Verification & Moderation Types
@@ -161,9 +154,10 @@ export type UserVerification = Database['public']['Tables']['user_verifications'
 export type UserVerificationInsert = Database['public']['Tables']['user_verifications']['Insert']
 export type UserVerificationUpdate = Database['public']['Tables']['user_verifications']['Update']
 
-export type Report = Database['public']['Tables']['reports']['Row']
-export type ReportInsert = Database['public']['Tables']['reports']['Insert']
-export type ReportUpdate = Database['public']['Tables']['reports']['Update']
+// TODO: Reports table doesn't exist yet in current schema
+// export type Report = Database['public']['Tables']['reports']['Row']
+// export type ReportInsert = Database['public']['Tables']['reports']['Insert']
+// export type ReportUpdate = Database['public']['Tables']['reports']['Update']
 
 export type AdminUser = Database['public']['Tables']['admin_users']['Row']
 export type AdminUserInsert = Database['public']['Tables']['admin_users']['Insert']

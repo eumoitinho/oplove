@@ -136,11 +136,13 @@ export function NotificationsView({ className }: NotificationsViewProps) {
     switch (notification.type) {
       case 'like':
       case 'comment':
-        // For posts, we could navigate to feed or show post details
-        // For now, stay in current view since posts are displayed in timeline
+        // Navigate to timeline to see post interactions
+        router.push('/feed?view=timeline')
         break
       case 'follow':
+      case 'friend_request_accepted':
         if (notification.sender_id) {
+          // Navigate to user profile
           router.push(`/feed?view=user-profile&userId=${notification.sender_id}`)
         }
         break
@@ -148,8 +150,12 @@ export function NotificationsView({ className }: NotificationsViewProps) {
         router.push('/feed?view=messages')
         break
       case 'post':
-        // Stay in timeline since new posts will appear there
-        router.push('/feed')
+        // Navigate to timeline to see new posts
+        router.push('/feed?view=timeline')
+        break
+      default:
+        // Default to timeline for unknown types
+        router.push('/feed?view=timeline')
         break
     }
   }

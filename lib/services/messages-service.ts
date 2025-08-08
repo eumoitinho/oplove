@@ -273,6 +273,22 @@ class MessagesService {
 
   // Get messages for a conversation
   async getMessages(conversationId: string, limit = 50, offset = 0) {
+    console.log('🔍 Getting messages for conversation:', conversationId)
+    
+    // First verify the conversation exists and user has access
+    const { data: participation, error: participationError } = await this.supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', (await this.supabase.auth.getUser()).data.user?.id)
+      .is('left_at', null)
+      .single()
+
+    if (participationError || !participation) {
+      console.error('User not participant in conversation:', conversationId)
+      throw new Error('You do not have access to this conversation')
+    }
+    
     const { data, error } = await this.supabase
       .from('messages')
       .select(`
@@ -283,7 +299,13 @@ class MessagesService {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (error) throw error
+    console.log('🔍 Messages query result:', { data, error, count: data?.length })
+
+    if (error) {
+      console.error('Messages query error:', error)
+      throw new Error(`Failed to load messages: ${error.message}`)
+    }
+    
     return data?.reverse() || []
   }
 

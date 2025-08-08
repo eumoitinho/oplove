@@ -97,8 +97,17 @@ export function MessagesView() {
   // Load messages when conversation selected
   useEffect(() => {
     if (selectedConversation) {
-      loadMessages(selectedConversation)
-      markMessagesAsRead(selectedConversation)
+      // Verify the conversation exists before loading messages
+      const conversation = conversations.find(c => c.id === selectedConversation)
+      if (conversation) {
+        loadMessages(selectedConversation)
+        markMessagesAsRead(selectedConversation)
+      } else {
+        console.warn('⚠️ Selected conversation not found:', selectedConversation)
+        setMessages([]) // Clear messages for non-existent conversation
+        setSelectedConversation(null) // Deselect invalid conversation
+        return
+      }
       
       // Subscribe to new messages
       const channel = messagesService.subscribeToMessages(
@@ -147,10 +156,17 @@ export function MessagesView() {
 
   const loadMessages = async (conversationId: string) => {
     try {
+      console.log('🔍 Loading messages for conversation:', conversationId)
       const data = await messagesService.getMessages(conversationId)
+      console.log('🔍 Messages loaded:', data)
       setMessages(data)
     } catch (error) {
       console.error('Error loading messages:', error)
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        conversationId
+      })
       notification.error('Erro ao carregar mensagens')
     }
   }
@@ -1002,6 +1018,31 @@ export function MessagesView() {
             {loading ? (
               <div className="p-4 text-center">
                 <p className="text-gray-500">Carregando conversas...</p>
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Send className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Nenhuma conversa ainda
+                </h3>
+                <p className="text-gray-500 dark:text-white/60 text-sm mb-4">
+                  {permissions.isFreePlan 
+                    ? "Faça upgrade para Gold+ para iniciar conversas" 
+                    : "Comece uma nova conversa ou aguarde alguém te chamar"
+                  }
+                </p>
+                {!permissions.isFreePlan && (
+                  <Button
+                    onClick={() => setShowNewConversationModal(true)}
+                    size="sm"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Conversa
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="p-2">
