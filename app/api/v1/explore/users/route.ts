@@ -1,7 +1,22 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/auth/server'
 import { createServerClient } from '@/lib/supabase/server'
-import type { ExploreFilters } from '@/types/adult'
+
+// Define ExploreFilters locally
+interface ExploreFilters {
+  distance_km: number
+  age_range: {
+    min: number
+    max: number
+  }
+  gender: string[]
+  interests: string[]
+  verification_required: boolean
+  online_only: boolean
+  has_photos: boolean
+  premium_only: boolean
+  relationship_type: string
+}
 
 // GET /api/v1/explore/users - Search and filter users
 export async function GET(request: NextRequest) {
